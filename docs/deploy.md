@@ -5,10 +5,12 @@ This runbook is for a human or for Claude asked to "deploy claude-agents". It wo
 ## Steps
 
 ```bash
-REPO=/path/to/claude-agents          # this repo
+# first time (needs Argonne network or VPN):
+git clone git@eicweb.phy.anl.gov:mep-agents/claude-agents.git ~/Work/claude-agents
+REPO=~/Work/claude-agents
 cd "$REPO" && git pull               # when updating
 
-"$REPO/scripts/deploy" doctor        # preflight: python, claude version, env overrides
+"$REPO/scripts/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/scripts/deploy" install --dry-run
 "$REPO/scripts/deploy" install
 "$REPO/scripts/deploy" status

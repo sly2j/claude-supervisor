@@ -670,7 +670,7 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         add("FAIL", str(exc))
     else:
         if manifest is None:
-            add("FAIL", "no manifest in %s; run `scripts/deploy install`" % target)
+            add("WARN", "pack not installed in %s yet; run `scripts/deploy install`" % target)
         else:
             rows = file_states(target, manifest, None)
             bad = [k for k, s in rows if s != "ok"]

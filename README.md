@@ -6,17 +6,26 @@ It succeeds the OpenCode agent pack (`opencode-agents`). The design rationale is
 
 ## Install
 
-Requires Claude Code 2.1.293 or newer and `python3` 3.9 or newer, on macOS or Linux.
+Requirements:
+- Claude Code 2.1.293 or newer, logged in
+- `python3` 3.9 or newer, on macOS or Linux
+- Argonne network access (onsite or VPN) for the eicweb clone
 
 ```bash
-git clone <this-repo> ~/Work/claude-agents
-~/Work/claude-agents/scripts/deploy doctor
-~/Work/claude-agents/scripts/deploy install
+git clone git@eicweb.phy.anl.gov:mep-agents/claude-agents.git ~/Work/claude-agents
+cd ~/Work/claude-agents
+scripts/deploy doctor      # preflight check
+scripts/deploy install     # copies agents and skills into ~/.claude
 ```
 
-You can also ask Claude Code: *"deploy the agents in ~/Work/claude-agents"*. It follows [docs/deploy.md](docs/deploy.md). To update, run `git pull` and then `scripts/deploy install` again. `status`, `uninstall`, and `doctor` are also available.
+Then start a new `claude` session. It runs as the supervisor; type `/agents` to see the pack.
 
-Optional but recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
+Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
+
+**Update:** `git pull && scripts/deploy install`. Files you edited in `~/.claude` are kept, and the script lists them.
+**Check:** `scripts/deploy status`. **Remove:** `scripts/deploy uninstall --yes`.
+
+Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
 ## How It Works
 
@@ -58,6 +67,34 @@ The supervisor chooses the mode. To choose it yourself, say "quick" or "full".
 | `document-extraction`, `email-extraction` | Structured extraction from source documents and email threads |
 | `meeting-summary` | Meeting transcript to minutes (`/meeting-summary <file>`) |
 | `project-backup` | Timestamped, verified zip backups with retention |
+
+## Using It
+
+Just ask for what you want. The supervisor picks the mode, but you can steer it:
+
+| You say | What happens |
+|---|---|
+| "fix the typo in README line 12", "commit this" | Mode 2: one Haiku specialist, done in seconds |
+| "research how X works", "plan Y", "implement the plan", "draft the proposal intro" | Mode 1: a lead, parallel workers, then critic and scope-critic |
+| "quick: ..." or "just do it" | Forces Mode 2 |
+| "full: ..." or "with review" | Forces Mode 1 |
+| "review this diff/plan/draft" | critic, then scope-critic, with no edits |
+| "use the strongest drafter" | writer runs writer-worker on Fable |
+
+Larger work flows `researcher` -> `planner` -> your approval -> `executor`. Artifacts land in `docs/research-*.md` and `docs/plan-*.md`, so you can read and annotate them between steps.
+
+Not every session needs the supervisor. To start one without it, install with `scripts/deploy install --no-default-agent`, then add `alias cs='claude --agent supervisor'` to your shell profile. `claude` then starts plain Claude Code, and `cs` starts the supervisor.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Agents don't show in `/agents` | Start a new session. Run `scripts/deploy status` |
+| Leads do the work themselves instead of fanning out | Run `scripts/deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
+| Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
+| `install` reports "kept local modification" | Expected: your edit in `~/.claude` wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
+| `install` refuses an "unmanaged" file | A file with that name already exists in `~/.claude`. Rename yours, or use `--overwrite-local` |
+| Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
 
