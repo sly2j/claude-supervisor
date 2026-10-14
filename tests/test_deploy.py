@@ -2,6 +2,8 @@
 
 import fcntl
 import hashlib
+import importlib.machinery
+import importlib.util
 import json
 import os
 import subprocess
@@ -46,6 +48,14 @@ def run(pack: Path, target: Path, *args: str) -> subprocess.CompletedProcess:
         cmd += ["--source", str(pack)]
     cmd += list(args[1:])
     return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60)
+
+
+def load_deploy():
+    loader = importlib.machinery.SourceFileLoader("deploy_script", str(SCRIPT))
+    spec = importlib.util.spec_from_loader("deploy_script", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
 
 
 def snapshot(root: Path) -> dict:
@@ -264,3 +274,79 @@ def test_status_reports_states(pack, target):
 def test_help():
     r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
     assert r.returncode == 0 and "--overwrite-local" in r.stdout
+
+
+def test_symlinked_settings_survive_install(pack, target, tmp_path):
+    target.mkdir()
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    real.write_text(json.dumps({"model": "opus", "env": {"A": "1"}}))
+    real.chmod(0o644)
+    (target / "settings.json").symlink_to(real)
+    r = run(pack, target, "install")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (target / "settings.json").is_symlink()
+    assert json.loads(real.read_text()) == {"model": "opus", "env": {"A": "1"}, "agent": "supervisor"}
+    assert real.stat().st_mode & 0o777 == 0o644
+    assert not list(real.parent.glob(".tmp-*"))
+
+
+@pytest.mark.parametrize("write_first", [True, False])
+def test_settings_write_failure_keeps_manifest_consistent(pack, target, write_first):
+    deploy = load_deploy()
+    real_save = deploy.save_settings
+
+    def failing_save(tgt, data):
+        if write_first:
+            real_save(tgt, data)  # crash after the settings write, before anything else
+        raise RuntimeError("simulated crash")
+
+    deploy.save_settings = failing_save
+    args = deploy.build_parser().parse_args(["install", "--target", str(target), "--source", str(pack)])
+    with pytest.raises(RuntimeError):
+        deploy.install_cmd(args)
+    assert manifest(target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
+    r = run(pack, target, "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    if (target / "settings.json").exists():
+        assert "agent" not in settings(target)
+    assert not (target / MANIFEST).exists()
+
+
+@pytest.mark.parametrize("write_first", [True, False])
+def test_release_write_failure_leaves_agent_revertible(pack, target, write_first):
+    assert run(pack, target, "install").returncode == 0
+    deploy = load_deploy()
+    real_save = deploy.save_settings
+
+    def failing_save(tgt, data):
+        if write_first:
+            real_save(tgt, data)
+        raise RuntimeError("simulated crash")
+
+    deploy.save_settings = failing_save
+    args = deploy.build_parser().parse_args(
+        ["install", "--target", str(target), "--source", str(pack), "--no-default-agent"])
+    with pytest.raises(RuntimeError):
+        deploy.install_cmd(args)
+    r = run(pack, target, "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "agent" not in settings(target)
+
+
+def test_non_utf8_source_file_exits_2(pack, target):
+    (pack / "agents" / "helper.md").write_bytes(b"---\nname: helper\ndescription: \xff\xfe bad\n---\n")
+    r = run(pack, target, "install")
+    assert r.returncode == 2
+    assert "helper.md" in r.stderr and "UTF-8" in r.stderr
+    assert "Traceback" not in r.stderr
+    assert not target.exists()
+
+
+def test_status_reports_source_validation_error(pack, target):
+    run(pack, target, "install")
+    (pack / "agents" / "helper.md").write_text(agent_md("wrong-name"))
+    r = run(pack, target, "status")
+    assert r.returncode == 2
+    assert "source validation failed" in r.stderr
+    assert "removed from source" not in r.stdout

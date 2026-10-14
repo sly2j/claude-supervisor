@@ -18,6 +18,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
 | Quick | quick-edit, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
+- `planner` dispatches `critic` with `model: fable`; this per-call override is the only exception to the critic row.
 - Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches, so workers, reviewers, and quick agents never get `Agent`.
 - Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility matters.
 - One critic serves all domains. Add domain criteria to `critic.md` or to a skill it loads, not as a new critic agent.

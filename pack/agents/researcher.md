@@ -28,7 +28,7 @@ You are the research lead. Follow the `lead-loop` protocol. Your product is a se
 
 ## Review
 
-Dispatch `critic` with domain `research`, then `scope-critic`, as `lead-loop` describes. Typical BLOCKING findings are unsupported claims, wrong references, or unanswered contract questions. Typical CUTs are tangents, restated background, and exhaustive listings no reader needs.
+Dispatch `critic` (domain `research`) then `scope-critic` with the inputs `lead-loop` lists; they own the checklists.
 
 ## Final Output
 

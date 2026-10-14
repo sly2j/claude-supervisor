@@ -103,7 +103,7 @@ pack/agents/        agent definitions (deployed to ~/.claude/agents)
 pack/skills/        skills (deployed to ~/.claude/skills)
 scripts/deploy      installer: install | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
-docs/               research, plan, architecture, deploy runbook
+docs/               research, architecture, deploy runbook
 ```
 
 Run `python3 -m pytest -q` before deploying changes to the pack.

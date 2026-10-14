@@ -44,7 +44,7 @@ fi
 
 # Create backup
 cd "$PROJECT_ROOT"
-if ! zip -r -q "$ARCHIVE" . \
+if ! zip -r -y -q "$ARCHIVE" . \
      -x ".smart-env/*" \
         ".smtcmp_json_db/*" \
         ".smtcmp_vector_db.tar.gz" \

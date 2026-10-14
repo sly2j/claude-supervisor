@@ -1,6 +1,6 @@
 ---
 name: git-safety
-description: Guardrails and procedures for git work - destructive-command gates, secret checks, commit and attribution rules, and the step-by-step procedure for resolving active merge/rebase/cherry-pick conflicts. Use before running git commands that change state, and whenever git status shows unmerged paths.
+description: Guardrails for git work - destructive-command gates, secret checks, and commit and attribution rules. The step-by-step conflict-resolution procedure is in a reference file that `executor` reads when git status shows unmerged paths. Use before running git commands that change state.
 ---
 
 # Git Safety
@@ -28,17 +28,7 @@ Run these only when the user explicitly asked for that operation, as passed in y
 - Attribution: append the trailer lines your brief supplies exactly, once, at the end of every non-merge commit message you create. If none are supplied, add none.
 - Prefer small atomic commits, and pass messages with `-m` or a heredoc.
 
-## Resolving Conflicts
+## Conflicts
 
-Use this only when `git status` shows unmerged paths. Do not start merges, rebases, or cherry-picks yourself.
-
-1. Run `git status` to list the conflicted files and the operation in progress.
-2. Read each file's `<<<<<<<` / `=======` / `>>>>>>>` regions, and the intent of both sides, using `git log` on each side when that helps.
-3. Combine changes that do not overlap. Where both sides change the same thing, pick the side that matches the intended outcome and note what you discarded.
-4. If the intent is ambiguous or needs domain knowledge, stop and present both sides with a recommendation.
-5. Remove all markers. Validate structured files (JSON, YAML, TOML) and run the relevant tests.
-6. Stage only the resolved files. Never edit files that are not in conflict, or anything under `.git/`.
-7. Continue with `git merge --continue`, `git rebase --continue`, or `git cherry-pick --continue`. Apply the attribution rule to any commit this creates.
-8. Run `git status` to confirm the final state. If the user asks to abort, use the matching `--abort`.
-
-Report each conflicted file and how it was resolved (kept, combined, or discarded). Never silently drop changes, and warn immediately if a conflict involves credentials.
+- `git-ops` returns `ESCALATE: conflict` on unmerged paths, and `supervisor` triages it (see `git-ops` and `supervisor`).
+- `executor` reads `${CLAUDE_SKILL_DIR}/references/conflict-resolution.md` only when `git status` shows unmerged paths.

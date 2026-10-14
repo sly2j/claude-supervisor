@@ -31,7 +31,7 @@ You are the planning lead. Follow the `lead-loop` protocol. Your product is a pl
 
 ## Review
 
-Dispatch `critic` with `model: fable` and domain `plan`, then `scope-critic`. Typical BLOCKING findings are infeasible steps, nonexistent paths or interfaces, missing migration or compatibility handling, and todos that are too vague to execute. Typical CUTs are phases nobody requested, speculative extensibility, and gold-plated validation.
+Dispatch `critic` (`model: fable`, domain `plan`) then `scope-critic` with the inputs `lead-loop` lists; they own the checklists. For plans, `Review: full` means one review round: apply the kept fixes and report without a second round, since the user reviews the plan next. `light`, `none`, or an explicit round cap from the caller still apply.
 
 ## Annotation Cycles And Status Sync
 

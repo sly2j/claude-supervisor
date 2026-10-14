@@ -44,6 +44,20 @@ def tool_names(value) -> list:
     return [t.strip() for t in text.split(",") if t.strip()]
 
 
+def tier_table() -> dict:
+    """Map agent name -> (model, effort) from the Tiers table in agent-authoring/SKILL.md."""
+    text = (PACK / "skills" / "agent-authoring" / "SKILL.md").read_text(encoding="utf-8")
+    section = text.split("## Tiers", 1)[1].split("\n## ", 1)[0]
+    rows = [l for l in section.splitlines() if l.startswith("|")][2:]  # skip header and separator
+    tiers = {}
+    for row in rows:
+        _tier, agents, model_effort, _tools = [c.strip() for c in row.strip("|").split("|")]
+        model, effort = [x.strip() for x in model_effort.split("/")]
+        for name in agents.split(","):
+            tiers[name.strip()] = (model, effort)
+    return tiers
+
+
 def test_pack_has_content():
     assert AGENTS, "no agents in pack/agents"
     assert SKILL_DIRS, "no skills in pack/skills"
@@ -58,8 +72,16 @@ def test_agent_frontmatter(path):
     assert model in MODELS or model.startswith("claude-"), "bad model %r" % model
     if "effort" in fm:
         assert fm["effort"] in EFFORTS, "bad effort %r" % fm["effort"]
-    if path.stem == "supervisor":
-        assert model == "fable"
+
+
+@pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
+def test_agent_matches_tier_table(path):
+    tiers = tier_table()
+    assert path.stem in tiers, "%s missing from the Tiers table in agent-authoring/SKILL.md" % path.stem
+    fm = frontmatter(path)
+    assert (fm.get("model"), fm.get("effort")) == tiers[path.stem], \
+        "%s: frontmatter %s / %s != Tiers table %s / %s" % (
+            (path.stem, fm.get("model"), fm.get("effort")) + tiers[path.stem])
 
 
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
@@ -91,7 +113,7 @@ def test_skill(skill):
     assert fm.get("name") == skill.name
     assert str(fm.get("description") or "").strip()
     n = len(skill_md.read_text(encoding="utf-8").splitlines())
-    assert n < 500, "SKILL.md has %d lines (limit 500)" % n
+    assert n <= 300, "SKILL.md has %d lines (agent-authoring: keep each skill under about 300)" % n
 
 
 def test_no_opencode_leftovers():
