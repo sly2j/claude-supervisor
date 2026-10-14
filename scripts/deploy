@@ -1,0 +1,784 @@
+#!/usr/bin/env python3
+"""Deploy the claude-agents pack into a Claude Code config dir (~/.claude).
+
+Subcommands: install | status | uninstall | doctor.  Run `deploy <cmd> --help`.
+
+Ownership model: every installed file is recorded in a manifest with the
+hash it had when installed (the "baseline").  On re-install each file is
+reconciled three ways (source / target / baseline) so local edits are never
+silently overwritten and unmanaged files are never clobbered.
+"""
+
+import argparse
+import contextlib
+import datetime as _dt
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+MANIFEST_NAME = ".claude-agents-manifest.json"
+LOCK_NAME = ".claude-agents.lock"
+MANIFEST_VERSION = 1
+DEFAULT_AGENT = "supervisor"
+MIN_CLAUDE_VERSION = (2, 1, 293)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+JUNK_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".swx", "~", ".orig", ".rej")
+JUNK_NAMES = {"__pycache__", ".DS_Store", "Thumbs.db"}
+
+
+class DeployError(Exception):
+    """Expected failure: printed without a traceback, exit code 2."""
+
+
+# --------------------------------------------------------------------------- utils
+
+def eprint(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def timestamp() -> str:
+    return _dt.datetime.now().strftime("%Y%m%d%H%M%S")
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def atomic_write_bytes(path: Path, data: bytes, mode: Optional[int] = None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".tmp-" + path.name + ".", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        if mode is not None:
+            os.chmod(tmp, mode)
+        os.replace(tmp, str(path))
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+def atomic_copy(src: Path, dst: Path) -> None:
+    atomic_write_bytes(dst, src.read_bytes(), mode=src.stat().st_mode & 0o777)
+
+
+def write_json_atomic(path: Path, data: dict) -> None:
+    atomic_write_bytes(path, (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+
+
+def backup_file(path: Path) -> Path:
+    bak = path.with_name("%s.bak-%s" % (path.name, timestamp()))
+    n = 1
+    while bak.exists():
+        bak = path.with_name("%s.bak-%s-%d" % (path.name, timestamp(), n))
+        n += 1
+    shutil.copy2(str(path), str(bak))
+    return bak
+
+
+def is_junk(name: str) -> bool:
+    return (name in JUNK_NAMES or name.startswith(".") or name.endswith(JUNK_SUFFIXES)
+            or (name.startswith("#") and name.endswith("#")))
+
+
+def confirm(prompt: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        raise DeployError("%s -- refusing without a terminal; re-run with --yes" % prompt)
+    return input(prompt + " [y/N] ").strip().lower() in ("y", "yes")
+
+
+def resolve_target(args: argparse.Namespace) -> Path:
+    raw = args.target or os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"
+    return Path(raw).expanduser().resolve()
+
+
+def resolve_source(args: argparse.Namespace) -> Path:
+    src = Path(args.source).expanduser().resolve() if args.source else REPO_ROOT / "pack"
+    if not src.is_dir():
+        raise DeployError("source directory not found: %s" % src)
+    return src
+
+
+# --------------------------------------------------------------------------- frontmatter
+
+def parse_frontmatter(text: str) -> Optional[Dict[str, object]]:
+    """Parse the simple YAML subset used in agent/skill frontmatter.
+
+    Supports `key: value`, quoted scalars, inline `[a, b]` lists, `- item`
+    block lists and `>` / `|` block scalars.  Returns None if there is no
+    `---` fenced block at the top of the file.
+    """
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    try:
+        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    except StopIteration:
+        return None
+    body = lines[1:end]
+    result: Dict[str, object] = {}
+    i = 0
+    while i < len(body):
+        line = body[i]
+        i += 1
+        if not line.strip() or line.lstrip().startswith("#") or line[:1].isspace():
+            continue
+        key, sep, value = line.partition(":")
+        if not sep:
+            continue
+        key, value = key.strip(), value.strip()
+        if value in ("", ">", "|", ">-", "|-", ">+", "|+"):
+            block: List[str] = []
+            while i < len(body) and (not body[i].strip() or body[i][:1].isspace()):
+                block.append(body[i].strip())
+                i += 1
+            items = [b[1:].strip() for b in block if b.startswith("-")]
+            if value == "" and items and len(items) == len([b for b in block if b]):
+                result[key] = [_unquote(x) for x in items]
+            else:
+                sep_char = "\n" if value.startswith("|") else " "
+                result[key] = sep_char.join(b for b in block if b).strip()
+        elif value.startswith("[") and value.endswith("]"):
+            result[key] = [_unquote(x.strip()) for x in value[1:-1].split(",") if x.strip()]
+        else:
+            result[key] = _unquote(value)
+    return result
+
+
+def _unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def as_list(value: object) -> List[str]:
+    """Normalize a tools/skills field (comma string or list) to a list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [v.strip() for v in str(value).split(",") if v.strip()]
+
+
+# --------------------------------------------------------------------------- source
+
+def collect_source(source: Path) -> Dict[str, Path]:
+    """Map target-relative keys (agents/x.md, skills/s/...) to source files.
+
+    Raises DeployError listing every validation problem; nothing is written
+    before this passes.
+    """
+    files: Dict[str, Path] = {}
+    problems: List[str] = []
+    agents_dir, skills_dir = source / "agents", source / "skills"
+    if not agents_dir.is_dir() and not skills_dir.is_dir():
+        raise DeployError("source %s has neither agents/ nor skills/" % source)
+
+    if agents_dir.is_dir():
+        for p in sorted(agents_dir.iterdir()):
+            if is_junk(p.name):
+                continue
+            if p.is_symlink():
+                problems.append("symlink not allowed: %s" % p)
+                continue
+            if not (p.is_file() and p.suffix == ".md"):
+                continue
+            fm = parse_frontmatter(p.read_text(encoding="utf-8"))
+            if fm is None:
+                problems.append("%s: missing --- frontmatter" % p)
+                continue
+            if fm.get("name") != p.stem:
+                problems.append("%s: frontmatter name %r != filename %r" % (p, fm.get("name"), p.stem))
+            if not str(fm.get("description") or "").strip():
+                problems.append("%s: missing description" % p)
+            files["agents/" + p.name] = p
+
+    if skills_dir.is_dir():
+        for sk in sorted(skills_dir.iterdir()):
+            if is_junk(sk.name):
+                continue
+            if sk.is_symlink():
+                problems.append("symlink not allowed: %s" % sk)
+                continue
+            if not sk.is_dir():
+                continue
+            skill_md = sk / "SKILL.md"
+            if not skill_md.is_file():
+                problems.append("%s: missing SKILL.md" % sk)
+                continue
+            fm = parse_frontmatter(skill_md.read_text(encoding="utf-8")) or {}
+            if fm.get("name") != sk.name:
+                problems.append("%s: frontmatter name %r != directory %r" % (skill_md, fm.get("name"), sk.name))
+            if not str(fm.get("description") or "").strip():
+                problems.append("%s: missing description" % skill_md)
+            for root, dirs, names in os.walk(str(sk)):
+                rootp = Path(root)
+                for d in list(dirs):
+                    if is_junk(d):
+                        dirs.remove(d)
+                    elif (rootp / d).is_symlink():
+                        problems.append("symlink not allowed: %s" % (rootp / d))
+                        dirs.remove(d)
+                dirs.sort()
+                for n in sorted(names):
+                    fp = rootp / n
+                    if is_junk(n):
+                        continue
+                    if fp.is_symlink():
+                        problems.append("symlink not allowed: %s" % fp)
+                        continue
+                    files["skills/" + fp.relative_to(skills_dir).as_posix()] = fp
+
+    if problems:
+        raise DeployError("source validation failed (nothing written):\n  " + "\n  ".join(problems))
+    return files
+
+
+def git_info(source: Path) -> Tuple[Optional[str], Optional[bool]]:
+    try:
+        head = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, timeout=10)
+        if head.returncode != 0:
+            return None, None
+        dirty = subprocess.run(["git", "-C", str(source), "status", "--porcelain", "--", "."],
+                               capture_output=True, text=True, timeout=10)
+        return head.stdout.strip(), bool(dirty.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+
+
+# --------------------------------------------------------------------------- manifest / lock / settings
+
+def load_manifest(target: Path) -> Optional[dict]:
+    path = target / MANIFEST_NAME
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise DeployError("cannot read manifest %s: %s" % (path, exc))
+    if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
+        raise DeployError("manifest %s is malformed (no 'files' object)" % path)
+    if data.get("version") != MANIFEST_VERSION:
+        raise DeployError("manifest %s has unsupported version %r" % (path, data.get("version")))
+    return data
+
+
+@contextlib.contextmanager
+def target_lock(target: Path, dry_run: bool):
+    if dry_run:
+        yield
+        return
+    target.mkdir(parents=True, exist_ok=True)
+    fh = open(str(target / LOCK_NAME), "a")
+    try:
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise DeployError("another deploy is running against %s (lock %s is held)"
+                              % (target, target / LOCK_NAME))
+        yield
+    finally:
+        fh.close()
+
+
+def load_settings(target: Path) -> Optional[dict]:
+    """Return parsed settings.json ({} if missing). Raise DeployError if unparseable."""
+    path = target / "settings.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise DeployError("cannot parse %s: %s (settings step skipped, file not changed)" % (path, exc))
+    if not isinstance(data, dict):
+        raise DeployError("%s is not a JSON object (settings step skipped, file not changed)" % path)
+    return data
+
+
+def save_settings(target: Path, data: dict) -> Optional[Path]:
+    path = target / "settings.json"
+    bak = backup_file(path) if path.exists() else None
+    write_json_atomic(path, data)
+    return bak
+
+
+def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
+    """Decide what to do with settings['agent'].
+
+    Returns (new_settings or None if unchanged, manifest settings record, message).
+    """
+    managed = bool(prev.get("managed_agent_key"))
+    previous = prev.get("previous_agent")
+    current = settings.get("agent")
+    if args.no_default_agent:
+        if managed and current == DEFAULT_AGENT:
+            new = dict(settings)
+            if previous is None:
+                new.pop("agent", None)
+            else:
+                new["agent"] = previous
+            return new, {"managed_agent_key": False, "previous_agent": None}, \
+                "restore agent to %r (--no-default-agent)" % previous
+        return None, {"managed_agent_key": False, "previous_agent": None}, \
+            "agent left untouched (--no-default-agent)"
+    if current == DEFAULT_AGENT:
+        rec = {"managed_agent_key": managed, "previous_agent": previous if managed else None}
+        return None, rec, "agent already %r" % DEFAULT_AGENT
+    if current is None:
+        new = dict(settings)
+        new["agent"] = DEFAULT_AGENT
+        prev_val = previous if managed else None
+        return new, {"managed_agent_key": True, "previous_agent": prev_val}, "set agent = %r" % DEFAULT_AGENT
+    # Some other agent is configured (by the user, possibly after we set ours).
+    if args.force_default_agent:
+        new = dict(settings)
+        new["agent"] = DEFAULT_AGENT
+        return new, {"managed_agent_key": True, "previous_agent": current}, \
+            "set agent = %r (was %r, --force-default-agent)" % (DEFAULT_AGENT, current)
+    return None, {"managed_agent_key": False, "previous_agent": None}, \
+        "WARNING: settings agent is %r; not changed. Re-run with --force-default-agent to set %r" \
+        % (current, DEFAULT_AGENT)
+
+
+# --------------------------------------------------------------------------- install
+
+def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
+    """Remove empty directories left under skills/<name>/ after deletions."""
+    stop = {target, target / "skills", target / "agents"}
+    for rel in rel_files:
+        d = (target / rel).parent
+        while d not in stop and target in d.parents:
+            if dry_run or not d.is_dir() or any(d.iterdir()):
+                break
+            d.rmdir()
+            d = d.parent
+
+
+def install_cmd(args: argparse.Namespace) -> int:
+    source, target = resolve_source(args), resolve_target(args)
+    src_files = collect_source(source)
+    if args.overwrite_local and not args.dry_run:
+        if not confirm("--overwrite-local will back up and replace locally modified/unmanaged files in %s. Continue?"
+                       % target, args.yes):
+            eprint("aborted")
+            return 1
+    verb = "would " if args.dry_run else ""
+    counts = {k: 0 for k in ("copied", "updated", "unchanged", "kept-local", "removed", "errors")}
+    print("%sinstall %s -> %s" % ("[dry-run] " if args.dry_run else "", source, target))
+
+    with target_lock(target, args.dry_run):
+        manifest = load_manifest(target) or {}
+        baseline: Dict[str, dict] = manifest.get("files", {})
+        new_files: Dict[str, dict] = {}
+        removed: List[str] = []
+
+        def overwrite(key: str, src: Path, dst: Path, reason: str, counter: str) -> None:
+            if args.dry_run:
+                print("  would back up and overwrite %s (%s)" % (key, reason))
+            else:
+                bak = backup_file(dst)
+                atomic_copy(src, dst)
+                print("  overwrote %s (%s); backup: %s" % (key, reason, bak.name))
+            counts[counter] += 1
+
+        for key in sorted(src_files):
+            src, dst = src_files[key], target / key
+            src_hash = sha256_file(src)
+            base = (baseline.get(key) or {}).get("sha256")
+            if dst.is_symlink() or (dst.exists() and not dst.is_file()):
+                print("  ERROR %s: target is a symlink or not a regular file; skipped" % key)
+                counts["errors"] += 1
+                if base:
+                    new_files[key] = baseline[key]
+                continue
+            if not dst.exists():
+                print("  %scopy %s" % (verb, key))
+                if not args.dry_run:
+                    atomic_copy(src, dst)
+                counts["copied"] += 1
+                new_files[key] = {"sha256": src_hash}
+                continue
+            dst_hash = sha256_file(dst)
+            if dst_hash == src_hash:
+                counts["unchanged"] += 1
+                new_files[key] = {"sha256": src_hash}  # also refreshes a stale baseline
+                continue
+            if base is None:
+                if args.overwrite_local:
+                    overwrite(key, src, dst, "unmanaged file", "updated")
+                    new_files[key] = {"sha256": src_hash}
+                else:
+                    print("  ERROR %s: exists but is not managed by this pack; not touched "
+                          "(use --overwrite-local to back it up and replace it)" % key)
+                    counts["errors"] += 1
+                continue
+            if dst_hash == base:
+                print("  %supdate %s" % (verb, key))
+                if not args.dry_run:
+                    atomic_copy(src, dst)
+                counts["updated"] += 1
+                new_files[key] = {"sha256": src_hash}
+            elif args.overwrite_local:
+                overwrite(key, src, dst, "local edits", "updated")
+                new_files[key] = {"sha256": src_hash}
+            else:
+                print("  WARNING %s: locally modified; kept (use --overwrite-local to replace)" % key)
+                counts["kept-local"] += 1
+                new_files[key] = {"sha256": base}
+
+        for key in sorted(set(baseline) - set(src_files)):
+            dst = target / key
+            base = (baseline.get(key) or {}).get("sha256")
+            if not dst.is_file():
+                continue
+            if sha256_file(dst) == base:
+                print("  %sremove %s (no longer in source)" % (verb, key))
+                if not args.dry_run:
+                    dst.unlink()
+                removed.append(key)
+                counts["removed"] += 1
+            else:
+                print("  WARNING %s: removed from source but locally modified; kept and no longer managed" % key)
+                counts["kept-local"] += 1
+        prune_empty_dirs(target, removed, args.dry_run)
+
+        # settings.json
+        settings_rec = manifest.get("settings") or {"managed_agent_key": False, "previous_agent": None}
+        try:
+            settings = load_settings(target)
+            new_settings, settings_rec, settings_msg = plan_settings(args, settings, settings_rec)
+            if new_settings is not None:
+                if args.dry_run:
+                    settings_msg = "would " + settings_msg
+                else:
+                    bak = save_settings(target, new_settings)
+                    if bak:
+                        settings_msg += " (backup: %s)" % bak.name
+        except DeployError as exc:
+            settings_msg = "ERROR: %s" % exc
+            counts["errors"] += 1
+
+        commit, dirty = git_info(source)
+        new_manifest = {
+            "version": MANIFEST_VERSION,
+            "source_dir": str(source),
+            "source_commit": commit,
+            "source_dirty": dirty,
+            "installed_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+            "files": dict(sorted(new_files.items())),
+            "settings": settings_rec,
+        }
+        if not args.dry_run:
+            write_json_atomic(target / MANIFEST_NAME, new_manifest)
+
+    print("\nSummary: " + ", ".join("%s=%d" % kv for kv in counts.items()))
+    print("Settings: " + settings_msg)
+    if args.dry_run:
+        print("Dry run: nothing was written.")
+    return 1 if counts["errors"] else 0
+
+
+# --------------------------------------------------------------------------- status
+
+def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tuple[str, str]]:
+    src_files: Dict[str, Path] = {}
+    if source is not None:
+        try:
+            src_files = collect_source(source)
+        except DeployError:
+            src_files = {}
+    rows = []
+    for key, entry in sorted(manifest["files"].items()):
+        dst = target / key
+        if not dst.is_file():
+            rows.append((key, "missing"))
+            continue
+        h = sha256_file(dst)
+        if h != entry.get("sha256"):
+            rows.append((key, "modified"))
+        elif source is not None and key not in src_files:
+            rows.append((key, "outdated (removed from source)"))
+        elif key in src_files and sha256_file(src_files[key]) != h:
+            rows.append((key, "outdated"))
+        else:
+            rows.append((key, "ok"))
+    for key in sorted(set(src_files) - set(manifest["files"])):
+        rows.append((key, "not installed"))
+    return rows
+
+
+def status_cmd(args: argparse.Namespace) -> int:
+    target = resolve_target(args)
+    manifest = load_manifest(target)
+    print("Target: %s" % target)
+    if manifest is None:
+        print("No manifest: pack is not installed here.")
+    else:
+        print("Source: %s" % manifest.get("source_dir"))
+        print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
+        print("Installed: %s" % manifest.get("installed_at"))
+        source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
+        rows = file_states(target, manifest, source if source.is_dir() else None)
+        width = max([len(k) for k, _ in rows] + [10])
+        for key, state in rows:
+            print("  %-*s  %s" % (width, key, state))
+        summary: Dict[str, int] = {}
+        for _, state in rows:
+            key = state.split(" (")[0]
+            summary[key] = summary.get(key, 0) + 1
+        print("Files: " + ", ".join("%s=%d" % kv for kv in sorted(summary.items())))
+    try:
+        settings = load_settings(target)
+        rec = (manifest or {}).get("settings") or {}
+        print("Settings agent: %r%s" % (settings.get("agent"), " (managed)" if rec.get("managed_agent_key") else ""))
+    except DeployError as exc:
+        print("Settings: %s" % exc)
+    return 0
+
+
+# --------------------------------------------------------------------------- uninstall
+
+def uninstall_cmd(args: argparse.Namespace) -> int:
+    target = resolve_target(args)
+    manifest = load_manifest(target)
+    if manifest is None:
+        print("No manifest in %s; nothing to uninstall." % target)
+        return 0
+    if not args.dry_run and not confirm("Remove the agent pack from %s?" % target, args.yes):
+        eprint("aborted")
+        return 1
+    verb = "would " if args.dry_run else ""
+    kept: List[str] = []
+    removed: List[str] = []
+    errors = 0
+    with target_lock(target, args.dry_run):
+        for key, entry in sorted(manifest["files"].items()):
+            dst = target / key
+            if not dst.is_file():
+                continue
+            if sha256_file(dst) != entry.get("sha256") and not args.force:
+                kept.append(key)
+                continue
+            print("  %sremove %s" % (verb, key))
+            if not args.dry_run:
+                dst.unlink()
+            removed.append(key)
+        prune_empty_dirs(target, removed, args.dry_run)
+
+        rec = manifest.get("settings") or {}
+        settings_msg = "agent left untouched (not managed by this pack)"
+        try:
+            settings = load_settings(target)
+            if rec.get("managed_agent_key") and settings.get("agent") == DEFAULT_AGENT:
+                new = dict(settings)
+                prev = rec.get("previous_agent")
+                if prev is None:
+                    new.pop("agent", None)
+                    settings_msg = "remove agent key"
+                else:
+                    new["agent"] = prev
+                    settings_msg = "restore agent = %r" % prev
+                if args.dry_run:
+                    settings_msg = "would " + settings_msg
+                else:
+                    save_settings(target, new)
+            elif rec.get("managed_agent_key"):
+                settings_msg = "agent changed by user to %r; left untouched" % settings.get("agent")
+        except DeployError as exc:
+            settings_msg = "ERROR: %s" % exc
+            errors += 1
+
+        if not args.dry_run:
+            if errors:
+                print("manifest kept because of errors; fix them and re-run uninstall")
+            else:
+                (target / MANIFEST_NAME).unlink()
+    if not args.dry_run:
+        with contextlib.suppress(OSError):
+            (target / LOCK_NAME).unlink()
+
+    for key in kept:
+        print("  WARNING kept locally modified %s (use --force to remove)" % key)
+    print("\nSummary: removed=%d, kept-modified=%d, errors=%d" % (len(removed), len(kept), errors))
+    print("Settings: " + settings_msg)
+    if args.dry_run:
+        print("Dry run: nothing was written.")
+    return 1 if errors else 0
+
+
+# --------------------------------------------------------------------------- doctor
+
+def parse_version(text: str) -> Optional[Tuple[int, int, int]]:
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", text)
+    return tuple(int(x) for x in m.groups()) if m else None  # type: ignore[return-value]
+
+
+def is_truthy(value: object) -> bool:
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def doctor_cmd(args: argparse.Namespace) -> int:
+    target = resolve_target(args)
+    results: List[Tuple[str, str]] = []
+
+    def add(level: str, msg: str) -> None:
+        results.append((level, msg))
+        print("%-4s %s" % (level, msg))
+
+    print("Target: %s" % target)
+    add("PASS" if sys.version_info >= (3, 9) else "FAIL", "python %s" % sys.version.split()[0])
+
+    claude = shutil.which("claude")
+    if not claude:
+        add("FAIL", "claude CLI not found on PATH")
+    else:
+        try:
+            out = subprocess.run([claude, "--version"], capture_output=True, text=True, timeout=30).stdout
+        except (OSError, subprocess.SubprocessError) as exc:
+            out = "error: %s" % exc
+        ver = parse_version(out)
+        need = ".".join(map(str, MIN_CLAUDE_VERSION))
+        if ver is None:
+            add("FAIL", "cannot determine claude version from `claude --version`: %r" % out.strip())
+        elif ver >= MIN_CLAUDE_VERSION:
+            add("PASS", "claude %s (>= %s)" % (".".join(map(str, ver)), need))
+        else:
+            add("FAIL", "claude %s is older than %s; run `claude update`" % (".".join(map(str, ver)), need))
+
+    try:
+        manifest = load_manifest(target)
+    except DeployError as exc:
+        manifest = None
+        add("FAIL", str(exc))
+    else:
+        if manifest is None:
+            add("FAIL", "no manifest in %s; run `scripts/deploy install`" % target)
+        else:
+            rows = file_states(target, manifest, None)
+            bad = [k for k, s in rows if s != "ok"]
+            if not bad:
+                add("PASS", "%d managed files intact" % len(rows))
+            else:
+                missing = [k for k, s in rows if s == "missing"]
+                add("FAIL" if missing else "WARN", "%d of %d managed files missing/modified: %s"
+                    % (len(bad), len(rows), ", ".join(bad[:5]) + (" ..." if len(bad) > 5 else "")))
+
+    env_block: Dict[str, object] = {}
+    try:
+        settings = load_settings(target)
+        agent = settings.get("agent")
+        if agent == DEFAULT_AGENT:
+            add("PASS", "settings agent = %r" % agent)
+        else:
+            add("WARN", "settings agent = %r (expected %r; supervisor is not the default)" % (agent, DEFAULT_AGENT))
+        if isinstance(settings.get("env"), dict):
+            env_block = settings["env"]
+    except DeployError as exc:
+        add("FAIL", str(exc))
+
+    for origin, env in (("environment", os.environ), ("settings.json env", env_block)):
+        depth = env.get("CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH")
+        if depth is not None:
+            try:
+                if int(str(depth)) < 2:
+                    add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%s in %s; full mode needs >= 2" % (depth, origin))
+            except ValueError:
+                add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%r in %s is not an integer" % (depth, origin))
+        if is_truthy(env.get("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "")):
+            add("WARN", "CLAUDE_CODE_SUBAGENT_MODEL_FORCE set in %s; per-agent models/effort are ignored" % origin)
+        if env.get("CLAUDE_CODE_EFFORT_LEVEL") not in (None, ""):
+            add("WARN", "CLAUDE_CODE_EFFORT_LEVEL set in %s; it overrides per-agent effort" % origin)
+
+    for tool in ("git", "zip"):
+        add("PASS" if shutil.which(tool) else "WARN", "%s %s" % (tool, "found" if shutil.which(tool) else
+                                                             "not found (optional, used by some skills)"))
+
+    fails = sum(1 for lvl, _ in results if lvl == "FAIL")
+    warns = sum(1 for lvl, _ in results if lvl == "WARN")
+    print("\n%d FAIL, %d WARN" % (fails, warns))
+    return 1 if fails else 0
+
+
+
+# --------------------------------------------------------------------------- CLI
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="deploy",
+        description="Install, inspect and remove the claude-agents pack in a Claude Code config dir.",
+        epilog="Target dir: --target, else $CLAUDE_CONFIG_DIR, else ~/.claude.")
+    sub = p.add_subparsers(dest="command", metavar="COMMAND")
+    sub.required = True
+
+    def common(sp: argparse.ArgumentParser, source: bool = True) -> None:
+        sp.add_argument("--target", metavar="DIR", help="Claude config dir (default: $CLAUDE_CONFIG_DIR or ~/.claude)")
+        if source:
+            sp.add_argument("--source", metavar="DIR", help="pack dir (default: <repo>/pack)")
+
+    sp = sub.add_parser("install", help="install or update the pack (idempotent)",
+                        description="Copy agents and skills into the target, reconcile against the manifest, "
+                                    "and set settings.json agent = supervisor.")
+    common(sp)
+    sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
+    sp.add_argument("--yes", "-y", action="store_true", help="do not prompt (needed for --overwrite-local without a tty)")
+    sp.add_argument("--overwrite-local", action="store_true",
+                    help="back up and replace locally modified or unmanaged files")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--no-default-agent", action="store_true", help="do not set settings.json agent")
+    g.add_argument("--force-default-agent", action="store_true",
+                   help="replace an existing different settings.json agent value")
+    sp.set_defaults(func=install_cmd)
+
+    sp = sub.add_parser("status", help="show installed files and their state",
+                        description="Show manifest info and per-file state (ok/modified/missing/outdated).")
+    common(sp)
+    sp.set_defaults(func=status_cmd)
+
+    sp = sub.add_parser("uninstall", help="remove the pack",
+                        description="Remove unmodified managed files, restore settings agent, delete the manifest. "
+                                    "Locally modified files are kept unless --force.")
+    common(sp, source=False)
+    sp.add_argument("--dry-run", action="store_true", help="show what would be removed; write nothing")
+    sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
+    sp.add_argument("--force", action="store_true", help="also remove locally modified managed files")
+    sp.set_defaults(func=uninstall_cmd)
+
+    sp = sub.add_parser("doctor", help="check the environment and the install",
+                        description="Print PASS/WARN/FAIL checks. Exits 1 if any check FAILs.")
+    common(sp, source=False)
+    sp.set_defaults(func=doctor_cmd)
+    return p
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        return args.func(args)
+    except DeployError as exc:
+        eprint("error: %s" % exc)
+        return 2
+    except KeyboardInterrupt:
+        eprint("interrupted")
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())
