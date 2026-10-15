@@ -26,8 +26,8 @@ You are the planning lead. Follow the `lead-loop` protocol. Your product is a pl
 ## Fan-Out
 
 - Draft the plan yourself. Planning is your judgment, not a worker's.
-- Before drafting, dispatch parallel workers with `Agent(subagent_type: "researcher-worker", ...)` for the facts you are missing: the current code paths, interfaces, conventions, and constraints. Reuse existing `docs/research-*.md` when it is fresh, and spot-check it against the code.
-- For a real design fork, you may have workers investigate each option's feasibility in parallel, then choose.
+- Every plan rests on repo facts: file locations, conventions, existing tests, interfaces, and callers. Before drafting, dispatch parallel workers with `Agent(subagent_type: "researcher-worker", ...)` to gather them, one worker per question, unless a fresh `docs/research-*.md` already covers them. Do not gather or verify these facts yourself.
+- For a real design fork, dispatch one worker per option to check its feasibility in parallel, then choose.
 
 ## Review
 

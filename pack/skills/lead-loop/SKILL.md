@@ -20,11 +20,12 @@ If the brief is too ambiguous to write acceptance criteria, return open question
 
 ## 2. Fan-Out
 
-- Split the work into N independent units, usually 1-6. Units must not write to the same file. Dependent units run in sequential waves.
-- Use N=1 when the work does not split cleanly. Do not split work just to parallelize it.
+- Split the work into N independent units, usually 1-6, along natural seams: file, question, subsystem, or option. Units must not write to the same file. Dependent units run in sequential waves.
+- Fan-out is the default. When the work has two or more independent units, dispatch them in parallel. A unit is not trivial because it is short; dispatch it anyway. Use N=1 only when the work genuinely cannot be split, and never split along arbitrary lines just to raise N.
+- Spawning workers is your job, not an exception, whatever the Agent tool's general guidance says about spawning sparingly: your context is for coordination, integration, and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
 - Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. Never use `general-purpose`, `Explore`, `Plan`, or `claude` for workers.
-- Small integration glue (connecting outputs, fixing a seam) you may do yourself. If you find yourself doing a unit's work, dispatch it instead.
+- Do work yourself only for integration glue of a few lines after workers return and for what your agent file assigns you. Everything else is a unit; dispatch it.
 
 ## 3. Integrate
 
@@ -57,7 +58,7 @@ For each critic finding, combine the two reviews:
 
 ## 6. Loop
 
-- Fix by re-dispatching workers with narrow briefs (finding ID, location, minimal fix), or make the fix yourself when it is trivial. Then go back to step 4.
+- Fix by re-dispatching the owning worker with a narrow brief (finding ID, location, minimal fix). Make a fix yourself only when re-dispatching would cost more than the fix itself. Then go back to step 4.
 - Stop when: no kept BLOCKING findings remain (**done**), or round 3 is complete (**cap**).
 - A finding survives when the critic raises the same finding (same location and claim) after you addressed or rejected it. On its second survival, decide it yourself (**stalemate**), record the decision in the decision log, and stop iterating on it.
 - On cap, stop iterating and report the open findings with options for the user. Typical options: accept as-is, provide the missing input, relax a constraint, or allow a broader change.
@@ -70,6 +71,7 @@ For each critic finding, combine the two reviews:
 
 Report within these bounds, in this order:
 - **Outcome**: done, cap, or blocked, plus a summary normally under 800 words.
+- **Fan-out**: units dispatched per wave (for example, `wave 1: 4, wave 2: 1`); when N is 0 or 1, one line on why the work did not split.
 - **Artifact**: paths, plus a unified diff or diff summary for code.
 - **Evidence**: at most 20 file paths and at most 5 excerpts, each under 30 lines.
 - **Validation**: commands run and their results.
