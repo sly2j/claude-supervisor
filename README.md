@@ -36,6 +36,57 @@ Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In 
 
 The supervisor chooses the mode. To choose it yourself, say "quick" or "full".
 
+## Work Packages
+
+Work too large for one plan is broken into packages. Each package is a small project of its own, with only the stages it needs: `research`, `plan`, `execute`, `write`. Packages depend only on the packages whose output they consume, so independent ones run in parallel. The planner writes them as a `## Work Packages` section of the plan; you can ask for packages or a flat plan explicitly.
+
+The supervisor runs the packages in waves: every package whose dependencies are done gets its next stage dispatched to that stage's lead, all at once. After each wave one `quick-edit` call records the new status lines, and you see a table of every package plus the questions the leads raised. The plan file is the only state, so a new session resumes from it. A package that needs its own breakdown is split into new packages in the parent plan, so plans never nest and agent depth never grows; when every package is done, the plan, its child plans, and its research move to `docs/archive/`.
+
+A package block (field rules in `pack/agents/planner.md`):
+
+```
+### P2: deploy hook
+- Goal: deploy installs the hook; done when `scripts/deploy doctor` reports it
+- Owns: scripts/deploy, tests/test_deploy.py
+- Deps: P1
+- Stages: plan, execute
+- Status: plan
+- Artifacts: docs/plan-hooks-p2.md
+```
+
+Three shapes of work.
+
+A single fix needs no packages: one lead, one report, no plan to archive.
+
+```mermaid
+flowchart LR
+  user --> supervisor --> executor --> result
+```
+
+A chain, where each package consumes the one before it: six waves, one package each, a table after every wave, then the archive move.
+
+```mermaid
+flowchart LR
+  P1[P1 research] --> P2[P2 plan, execute] --> P3[P3 plan, execute] --> P4[P4 write] --> A[archive]
+```
+
+A graph: wave 1 runs P1 and P2 together. P4's plan stage returns `Amend parent:`, which splits it into P6, P7 and P8, each with its own plan. P5 asks you a question and blocks; the session ends; a new session asks `scout` for the state, you answer, and P5 runs.
+
+```mermaid
+flowchart LR
+  P1[P1 research] --> P3[P3 plan, execute]
+  P2[P2 research] --> P3
+  P1 --> P4[P4 plan]
+  P4 -- split --> P6[P6 plan, execute]
+  P4 -- split --> P7[P7 plan, execute]
+  P4 -- split --> P8[P8 plan, execute]
+  P3 --> P5[P5 write]
+  P6 --> P5
+  P7 --> P5
+  P8 --> P5
+  P5 -- question, resume, answer --> A[archive]
+```
+
 ## Agents
 
 | Agent | Role | Model / effort |
@@ -109,6 +160,7 @@ pack/skills/        skills (deployed to ~/.claude/skills)
 scripts/deploy      installer: install | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
 docs/               research, architecture, deploy runbook
+docs/archive/       finished plans, their child plans and research
 VERSION             pack version (1.x, bumped in every commit on main)
 ```
 

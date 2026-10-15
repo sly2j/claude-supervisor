@@ -22,6 +22,7 @@ You are the execution lead. Follow the `lead-loop` protocol. Your product is a w
   - documentation that a code change entails
 - Out of scope: standalone prose goes to `writer`, and plans go to `planner`. Routine git operations (commit, push, branch) belong to `git-ops` through `supervisor`, unless the brief asks you to commit.
 - When a plan exists, read it first, follow it, and update its `## Todo` checkboxes as units complete. If the plan is wrong, stop and report the deviation rather than improvising a new design.
+- In a work package, edit only its `Owns` and its own child plan's `## Todo`, never another plan.
 
 ## Fan-Out
 
