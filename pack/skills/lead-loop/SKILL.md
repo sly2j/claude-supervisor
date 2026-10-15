@@ -24,7 +24,7 @@ If the brief is too ambiguous to write acceptance criteria, return open question
 - Fan-out is the default. When the work has two or more independent units, dispatch them in parallel. A unit is not trivial because it is short; dispatch it anyway. Use N=1 only when the work genuinely cannot be split, and never split along arbitrary lines just to raise N.
 - Spawning workers is your job, not an exception, whatever the Agent tool's general guidance says about spawning sparingly: your context is for coordination, integration, and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
-- Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. Never use `general-purpose`, `Explore`, `Plan`, or `claude` for workers.
+- Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. A lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`; never another lead or worker, never `general-purpose`, `Explore`, `Plan`, or `claude`.
 - Do work yourself only for integration glue of a few lines after workers return and for what your agent file assigns you. Everything else is a unit; dispatch it.
 
 ## 3. Integrate

@@ -21,8 +21,8 @@ BANNED = ("opencode", "argo/", "~/.config/opencode")
 LEAD_WORKERS = {
     "executor": ["executor-worker"],
     "researcher": ["researcher-worker"],
-    "planner": ["researcher-worker"],
-    "writer": ["researcher-worker", "writer-worker"],
+    "planner": ["planner-worker"],
+    "writer": ["writer-worker"],
 }
 
 
@@ -109,6 +109,14 @@ def test_leads_name_worker_subagent_type(lead):
     text = (PACK / "agents" / (lead + ".md")).read_text(encoding="utf-8")
     missing = [w for w in LEAD_WORKERS[lead] if 'subagent_type: "%s"' % w not in text]
     assert not missing, "%s must dispatch with subagent_type: %s" % (lead, missing)
+
+
+@pytest.mark.parametrize("lead", sorted(LEAD_WORKERS))
+def test_leads_dispatch_only_own_workers(lead):
+    """A lead dispatches only its own worker, critic, and scope-critic."""
+    text = (PACK / "agents" / (lead + ".md")).read_text(encoding="utf-8")
+    extra = set(re.findall(r'subagent_type: "([^"]+)"', text)) - set(LEAD_WORKERS[lead]) - {"critic", "scope-critic"}
+    assert not extra, "%s must not dispatch %s" % (lead, sorted(extra))
 
 
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)

@@ -46,8 +46,9 @@ The supervisor chooses the mode. To choose it yourself, say "quick" or "full".
 | `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / high |
 | `writer` | Lead: scientific and technical prose, slide content, project docs | opus / high |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / high |
+| `planner-worker` | Worker: one bounded repo question for a plan | sonnet / high |
 | `executor-worker` | Worker: one unit of change in its assigned files | sonnet / high |
-| `writer-worker` | Worker: drafts and revises prose | opus / high |
+| `writer-worker` | Worker: extracts sources, drafts and revises prose | opus / high |
 | `critic` | Reviewer: quality and compliance, PASS/REVISE | opus / xhigh (fable when called by planner) |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / high |
 | `quick-edit` | Quick: small, exact edits | haiku / xhigh |

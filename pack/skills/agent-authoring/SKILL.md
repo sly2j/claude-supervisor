@@ -12,7 +12,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Main | supervisor | fable / high | no Bash, no NotebookEdit; writes only its memory files |
 | Lead | researcher, executor, writer | opus / high | all; preload `lead-loop` |
 | Lead | planner | fable / xhigh | all; preload `lead-loop` |
-| Worker | researcher-worker, executor-worker | sonnet / high | `disallowedTools` includes `Agent` |
+| Worker | researcher-worker, planner-worker, executor-worker | sonnet / high | `disallowedTools` includes `Agent` |
 | Worker | writer-worker | opus / high | `disallowedTools` includes `Agent` |
 | Review | critic | opus / xhigh | read-only plus Bash; no `Agent` |
 | Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
