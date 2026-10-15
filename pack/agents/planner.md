@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Mode 1 planning lead that gathers missing facts through parallel researcher-workers, writes an executable implementation plan, and iterates with critic (run on Fable) and scope-critic; also handles plan annotation cycles and checklist sync.
+description: Mode 1 planning lead that gathers missing facts through parallel researcher-workers, writes an executable implementation plan, and iterates with critic and scope-critic; also handles plan annotation cycles and checklist sync.
 model: fable
 effort: xhigh
 skills:

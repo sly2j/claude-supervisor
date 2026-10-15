@@ -49,7 +49,7 @@ Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE`
 
 ## Models And Cost
 
-The full assignment is in the README agent table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. The critic runs on Opus at xhigh effort, and planner overrides it to Fable for plan reviews. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single worker. The fan-out workers run on Sonnet and the quick tier on Haiku.
+The full assignment is in the README agent table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. The critic runs on Opus at xhigh effort, and planner overrides it to Fable for plan reviews. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single worker. The fan-out workers run on Sonnet and the quick tier on Haiku. On plans without included Fable, `scripts/deploy install` deploys those agents and dispatch overrides on Opus (`--fable`, see `docs/deploy.md`); the source stays on Fable and the lint checks the source.
 
 A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and the lead's own turns). Mode 2 costs one Haiku call. Routing small work to Mode 2 is the main cost control; `Review: light` drops the extra rounds for mechanical Mode 1 work.
 

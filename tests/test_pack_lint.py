@@ -127,3 +127,16 @@ def test_no_opencode_leftovers():
             continue
         hits += ["%s: %s" % (p.relative_to(ROOT), b) for b in BANNED if b in text]
     assert not hits, "\n".join(hits)
+
+
+@pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
+def test_fable_rewrite_covers_pack(path):
+    key = "agents/" + path.name
+    assert deploy.deployed_bytes(key, path, True) == path.read_bytes()
+    source_fm = frontmatter(path)
+    text = deploy.deployed_bytes(key, path, False).decode("utf-8")
+    assert "model: fable" not in text
+    fm = deploy.parse_frontmatter(text)
+    expected = "opus" if source_fm.get("model") == "fable" else source_fm.get("model")
+    assert fm.get("model") == expected
+    assert fm.get("effort") == source_fm.get("effort")

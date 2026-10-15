@@ -56,6 +56,10 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def atomic_write_bytes(path: Path, data: bytes, mode: Optional[int] = None) -> None:
     # Write through a symlink (e.g. a dotfiles-managed settings.json) instead of replacing it.
     real = Path(os.path.realpath(str(path)))
@@ -77,8 +81,8 @@ def atomic_write_bytes(path: Path, data: bytes, mode: Optional[int] = None) -> N
         raise
 
 
-def atomic_copy(src: Path, dst: Path) -> None:
-    atomic_write_bytes(dst, src.read_bytes(), mode=src.stat().st_mode & 0o777)
+def atomic_copy(src: Path, dst: Path, data: Optional[bytes] = None) -> None:
+    atomic_write_bytes(dst, src.read_bytes() if data is None else data, mode=src.stat().st_mode & 0o777)
 
 
 def write_json_atomic(path: Path, data: dict) -> None:
@@ -275,6 +279,109 @@ def git_info(source: Path) -> Tuple[Optional[str], Optional[bool]]:
         return None, None
 
 
+# --------------------------------------------------------------------------- fable
+
+FABLE_TOKEN = re.compile(r"\bmodel:[ \t]*fable\b")
+
+
+def deployed_bytes(key: str, src: Path, fable: bool) -> bytes:
+    """The bytes that land in the target: agents/*.md get `model: fable` -> `model: opus` when Fable is off."""
+    data = src.read_bytes()
+    if fable or not (key.startswith("agents/") and key.endswith(".md")):
+        return data
+    return FABLE_TOKEN.sub("model: opus", data.decode("utf-8")).encode("utf-8")
+
+
+def fable_enabled(manifest: dict) -> bool:
+    """Saved Fable choice; installs made before the key existed deployed the source verbatim."""
+    rec = manifest.get("fable")
+    return not isinstance(rec, dict) or rec.get("enabled") is not False
+
+
+def _seat_tier(auth: dict) -> Optional[str]:
+    """oauthAccount.seatTier from <configDirectory>/.claude.json if readable, else ~/.claude.json; else None."""
+    paths = []
+    cfg = auth.get("configDirectory")
+    if isinstance(cfg, str) and cfg:
+        paths.append(Path(cfg) / ".claude.json")
+    paths.append(Path(os.path.expanduser("~")) / ".claude.json")
+    for path in paths:
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            continue  # only an unreadable file falls through; a readable one is this account's
+        try:
+            tier = json.loads(raw.decode("utf-8"))["oauthAccount"]["seatTier"]
+        except (ValueError, AttributeError, KeyError, TypeError):
+            return None
+        return tier if isinstance(tier, str) and tier else None
+    return None
+
+
+def detect_fable() -> Tuple[Optional[bool], str]:
+    """Does the plan include Fable? True = Fable, False = Opus, None = unclear (ask).
+
+    Runs `claude auth status --json` and reads one local file; no network, no model requests.
+    """
+    claude = shutil.which("claude")
+    if not claude:
+        return False, "claude CLI not found"
+    try:
+        proc = subprocess.run([claude, "auth", "status", "--json"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, "claude auth status failed: %s" % exc
+    if proc.returncode != 0:
+        return False, "claude auth status exited %d" % proc.returncode
+    try:
+        auth = json.loads(proc.stdout)
+    except ValueError:
+        auth = None
+    if not isinstance(auth, dict):
+        return False, "claude auth status printed no JSON object"
+    provider = auth.get("apiProvider")
+    if provider is not None and provider != "firstParty":
+        return False, "apiProvider=%s" % provider
+    method = auth.get("authMethod")
+    if method in ("api_key", "api_key_helper"):
+        return None, "authMethod=%s" % method
+    sub = auth.get("subscriptionType")
+    plan = sub.lower() if isinstance(sub, str) else ""
+    if plan.startswith("max"):
+        return True, "subscriptionType=%s" % sub
+    if plan.startswith(("pro", "free")):
+        return False, "subscriptionType=%s" % sub
+    if plan.startswith(("team", "enterprise")):
+        tier = _seat_tier(auth)
+        if tier is None:
+            return None, "seat tier unknown (subscriptionType=%s)" % sub
+        return "premium" in tier.lower(), "seatTier=%s" % tier
+    return None, "subscriptionType=%s not recognized" % sub
+
+
+def ask_fable(detail: str, assume_yes: bool) -> Optional[bool]:
+    """Ask once whether to run on Fable; None when there is nobody to ask (never raises)."""
+    if assume_yes or not sys.stdin.isatty():
+        return None
+    answer = input("Cannot tell whether your plan includes Fable (%s). Run the Fable agents on Fable? [y/N] " % detail)
+    return answer.strip().lower() in ("y", "yes")
+
+
+def resolve_fable(args: argparse.Namespace, manifest: dict) -> Tuple[bool, str]:
+    """Flag, else saved choice, else detection (then a question); returns (enabled, reason)."""
+    if args.fable in ("yes", "no"):
+        return args.fable == "yes", "--fable " + args.fable
+    rec = manifest.get("fable")
+    if args.fable is None and isinstance(rec, dict) and isinstance(rec.get("enabled"), bool):
+        return rec["enabled"], "saved choice; pass --fable auto|yes|no to change"
+    verdict, detail = detect_fable()
+    if verdict is not None:
+        return verdict, "auto: " + detail
+    answer = ask_fable(detail, args.yes)
+    if answer is not None:
+        return answer, "asked: " + detail
+    return False, "unclear (%s); defaulted to opus, pass --fable yes to override" % detail
+
+
 # --------------------------------------------------------------------------- manifest / lock / settings
 
 def load_manifest(target: Path) -> Optional[dict]:
@@ -397,22 +504,26 @@ def install_cmd(args: argparse.Namespace) -> int:
 
     with target_lock(target, args.dry_run):
         manifest = load_manifest(target) or {}
+        fable, fable_reason = resolve_fable(args, manifest)
+        print("Fable: on (%s)" % fable_reason if fable
+              else "Fable: off (%s); fable agents deploy as opus" % fable_reason)
         baseline: Dict[str, dict] = manifest.get("files", {})
         new_files: Dict[str, dict] = {}
         removed: List[str] = []
 
-        def overwrite(key: str, src: Path, dst: Path, reason: str, counter: str) -> None:
+        def overwrite(key: str, src: Path, dst: Path, data: bytes, reason: str, counter: str) -> None:
             if args.dry_run:
                 print("  would back up and overwrite %s (%s)" % (key, reason))
             else:
                 bak = backup_file(dst)
-                atomic_copy(src, dst)
+                atomic_copy(src, dst, data)
                 print("  overwrote %s (%s); backup: %s" % (key, reason, bak.name))
             counts[counter] += 1
 
         for key in sorted(src_files):
             src, dst = src_files[key], target / key
-            src_hash = sha256_file(src)
+            data = deployed_bytes(key, src, fable)
+            src_hash = sha256_bytes(data)
             base = (baseline.get(key) or {}).get("sha256")
             if dst.is_symlink() or (dst.exists() and not dst.is_file()):
                 print("  ERROR %s: target is a symlink or not a regular file; skipped" % key)
@@ -423,7 +534,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             if not dst.exists():
                 print("  %scopy %s" % (verb, key))
                 if not args.dry_run:
-                    atomic_copy(src, dst)
+                    atomic_copy(src, dst, data)
                 counts["copied"] += 1
                 new_files[key] = {"sha256": src_hash}
                 continue
@@ -434,7 +545,7 @@ def install_cmd(args: argparse.Namespace) -> int:
                 continue
             if base is None:
                 if args.overwrite_local:
-                    overwrite(key, src, dst, "unmanaged file", "updated")
+                    overwrite(key, src, dst, data, "unmanaged file", "updated")
                     new_files[key] = {"sha256": src_hash}
                 else:
                     print("  ERROR %s: exists but is not managed by this pack; not touched "
@@ -444,11 +555,11 @@ def install_cmd(args: argparse.Namespace) -> int:
             if dst_hash == base:
                 print("  %supdate %s" % (verb, key))
                 if not args.dry_run:
-                    atomic_copy(src, dst)
+                    atomic_copy(src, dst, data)
                 counts["updated"] += 1
                 new_files[key] = {"sha256": src_hash}
             elif args.overwrite_local:
-                overwrite(key, src, dst, "local edits", "updated")
+                overwrite(key, src, dst, data, "local edits", "updated")
                 new_files[key] = {"sha256": src_hash}
             else:
                 print("  WARNING %s: locally modified; kept (use --overwrite-local to replace)" % key)
@@ -493,6 +604,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             "installed_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
             "files": dict(sorted(new_files.items())),
             "settings": settings_rec,
+            "fable": {"enabled": fable, "reason": fable_reason},
         }
         if not args.dry_run:
             # Order the writes so a crash between them never leaves an unmanaged "supervisor" key:
@@ -519,6 +631,7 @@ def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tu
     src_files: Dict[str, Path] = {}
     if source is not None:
         src_files = collect_source(source)
+    fable = fable_enabled(manifest)
     rows = []
     for key, entry in sorted(manifest["files"].items()):
         dst = target / key
@@ -530,7 +643,7 @@ def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tu
             rows.append((key, "modified"))
         elif source is not None and key not in src_files:
             rows.append((key, "outdated (removed from source)"))
-        elif key in src_files and sha256_file(src_files[key]) != h:
+        elif key in src_files and sha256_bytes(deployed_bytes(key, src_files[key], fable)) != h:
             rows.append((key, "outdated"))
         else:
             rows.append((key, "ok"))
@@ -549,6 +662,11 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("Source: %s" % manifest.get("source_dir"))
         print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
         print("Installed: %s" % manifest.get("installed_at"))
+        rec = manifest.get("fable")
+        if isinstance(rec, dict) and isinstance(rec.get("enabled"), bool):
+            print("Fable: %s (%s)" % ("on" if rec["enabled"] else "off", rec.get("reason")))
+        else:
+            print("Fable: not recorded (installed verbatim; the next install detects)")
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         rows = file_states(target, manifest, source if source.is_dir() else None)
         width = max([len(k) for k, _ in rows] + [10])
@@ -752,7 +870,11 @@ def build_parser() -> argparse.ArgumentParser:
                                     "and set settings.json agent = supervisor.")
     common(sp)
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
-    sp.add_argument("--yes", "-y", action="store_true", help="do not prompt (needed for --overwrite-local without a tty)")
+    sp.add_argument("--yes", "-y", action="store_true",
+                    help="do not prompt (answers yes to --overwrite-local; an unclear Fable detection then defaults to Opus)")
+    sp.add_argument("--fable", choices=("auto", "yes", "no"), default=None,
+                    help="run the Fable agents on Fable (yes), on Opus (no), or detect from `claude auth status` "
+                         "(auto); default: the choice saved by the last install, else auto")
     sp.add_argument("--overwrite-local", action="store_true",
                     help="back up and replace locally modified or unmanaged files")
     g = sp.add_mutually_exclusive_group()

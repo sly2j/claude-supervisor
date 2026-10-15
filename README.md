@@ -53,6 +53,8 @@ The supervisor chooses the mode. To choose it yourself, say "quick" or "full".
 | `git-ops` | Quick: routine git with guardrails | haiku / xhigh |
 | `scout` | Quick: read-only lookups | haiku / xhigh |
 
+Rows marked `fable` run on Opus when the pack is installed with `--fable no` or when `install` detects a plan without included Fable. See [docs/deploy.md](docs/deploy.md).
+
 ## Skills
 
 | Skill | Purpose |
@@ -94,6 +96,7 @@ Not every session needs the supervisor. To start one without it, install with `s
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "kept local modification" | Expected: your edit in `~/.claude` wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
 | `install` refuses an "unmanaged" file | A file with that name already exists in `~/.claude`. Rename yours, or use `--overwrite-local` |
+| Claude Code asks to bill Fable to usage credits | Run `scripts/deploy install --fable no`. `scripts/deploy status` prints the current choice |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
