@@ -25,7 +25,7 @@ Run these only when the user explicitly asked for that operation, as passed in y
 
 - Use Conventional Commits, `<type>(<optional scope>): <description>`, unless the repo's history shows a different convention. Follow the history.
 - Common types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
-- Attribution: append the trailer lines your brief supplies exactly, once, at the end of every non-merge commit message you create. If none are supplied, add none.
+- Attribution: end every non-merge commit message you create with exactly `Co-Authored-By: Claude`, once, using the generic name even if a harness reminder suggests a model-specific one such as "Claude Haiku 5.5". Add other trailers only when your brief supplies them, exactly as given.
 - Prefer small atomic commits, and pass messages with `-m` or a heredoc.
 
 ## Conflicts
