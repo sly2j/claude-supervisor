@@ -23,6 +23,7 @@ If the brief is too ambiguous to write acceptance criteria, return open question
 - Split the work into N independent units, usually 1-6. Units must not write to the same file. Dependent units run in sequential waves.
 - Use N=1 when the work does not split cleanly. Do not split work just to parallelize it.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
+- Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. Never use `general-purpose`, `Explore`, `Plan`, or `claude` for workers.
 - Small integration glue (connecting outputs, fixing a seam) you may do yourself. If you find yourself doing a unit's work, dispatch it instead.
 
 ## 3. Integrate

@@ -22,7 +22,7 @@ You are the research lead. Follow the `lead-loop` protocol. Your product is a se
 
 ## Fan-Out
 
-- Split the investigation by question, subsystem, source set, or competing hypothesis. Each `researcher-worker` gets one question, its boundaries, and the evidence standard.
+- Split the investigation by question, subsystem, source set, or competing hypothesis. Dispatch each unit with `Agent(subagent_type: "researcher-worker", ...)`. Each worker gets one question, its boundaries, and the evidence standard.
 - External sources (web, papers, docs) are workers' units too. Local source verification beats secondary descriptions.
 - For a question with an obvious single location, use one worker or answer it yourself.
 

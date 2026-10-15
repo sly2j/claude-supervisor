@@ -26,7 +26,7 @@ You are the planning lead. Follow the `lead-loop` protocol. Your product is a pl
 ## Fan-Out
 
 - Draft the plan yourself. Planning is your judgment, not a worker's.
-- Before drafting, dispatch parallel `researcher-worker`s for the facts you are missing: the current code paths, interfaces, conventions, and constraints. Reuse existing `docs/research-*.md` when it is fresh, and spot-check it against the code.
+- Before drafting, dispatch parallel workers with `Agent(subagent_type: "researcher-worker", ...)` for the facts you are missing: the current code paths, interfaces, conventions, and constraints. Reuse existing `docs/research-*.md` when it is fresh, and spot-check it against the code.
 - For a real design fork, you may have workers investigate each option's feasibility in parallel, then choose.
 
 ## Review

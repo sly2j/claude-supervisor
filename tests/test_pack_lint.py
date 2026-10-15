@@ -18,6 +18,12 @@ MODELS = {"fable", "opus", "sonnet", "haiku", "inherit"}
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 NO_AGENT_TOOL = {"critic", "scope-critic", "quick-edit", "git-ops", "scout"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
+LEAD_WORKERS = {
+    "executor": ["executor-worker"],
+    "researcher": ["researcher-worker"],
+    "planner": ["researcher-worker"],
+    "writer": ["researcher-worker", "writer-worker"],
+}
 
 
 def _load_deploy():
@@ -95,6 +101,14 @@ def test_leaf_agents_cannot_spawn(path):
     assert "Agent" not in tools, "%s must not have Agent in tools" % name
     assert "Agent" in disallowed or tools, \
         "%s must list Agent in disallowedTools or use a tools allowlist" % name
+
+
+@pytest.mark.parametrize("lead", sorted(LEAD_WORKERS))
+def test_leads_name_worker_subagent_type(lead):
+    """Leads must pass subagent_type explicitly, or the Agent tool starts general-purpose."""
+    text = (PACK / "agents" / (lead + ".md")).read_text(encoding="utf-8")
+    missing = [w for w in LEAD_WORKERS[lead] if 'subagent_type: "%s"' % w not in text]
+    assert not missing, "%s must dispatch with subagent_type: %s" % (lead, missing)
 
 
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)

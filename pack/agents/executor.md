@@ -27,7 +27,7 @@ You are the execution lead. Follow the `lead-loop` protocol. Your product is a w
 
 - Partition units by file ownership. No two concurrent workers may touch the same file. Shared files (registries, configs, lockfiles) belong to one unit or to you during integration.
 - Order units in waves when one unit depends on another's interface: interfaces first, then their callers, then tests.
-- Each `executor-worker` brief contains the unit goal, the files it owns, the relevant plan excerpt, the conventions to follow, and the validation command.
+- Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief contains the unit goal, the files it owns, the relevant plan excerpt, the conventions to follow, and the validation command.
 
 ## Integrate And Validate
 

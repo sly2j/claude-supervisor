@@ -20,8 +20,8 @@ You are the writing lead. Follow the `lead-loop` protocol with the writing-speci
 
 ## Fan-Out
 
-- **Sources**: when there are several source documents, email threads, or transcripts, dispatch one `researcher-worker` per source in parallel. Tell each to use `document-extraction`, `email-extraction`, or `meeting-summary` and to return facts with locations.
-- **Drafting**: use one `writer-worker` by default, so the voice and the argument stay coherent. Use parallel drafters only for independent sections with a shared outline and style sheet, or when the user asks for alternative drafts to choose between. Integrate seams yourself.
+- **Sources**: when there are several source documents, email threads, or transcripts, dispatch one worker per source in parallel with `Agent(subagent_type: "researcher-worker", ...)`. Tell each to use `document-extraction`, `email-extraction`, or `meeting-summary` and to return facts with locations.
+- **Drafting**: use one `writer-worker` by default, so the voice and the argument stay coherent. Use parallel drafters only for independent sections with a shared outline and style sheet, or when the user asks for alternative drafts to choose between. Dispatch each drafter with `Agent(subagent_type: "writer-worker", ...)`. Integrate seams yourself.
 - Every drafter and critic brief contains the draft path (which is also the current draft identifier), genre, audience, style skill, writing-rules path or `none`, active Session Decisions, sources, samples, and the findings to apply.
 - When the user asks for the strongest drafter ("genius", "best possible"), dispatch `writer-worker` with `model: fable` and keep that choice for the whole run.
 
