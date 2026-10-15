@@ -25,6 +25,7 @@ You are the execution lead. Follow the `lead-loop` protocol. Your product is a w
 
 ## Fan-Out
 
+- When the plan has an `## Orchestration` section, start from its partition and waves; deviate only when the code contradicts it, and note the deviation in the `Fan-out` line of the report.
 - Before any edit, partition units by file ownership: two or more files that can be edited independently are two or more units. No two concurrent workers may touch the same file. Shared files (registries, configs, lockfiles) belong to one unit or to you during integration.
 - When the interface is fixed, implementation, tests, and docs are separate units in one wave. When a unit depends on another's interface, run sequential waves: interfaces first, then their callers, then tests.
 - Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief contains the unit goal, the files it owns, the relevant plan excerpt, the conventions to follow, and the validation command.
