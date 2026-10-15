@@ -524,3 +524,53 @@ def test_fable_prompt_when_unclear(monkeypatch, fable_pack, target, answer, expe
 def test_fable_prompt_skipped_with_yes(monkeypatch, fable_pack, target):
     rec = install_in_process(monkeypatch, fable_pack, target, NoRead(), "--yes")
     assert rec["enabled"] is False and "defaulted to opus" in rec["reason"]
+
+
+# --------------------------------------------------------------------------- version
+
+def version_file(pack: Path, text: str) -> None:
+    (pack.parent / "VERSION").write_text(text)
+
+
+def test_install_records_pack_version(pack, target):
+    version_file(pack, "1.7\n")
+    r = run(pack, target, "install")
+    assert r.returncode == 0
+    assert "Version: 1.7" in r.stdout
+    assert manifest(target)["pack_version"] == "1.7"
+
+
+def test_install_without_version_file(pack, target):
+    r = run(pack, target, "install")
+    assert r.returncode == 0
+    assert "Version: unknown (no VERSION file in" in r.stdout
+    assert manifest(target)["pack_version"] is None
+    r = run(pack, target, "status")
+    assert "Version: installed=not recorded, source=unknown" in r.stdout
+
+
+def test_status_version_match_and_mismatch(pack, target):
+    version_file(pack, "1.7\n")
+    run(pack, target, "install")
+    r = run(pack, target, "status")
+    assert "Version: installed=1.7, source=1.7" in r.stdout
+    assert "MISMATCH" not in r.stdout
+    version_file(pack, "1.8\n")
+    r = run(pack, target, "status")
+    assert r.returncode == 0
+    assert "Version: installed=1.7, source=1.8 (MISMATCH: run scripts/deploy install)" in r.stdout
+    r = run(pack, target, "install")
+    assert "Version: 1.8 (was 1.7)" in r.stdout
+    assert manifest(target)["pack_version"] == "1.8"
+
+
+def test_status_old_manifest_without_pack_version(pack, target):
+    version_file(pack, "1.7\n")
+    run(pack, target, "install")
+    m = manifest(target)
+    del m["pack_version"]
+    (target / MANIFEST).write_text(json.dumps(m))
+    r = run(pack, target, "status")
+    assert "Version: installed=not recorded, source=1.7" in r.stdout
+    rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
+    assert rows and all(l.endswith("ok") for l in rows)

@@ -279,6 +279,14 @@ def git_info(source: Path) -> Tuple[Optional[str], Optional[bool]]:
         return None, None
 
 
+def read_pack_version(source: Path) -> Optional[str]:
+    """The checkout's VERSION (the file next to the pack dir), or None when there is none."""
+    path = source.parent / "VERSION"
+    if not path.is_file():
+        return None
+    return path.read_text(encoding="utf-8").strip() or None
+
+
 # --------------------------------------------------------------------------- fable
 
 FABLE_TOKEN = re.compile(r"\bmodel:[ \t]*fable\b")
@@ -493,6 +501,7 @@ def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
 def install_cmd(args: argparse.Namespace) -> int:
     source, target = resolve_source(args), resolve_target(args)
     src_files = collect_source(source)
+    pack_version = read_pack_version(source)
     if args.overwrite_local and not args.dry_run:
         if not confirm("--overwrite-local will back up and replace locally modified/unmanaged files in %s. Continue?"
                        % target, args.yes):
@@ -507,6 +516,9 @@ def install_cmd(args: argparse.Namespace) -> int:
         fable, fable_reason = resolve_fable(args, manifest)
         print("Fable: on (%s)" % fable_reason if fable
               else "Fable: off (%s); fable agents deploy as opus" % fable_reason)
+        prev = manifest.get("pack_version")
+        print("Version: %s%s" % (pack_version or "unknown (no VERSION file in %s)" % source.parent,
+                                 " (was %s)" % prev if pack_version and prev and prev != pack_version else ""))
         baseline: Dict[str, dict] = manifest.get("files", {})
         new_files: Dict[str, dict] = {}
         removed: List[str] = []
@@ -601,6 +613,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             "source_dir": str(source),
             "source_commit": commit,
             "source_dirty": dirty,
+            "pack_version": pack_version,
             "installed_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
             "files": dict(sorted(new_files.items())),
             "settings": settings_rec,
@@ -668,6 +681,10 @@ def status_cmd(args: argparse.Namespace) -> int:
         else:
             print("Fable: not recorded (installed verbatim; the next install detects)")
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
+        recorded = manifest.get("pack_version")
+        current = read_pack_version(source) if source.is_dir() else None
+        flag = " (MISMATCH: run scripts/deploy install)" if recorded and current and recorded != current else ""
+        print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
         rows = file_states(target, manifest, source if source.is_dir() else None)
         width = max([len(k) for k, _ in rows] + [10])
         for key, state in rows:

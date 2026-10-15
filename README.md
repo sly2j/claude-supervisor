@@ -24,6 +24,7 @@ Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*.
 
 **Update:** `git pull && scripts/deploy install`. Files you edited in `~/.claude` are kept, and the script lists them.
 **Check:** `scripts/deploy status`. **Remove:** `scripts/deploy uninstall --yes`.
+**Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `scripts/deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
 
 Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
@@ -107,6 +108,7 @@ pack/skills/        skills (deployed to ~/.claude/skills)
 scripts/deploy      installer: install | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
 docs/               research, architecture, deploy runbook
+VERSION             pack version (1.x, bumped in every commit on main)
 ```
 
 Run `python3 -m pytest -q` before deploying changes to the pack.

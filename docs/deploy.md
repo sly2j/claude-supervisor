@@ -34,6 +34,7 @@ Start a new Claude Code session afterwards. The session runs as `supervisor` bec
 
 - Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude --agent supervisor`. `claude --agent <other>` overrides the setting for a single session.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
+- Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: 1.x`, with `(was 1.y)` on an update. `status` prints `Version: installed=1.x, source=1.y` and appends `(MISMATCH: run scripts/deploy install)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
 
 ## Fable Or Opus
 
@@ -87,3 +88,4 @@ Uninstall removes the unmodified managed files and keeps the ones you edited; `-
 - Bash has no terminal, so an unclear Fable detection defaults to Opus and says so in the `Fable:` line. Relay that to the user and offer `install --fable yes`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.
+- If `status` shows `MISMATCH`, the installed pack is not the checkout's version: run `install`.
