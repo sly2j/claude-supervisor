@@ -1,4 +1,4 @@
-# claude-agents
+# claude-supervisor
 
 This is the source repo for a Claude Code agent pack. `pack/` is deployed into `~/.claude` by `scripts/deploy`.
 

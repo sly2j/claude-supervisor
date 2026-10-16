@@ -256,7 +256,7 @@ Only the rules the three scenarios changed:
 
 Validation commands:
 ```
-cd /Users/sjoosten/Work/claude-agents
+cd "$REPO"                                            # the repo checkout
 python3 -m pytest -q
 for f in planner supervisor executor; do printf '%s ' $f; awk 'c==2{n++} /^---$/{c++} END{print n}' pack/agents/$f.md; done
 git diff -U0 -- pack | grep '^+[^+]' | awk 'length($0) > 111 {print length($0)-1": "substr($0, 1, 60)}'

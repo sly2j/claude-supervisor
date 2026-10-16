@@ -233,7 +233,7 @@ Integration:
 ## Validation Commands
 
 ```bash
-cd /Users/sjoosten/Work/claude-agents
+cd "$REPO"                                            # the repo checkout
 cat -e VERSION                                       # expect: 1.0$
 python3 -m pytest -q                                 # expect: all pass; 1 skip (bump test) until main has VERSION, and always off main
 /usr/bin/python3 -m py_compile scripts/deploy        # expect: no output

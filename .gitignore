@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 # Claude Code worktrees
 .claude/worktrees/
+.claude/settings.local.json
+*.zip
+docs/research/

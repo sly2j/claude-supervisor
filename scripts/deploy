@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the claude-agents pack into a Claude Code config dir (~/.claude).
+"""Deploy the claude-supervisor pack into a Claude Code config dir (~/.claude).
 
 Subcommands: install | status | uninstall | doctor.  Run `deploy <cmd> --help`.
 
@@ -24,8 +24,11 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-MANIFEST_NAME = ".claude-agents-manifest.json"
-LOCK_NAME = ".claude-agents.lock"
+MANIFEST_NAME = ".claude-supervisor-manifest.json"
+LOCK_NAME = ".claude-supervisor.lock"
+# Names used before the rename.
+LEGACY_MANIFEST_NAME = ".claude-agents-manifest.json"
+LEGACY_LOCK_NAME = ".claude-agents.lock"
 MANIFEST_VERSION = 1
 DEFAULT_AGENT = "supervisor"
 MIN_CLAUDE_VERSION = (2, 1, 293)
@@ -392,8 +395,32 @@ def resolve_fable(args: argparse.Namespace, manifest: dict) -> Tuple[bool, str]:
 
 # --------------------------------------------------------------------------- manifest / lock / settings
 
-def load_manifest(target: Path) -> Optional[dict]:
+def manifest_path(target: Path) -> Path:
+    """The manifest file to read: the new name, else the legacy one if only that exists."""
     path = target / MANIFEST_NAME
+    legacy = target / LEGACY_MANIFEST_NAME
+    return path if path.exists() or not legacy.exists() else legacy
+
+
+def migrate_legacy(target: Path, dry_run: bool) -> None:
+    new, legacy = target / MANIFEST_NAME, target / LEGACY_MANIFEST_NAME
+    if not legacy.exists():
+        return
+    if new.exists():
+        print("WARNING: both %s and %s exist; using %s" % (LEGACY_MANIFEST_NAME, MANIFEST_NAME, MANIFEST_NAME))
+        return
+    if dry_run:
+        print("would migrate %s -> %s" % (LEGACY_MANIFEST_NAME, MANIFEST_NAME))
+        return
+    os.replace(str(legacy), str(new))
+    print("migrated %s -> %s" % (LEGACY_MANIFEST_NAME, MANIFEST_NAME))
+    # The legacy lock is only an empty flock target.
+    with contextlib.suppress(OSError):
+        (target / LEGACY_LOCK_NAME).unlink()
+
+
+def load_manifest(target: Path) -> Optional[dict]:
+    path = manifest_path(target)
     if not path.exists():
         return None
     try:
@@ -512,6 +539,7 @@ def install_cmd(args: argparse.Namespace) -> int:
     print("%sinstall %s -> %s" % ("[dry-run] " if args.dry_run else "", source, target))
 
     with target_lock(target, args.dry_run):
+        migrate_legacy(target, args.dry_run)
         manifest = load_manifest(target) or {}
         fable, fable_reason = resolve_fable(args, manifest)
         print("Fable: on (%s)" % fable_reason if fable
@@ -672,6 +700,8 @@ def status_cmd(args: argparse.Namespace) -> int:
     if manifest is None:
         print("No manifest: pack is not installed here.")
     else:
+        if not (target / MANIFEST_NAME).exists():
+            print("Note: legacy manifest %s; run scripts/deploy install to migrate" % LEGACY_MANIFEST_NAME)
         print("Source: %s" % manifest.get("source_dir"))
         print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
         print("Installed: %s" % manifest.get("installed_at"))
@@ -759,10 +789,13 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
             if errors:
                 print("manifest kept because of errors; fix them and re-run uninstall")
             else:
-                (target / MANIFEST_NAME).unlink()
+                for name in (MANIFEST_NAME, LEGACY_MANIFEST_NAME):
+                    with contextlib.suppress(FileNotFoundError):
+                        (target / name).unlink()
     if not args.dry_run:
-        with contextlib.suppress(OSError):
-            (target / LOCK_NAME).unlink()
+        for name in (LOCK_NAME, LEGACY_LOCK_NAME):
+            with contextlib.suppress(OSError):
+                (target / name).unlink()
 
     for key in kept:
         print("  WARNING kept locally modified %s (use --force to remove)" % key)
@@ -872,7 +905,7 @@ def doctor_cmd(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deploy",
-        description="Install, inspect and remove the claude-agents pack in a Claude Code config dir.",
+        description="Install, inspect and remove the claude-supervisor pack in a Claude Code config dir.",
         epilog="Target dir: --target, else $CLAUDE_CONFIG_DIR, else ~/.claude.")
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True

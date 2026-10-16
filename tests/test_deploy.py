@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "deploy"
-MANIFEST = ".claude-agents-manifest.json"
+MANIFEST = ".claude-supervisor-manifest.json"
+LEGACY_MANIFEST = ".claude-agents-manifest.json"
 
 
 def agent_md(name: str, body: str = "Body.") -> str:
@@ -258,7 +259,7 @@ def test_symlink_in_source_rejected(pack, target):
 
 def test_lock_contention(pack, target):
     target.mkdir()
-    with open(target / ".claude-agents.lock", "a") as fh:
+    with open(target / ".claude-supervisor.lock", "a") as fh:
         fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         r = run(pack, target, "install")
     assert r.returncode == 2
@@ -574,3 +575,66 @@ def test_status_old_manifest_without_pack_version(pack, target):
     assert "Version: installed=not recorded, source=1.7" in r.stdout
     rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
     assert rows and all(l.endswith("ok") for l in rows)
+
+
+# --------------------------------------------------------------------------- legacy migration
+
+MIGRATION = ".claude-agents-manifest.json -> .claude-supervisor-manifest.json"
+
+
+@pytest.fixture
+def legacy_install(pack, target):
+    """An install whose manifest and lock carry the pre-rebrand names."""
+    assert run(pack, target, "install", "--fable", "no").returncode == 0
+    (target / MANIFEST).rename(target / LEGACY_MANIFEST)
+    (target / ".claude-agents.lock").write_text("")
+    return target
+
+
+def test_status_detects_legacy_install(pack, legacy_install):
+    r = run(pack, legacy_install, "status")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "No manifest" not in r.stdout
+    assert "legacy manifest .claude-agents-manifest.json" in r.stdout
+    assert "run scripts/deploy install to migrate" in r.stdout
+    assert (legacy_install / LEGACY_MANIFEST).exists() and not (legacy_install / MANIFEST).exists()
+
+
+def test_install_migrates_legacy_manifest(pack, legacy_install):
+    before = json.loads((legacy_install / LEGACY_MANIFEST).read_text())
+    r = run(pack, legacy_install, "install")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "migrated " + MIGRATION in r.stdout
+    assert "not managed" not in r.stdout and "copied=0, updated=0, unchanged=4" in r.stdout
+    assert (legacy_install / MANIFEST).exists()
+    assert not (legacy_install / LEGACY_MANIFEST).exists()
+    assert not (legacy_install / ".claude-agents.lock").exists()
+    after = manifest(legacy_install)
+    assert after["settings"] == before["settings"]
+    assert after["fable"]["enabled"] is False  # saved choice survived, not re-detected
+
+
+def test_install_dry_run_does_not_migrate(pack, legacy_install):
+    r = run(pack, legacy_install, "install", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "would migrate " + MIGRATION in r.stdout
+    assert (legacy_install / LEGACY_MANIFEST).exists() and not (legacy_install / MANIFEST).exists()
+    assert (legacy_install / ".claude-agents.lock").exists()
+
+
+def test_uninstall_removes_legacy_install(pack, legacy_install):
+    r = run(pack, legacy_install, "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (legacy_install / "agents" / "helper.md").exists()
+    assert not (legacy_install / "skills" / "demo" / "SKILL.md").exists()
+    for name in (MANIFEST, LEGACY_MANIFEST, ".claude-supervisor.lock", ".claude-agents.lock"):
+        assert not (legacy_install / name).exists(), name
+
+
+def test_install_warns_when_both_manifests_exist(pack, legacy_install):
+    (legacy_install / MANIFEST).write_text((legacy_install / LEGACY_MANIFEST).read_text())
+    r = run(pack, legacy_install, "install")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ("WARNING: both .claude-agents-manifest.json and .claude-supervisor-manifest.json exist; "
+            "using .claude-supervisor-manifest.json") in r.stdout
+    assert (legacy_install / LEGACY_MANIFEST).exists()

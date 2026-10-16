@@ -107,8 +107,7 @@
     add `.claude/worktrees/` to `.gitignore`.
   - (b) Confirm the three Mermaid diagrams in `README.md` render on the repo's web UI; fix the
     syntax if not.
-  - (c) `docs/research-claude-code-port.md` is linked from `README.md` line 5. Leave it, or
-    archive it and update the link.
+  - (c) Resolved: the Claude Code port research doc was deleted and its `README.md` link removed.
 - **Decisions already made:** none.
 - **Done when:** each sub-item is resolved or the owner declined it.
-- **Pointers:** `README.md`, `.gitignore`, `docs/research-claude-code-port.md`.
+- **Pointers:** `README.md`, `.gitignore`.

@@ -1,6 +1,6 @@
 ---
 name: agent-authoring
-description: Conventions for writing and reviewing Claude Code subagent and skill definitions in the claude-agents pack (tiers, models, tool restrictions, prompt structure, report contracts, scope boundaries). Use when creating, editing, or critiquing files under pack/agents or pack/skills, or any .claude/agents or skills definition.
+description: Conventions for writing and reviewing Claude Code subagent and skill definitions in the claude-supervisor pack (tiers, models, tool restrictions, prompt structure, report contracts, scope boundaries). Use when creating, editing, or critiquing files under pack/agents or pack/skills, or any .claude/agents or skills definition.
 ---
 
 # Agent And Skill Authoring

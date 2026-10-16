@@ -1,19 +1,20 @@
-# claude-agents
+# claude-supervisor
+
+claude-supervisor is an independent project. It is not affiliated with or endorsed by Anthropic.
 
 A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One Fable supervisor routes every request either to the full harness (leads that fan out to parallel workers, with a critic and a scope-critic loop) or to fast Haiku specialists for small tasks.
 
-It succeeds the OpenCode agent pack (`opencode-agents`). The design rationale is in [docs/research-claude-code-port.md](docs/research-claude-code-port.md), and the details are in [docs/architecture.md](docs/architecture.md).
+The details are in [docs/architecture.md](docs/architecture.md).
 
 ## Install
 
 Requirements:
 - Claude Code 2.1.293 or newer, logged in
 - `python3` 3.9 or newer, on macOS or Linux
-- Argonne network access (onsite or VPN) for the eicweb clone
 
 ```bash
-git clone git@eicweb.phy.anl.gov:mep-agents/claude-agents.git ~/Work/claude-agents
-cd ~/Work/claude-agents
+git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
+cd ~/Work/claude-supervisor
 scripts/deploy doctor      # preflight check
 scripts/deploy install     # copies agents and skills into ~/.claude
 ```

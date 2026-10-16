@@ -1,13 +1,13 @@
-# Deploying claude-agents
+# Deploying claude-supervisor
 
-This runbook is for a human or for Claude asked to "deploy claude-agents". It works on macOS and Linux and needs only `python3` (3.9 or newer) and Claude Code 2.1.293 or newer.
+This runbook is for a human or for Claude asked to "deploy claude-supervisor". It works on macOS and Linux and needs only `python3` (3.9 or newer) and Claude Code 2.1.293 or newer.
 
 ## Steps
 
 ```bash
-# first time (needs Argonne network or VPN):
-git clone git@eicweb.phy.anl.gov:mep-agents/claude-agents.git ~/Work/claude-agents
-REPO=~/Work/claude-agents
+# first time:
+git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
+REPO=~/Work/claude-supervisor
 cd "$REPO" && git pull               # when updating
 
 "$REPO/scripts/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
@@ -22,7 +22,7 @@ Start a new Claude Code session afterwards. The session runs as `supervisor` bec
 ## What Install Does
 
 - Copies `pack/agents/*.md` to `<target>/agents/` and `pack/skills/*` to `<target>/skills/`. The target is `--target`, else `$CLAUDE_CONFIG_DIR`, else `~/.claude`.
-- Records SHA-256 hashes in `<target>/.claude-agents-manifest.json`. Re-running `install` is the update path and is idempotent:
+- Records SHA-256 hashes in `<target>/.claude-supervisor-manifest.json`. An install made before the rename (with `.claude-agents-manifest.json`) is still recognized by `status` and is migrated to the new name by the next `install`. Re-running `install` is the update path and is idempotent:
 
 | Situation | Action |
 |---|---|

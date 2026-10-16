@@ -171,11 +171,11 @@ The `--fable auto --dry-run` command in the validation list exercises A1-A3 on t
 ## Validation Commands
 
 ```bash
-cd /Users/sjoosten/Work/claude-agents
+cd "$REPO"                                            # the repo checkout
 python3 -m pytest -q
 /usr/bin/python3 -m py_compile scripts/deploy
 /usr/bin/python3 scripts/deploy install --help | grep -- --fable
-S=/private/tmp/claude-502/-Users-sjoosten-Work-claude-agents/0aeb51b7-9e4b-404c-83d1-e3807e854e37/scratchpad/fable-target
+S=$(mktemp -d)/fable-target
 /usr/bin/python3 scripts/deploy install --fable auto --dry-run --target "$S" | grep "Fable:"   # runs detect_fable under 3.9 against the real CLI; writes nothing; expect "Fable: on (auto: ...)" on this Team-premium machine
 /usr/bin/python3 scripts/deploy install --fable no --target "$S" && grep -rn "model: fable" "$S/agents"; echo "exit $? (1 = none found)"
 grep -n "model: opus" "$S/agents/supervisor.md" "$S/agents/planner.md" "$S/agents/scope-critic.md" "$S/agents/writer.md"
