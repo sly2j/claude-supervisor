@@ -4,10 +4,8 @@ import fcntl
 import hashlib
 import importlib.machinery
 import importlib.util
-import io
 import json
 import os
-import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -46,7 +44,7 @@ def target(tmp_path: Path) -> Path:
 
 def run(pack: Path, target: Path, *args: str) -> subprocess.CompletedProcess:
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
-    env["PATH"] = str(target.parent / "bin")  # hides the real claude (and git); detection finds nothing
+    env["PATH"] = str(target.parent / "bin")  # hides the real claude (and git)
     env["HOME"] = str(target.parent)  # hides the real ~/.claude.json
     cmd = [sys.executable, str(SCRIPT), args[0], "--target", str(target)]
     if args[0] in ("install", "status"):
@@ -308,7 +306,7 @@ def test_settings_write_failure_keeps_manifest_consistent(pack, target, write_fi
         raise RuntimeError("simulated crash")
 
     deploy.save_settings = failing_save
-    args = deploy.build_parser().parse_args(["install", "--target", str(target), "--source", str(pack), "--fable", "yes"])
+    args = deploy.build_parser().parse_args(["install", "--target", str(target), "--source", str(pack), "--fable"])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
     assert manifest(target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
@@ -332,7 +330,7 @@ def test_release_write_failure_leaves_agent_revertible(pack, target, write_first
 
     deploy.save_settings = failing_save
     args = deploy.build_parser().parse_args(
-        ["install", "--target", str(target), "--source", str(pack), "--no-default-agent", "--fable", "yes"])
+        ["install", "--target", str(target), "--source", str(pack), "--no-default-agent", "--fable"])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
     r = run(pack, target, "uninstall", "--yes")
@@ -360,15 +358,6 @@ def test_status_reports_source_validation_error(pack, target):
 
 # --------------------------------------------------------------------------- fable
 
-def fake_claude(target: Path, stdout: str, code: int = 0) -> None:
-    """Put a `claude` on the isolated PATH that prints `stdout` and exits `code` for any arguments."""
-    bin_dir = target.parent / "bin"
-    bin_dir.mkdir(exist_ok=True)
-    exe = bin_dir / "claude"
-    exe.write_text("#!%s\nimport sys\nsys.stdout.write(%r)\nsys.exit(%d)\n" % (sys.executable, stdout, code))
-    exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
-
-
 @pytest.fixture
 def fable_pack(pack: Path) -> Path:
     (pack / "agents" / "planner.md").write_text(
@@ -377,8 +366,8 @@ def fable_pack(pack: Path) -> Path:
     return pack
 
 
-def test_fable_off_rewrites_agents(fable_pack, target):
-    r = run(fable_pack, target, "install", "--fable", "no")
+def test_default_install_rewrites_agents(fable_pack, target):
+    r = run(fable_pack, target, "install")
     assert r.returncode == 0, r.stdout + r.stderr
     planner = (target / "agents" / "planner.md").read_text()
     assert "\nmodel: opus\neffort: xhigh\n" in planner
@@ -386,145 +375,37 @@ def test_fable_off_rewrites_agents(fable_pack, target):
     assert "model: fable" not in "".join(p.read_text() for p in (target / "agents").iterdir())
     for key in ("agents/helper.md", "skills/demo/SKILL.md", "skills/demo/scripts/run.sh"):
         assert (target / key).read_bytes() == (fable_pack / key).read_bytes()
-    assert manifest(target)["fable"] == {"enabled": False, "reason": "--fable no"}
+    assert manifest(target)["fable"] is False
     assert "Fable: off" in r.stdout
 
 
-def test_fable_yes_is_verbatim(fable_pack, target):
-    r = run(fable_pack, target, "install", "--fable", "yes")
+def test_fable_flag_is_verbatim(fable_pack, target):
+    r = run(fable_pack, target, "install", "--fable")
     assert r.returncode == 0, r.stdout + r.stderr
     for key in manifest(target)["files"]:
         assert (target / key).read_bytes() == (fable_pack / key).read_bytes()
-    assert manifest(target)["fable"]["enabled"] is True
+    assert manifest(target)["fable"] is True
     assert "Fable: on" in r.stdout
 
 
-def test_fable_choice_persists(fable_pack, target):
-    run(fable_pack, target, "install", "--fable", "no")
-    r = run(fable_pack, target, "install")
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "copied=0, updated=0" in r.stdout and "Fable: off" in r.stdout
-    assert "model: opus" in (target / "agents" / "planner.md").read_text()
-    assert manifest(target)["fable"]["enabled"] is False
-    r = run(fable_pack, target, "status")
-    assert "Fable: off" in r.stdout
-    assert "outdated" not in r.stdout and "modified" not in r.stdout
-    rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
-    assert rows and all(l.endswith("ok") for l in rows)
+def test_status_matches_installed_variant(fable_pack, target):
+    for args, expect in (("--fable",), "Fable: on"), ((), "Fable: off"):
+        assert run(fable_pack, target, "install", *args).returncode == 0
+        r = run(fable_pack, target, "status")
+        assert expect in r.stdout
+        assert "outdated" not in r.stdout and "modified" not in r.stdout
+        rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
+        assert rows and all(l.endswith("ok") for l in rows)
 
 
 def test_fable_switch_updates(fable_pack, target):
-    run(fable_pack, target, "install", "--fable", "no")
-    r = run(fable_pack, target, "install", "--fable", "yes")
+    run(fable_pack, target, "install")
+    r = run(fable_pack, target, "install", "--fable")
     assert "updated=1" in r.stdout
     assert (target / "agents" / "planner.md").read_bytes() == (fable_pack / "agents" / "planner.md").read_bytes()
-    r = run(fable_pack, target, "install", "--fable", "no")
+    r = run(fable_pack, target, "install")
     assert "updated=1" in r.stdout
     assert "model: opus" in (target / "agents" / "planner.md").read_text()
-
-
-def test_fable_auto_without_claude(fable_pack, target):
-    r = run(fable_pack, target, "install")
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "Fable: off" in r.stdout and "claude CLI not found" in r.stdout
-    assert "model: opus" in (target / "agents" / "planner.md").read_text()
-
-
-def auth_json(**fields) -> str:
-    return json.dumps(dict({"apiProvider": "firstParty", "authMethod": "claude.ai", "configDirectory": "@CFG@"}, **fields))
-
-
-@pytest.mark.parametrize("stdout, code, seat, expect_on, expect_substring", [
-    (auth_json(subscriptionType="max"), 0, None, True, "subscriptionType=max"),
-    (auth_json(subscriptionType="pro"), 0, None, False, "subscriptionType=pro"),
-    (auth_json(subscriptionType="free"), 0, None, False, "subscriptionType=free"),
-    (auth_json(subscriptionType="max", apiProvider="bedrock"), 0, None, False, "apiProvider=bedrock"),
-    (auth_json(subscriptionType="max", authMethod="api_key"), 0, None, False, "defaulted to opus"),
-    (auth_json(subscriptionType="team"), 0, "team_labs_premium", True, "seatTier=team_labs_premium"),
-    (auth_json(subscriptionType="enterprise"), 0, "enterprise_premium", True, "seatTier=enterprise_premium"),
-    (auth_json(subscriptionType="team"), 0, "team_standard", False, "seatTier=team_standard"),
-    (auth_json(subscriptionType="team"), 0, None, False, "defaulted to opus"),
-    ("", 1, None, False, "exited 1"),
-    ("not json", 0, None, False, "no JSON"),
-    ("[1, 2]", 0, None, False, "no JSON"),
-    (auth_json(subscriptionType="whatever"), 0, None, False, "not recognized"),
-    (auth_json(), 0, None, False, "not recognized"),
-])
-def test_fable_auto_detection(fable_pack, target, stdout, code, seat, expect_on, expect_substring):
-    cfg = target.parent / "cfg"
-    if seat is not None:
-        cfg.mkdir()
-        (cfg / ".claude.json").write_text(json.dumps({"oauthAccount": {"seatTier": seat}}))
-    fake_claude(target, stdout.replace("@CFG@", str(cfg)), code)
-    r = run(fable_pack, target, "install")
-    assert r.returncode == 0, r.stdout + r.stderr
-    planner = (target / "agents" / "planner.md").read_text()
-    assert ("model: fable" in planner) == expect_on and ("model: opus" in planner) == (not expect_on)
-    rec = manifest(target)["fable"]
-    assert rec["enabled"] is expect_on
-    assert expect_substring in rec["reason"] and expect_substring in r.stdout
-    assert ("Fable: on" if expect_on else "Fable: off") in r.stdout
-
-
-def test_fable_auto_reads_seat_tier_from_home(fable_pack, target):
-    (target.parent / ".claude.json").write_text(json.dumps({"oauthAccount": {"seatTier": "team_labs_premium"}}))
-    fake_claude(target, auth_json(subscriptionType="team", configDirectory=str(target.parent / ".claude")))
-    r = run(fable_pack, target, "install")
-    assert "Fable: on" in r.stdout and manifest(target)["fable"]["enabled"] is True
-
-
-def test_fable_explicit_auto_rediscovers(fable_pack, target):
-    run(fable_pack, target, "install", "--fable", "no")
-    fake_claude(target, auth_json(subscriptionType="max"))
-    r = run(fable_pack, target, "install", "--fable", "auto")
-    assert "Fable: on" in r.stdout and "updated=1" in r.stdout
-    assert (target / "agents" / "planner.md").read_bytes() == (fable_pack / "agents" / "planner.md").read_bytes()
-
-
-def test_fable_old_manifest_not_recorded(fable_pack, target):
-    run(fable_pack, target, "install", "--fable", "yes")
-    m = manifest(target)
-    del m["fable"]
-    (target / MANIFEST).write_text(json.dumps(m))
-    r = run(fable_pack, target, "status")
-    assert "Fable: not recorded" in r.stdout
-    rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
-    assert rows and all(l.endswith("ok") for l in rows)
-    r = run(fable_pack, target, "install")
-    assert "Fable: off" in r.stdout and "updated=1" in r.stdout
-    assert manifest(target)["fable"]["enabled"] is False
-
-
-class TtyInput(io.StringIO):
-    def isatty(self):
-        return True
-
-
-class NoRead(TtyInput):
-    def readline(self, *a):
-        raise AssertionError("stdin was read")
-
-
-def install_in_process(monkeypatch, pack, target, stdin, *extra):
-    deploy = load_deploy()
-    monkeypatch.setattr(deploy, "detect_fable", lambda: (None, "authMethod=api_key"))
-    monkeypatch.setattr(sys, "stdin", stdin)
-    args = deploy.build_parser().parse_args(
-        ["install", "--target", str(target), "--source", str(pack), "--fable", "auto"] + list(extra))
-    assert deploy.install_cmd(args) == 0
-    return manifest(target)["fable"]
-
-
-@pytest.mark.parametrize("answer, expect_on", [("y\n", True), ("yes\n", True), ("\n", False), ("n\n", False)])
-def test_fable_prompt_when_unclear(monkeypatch, fable_pack, target, answer, expect_on):
-    rec = install_in_process(monkeypatch, fable_pack, target, TtyInput(answer))
-    assert rec["enabled"] is expect_on
-    assert rec["reason"].startswith("asked:")
-
-
-def test_fable_prompt_skipped_with_yes(monkeypatch, fable_pack, target):
-    rec = install_in_process(monkeypatch, fable_pack, target, NoRead(), "--yes")
-    assert rec["enabled"] is False and "defaulted to opus" in rec["reason"]
 
 
 # --------------------------------------------------------------------------- version
@@ -585,7 +466,7 @@ MIGRATION = ".claude-agents-manifest.json -> .claude-supervisor-manifest.json"
 @pytest.fixture
 def legacy_install(pack, target):
     """An install whose manifest and lock carry the pre-rebrand names."""
-    assert run(pack, target, "install", "--fable", "no").returncode == 0
+    assert run(pack, target, "install").returncode == 0
     (target / MANIFEST).rename(target / LEGACY_MANIFEST)
     (target / ".claude-agents.lock").write_text("")
     return target
@@ -611,7 +492,7 @@ def test_install_migrates_legacy_manifest(pack, legacy_install):
     assert not (legacy_install / ".claude-agents.lock").exists()
     after = manifest(legacy_install)
     assert after["settings"] == before["settings"]
-    assert after["fable"]["enabled"] is False  # saved choice survived, not re-detected
+    assert after["fable"] is False
 
 
 def test_install_dry_run_does_not_migrate(pack, legacy_install):

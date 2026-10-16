@@ -12,7 +12,7 @@ cd "$REPO" && git pull               # when updating
 
 "$REPO/scripts/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/scripts/deploy" install --dry-run
-"$REPO/scripts/deploy" install       # add --fable yes|no to skip detection (see Fable Or Opus)
+"$REPO/scripts/deploy" install       # add --fable to deploy the Fable agents on Fable (see Fable Or Opus)
 "$REPO/scripts/deploy" status
 "$REPO/scripts/deploy" doctor        # should now report no FAIL
 ```
@@ -38,27 +38,9 @@ Start a new Claude Code session afterwards. The session runs as `supervisor` bec
 
 ## Fable Or Opus
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Not every plan includes Fable, so `install` takes `--fable {auto,yes,no}`:
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. `install` deploys those agents and dispatch overrides as `opus`; `install --fable` deploys the source verbatim, on Fable. Only files under `agents/` change; skills and the source in `pack/` always name Fable.
 
-| Flag | Effect |
-|---|---|
-| `--fable yes` | Deploy the source verbatim, on Fable |
-| `--fable no` | Deploy those agents and dispatch overrides as `opus` |
-| `--fable auto` | Detect from your account (the default when nothing is saved) |
-
-Detection runs `claude auth status --json` and reads your seat tier from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It makes no network or model requests.
-
-| Account | Result |
-|---|---|
-| Max, or a premium Team or Enterprise seat | Fable |
-| Pro, Free, a standard Team or Enterprise seat | Opus |
-| Bedrock, Vertex, or Foundry | Opus |
-| Any detection failure, including no `claude` on `PATH` | Opus |
-| API key, or an unclear case (for example an unknown seat tier) | Asks once |
-
-When Fable is off, only the agents under `agents/` change. Skills and the source in `pack/` stay as they are, so `pack/` always names Fable.
-
-The choice is saved in the manifest. Later installs reuse it without asking, and `status` prints a `Fable:` line. To change it, re-run `install --fable yes`, `--fable no`, or `--fable auto` (which detects again). Without a terminal, or with `--yes`, an unclear detection defaults to Opus and says so.
+Each `install` deploys what its flag says, so pass `--fable` on every install that should stay on Fable. The manifest records the choice and `status` prints it as a `Fable:` line.
 
 ## Doctor Checks
 
@@ -85,7 +67,6 @@ Uninstall removes the unmodified managed files and keeps the ones you edited; `-
 
 - Run the commands through Bash exactly as shown. Without a terminal, `uninstall` and `install --overwrite-local` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
-- Bash has no terminal, so an unclear Fable detection defaults to Opus and says so in the `Fable:` line. Relay that to the user and offer `install --fable yes`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.
 - If `status` shows `MISMATCH`, the installed pack is not the checkout's version: run `install`.

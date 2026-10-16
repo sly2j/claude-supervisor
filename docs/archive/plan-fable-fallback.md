@@ -206,4 +206,3 @@ Do not run `scripts/deploy install` against the real `~/.claude` during validati
 - [x] `README.md`: inventory note and one troubleshooting row
 - [x] `docs/architecture.md`: one sentence in Models And Cost
 - [x] Validation commands pass under `python3` and the 3.9 smoke commands pass under `/usr/bin/python3`
-- [ ] Run the `--fable auto --dry-run` command under `/usr/bin/python3` and note the observed `subscriptionType`/`seatTier` values in the commit message (A1-A3)

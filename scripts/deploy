@@ -303,96 +303,6 @@ def deployed_bytes(key: str, src: Path, fable: bool) -> bytes:
     return FABLE_TOKEN.sub("model: opus", data.decode("utf-8")).encode("utf-8")
 
 
-def fable_enabled(manifest: dict) -> bool:
-    """Saved Fable choice; installs made before the key existed deployed the source verbatim."""
-    rec = manifest.get("fable")
-    return not isinstance(rec, dict) or rec.get("enabled") is not False
-
-
-def _seat_tier(auth: dict) -> Optional[str]:
-    """oauthAccount.seatTier from <configDirectory>/.claude.json if readable, else ~/.claude.json; else None."""
-    paths = []
-    cfg = auth.get("configDirectory")
-    if isinstance(cfg, str) and cfg:
-        paths.append(Path(cfg) / ".claude.json")
-    paths.append(Path(os.path.expanduser("~")) / ".claude.json")
-    for path in paths:
-        try:
-            raw = path.read_bytes()
-        except OSError:
-            continue  # only an unreadable file falls through; a readable one is this account's
-        try:
-            tier = json.loads(raw.decode("utf-8"))["oauthAccount"]["seatTier"]
-        except (ValueError, AttributeError, KeyError, TypeError):
-            return None
-        return tier if isinstance(tier, str) and tier else None
-    return None
-
-
-def detect_fable() -> Tuple[Optional[bool], str]:
-    """Does the plan include Fable? True = Fable, False = Opus, None = unclear (ask).
-
-    Runs `claude auth status --json` and reads one local file; no network, no model requests.
-    """
-    claude = shutil.which("claude")
-    if not claude:
-        return False, "claude CLI not found"
-    try:
-        proc = subprocess.run([claude, "auth", "status", "--json"], capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return False, "claude auth status failed: %s" % exc
-    if proc.returncode != 0:
-        return False, "claude auth status exited %d" % proc.returncode
-    try:
-        auth = json.loads(proc.stdout)
-    except ValueError:
-        auth = None
-    if not isinstance(auth, dict):
-        return False, "claude auth status printed no JSON object"
-    provider = auth.get("apiProvider")
-    if provider is not None and provider != "firstParty":
-        return False, "apiProvider=%s" % provider
-    method = auth.get("authMethod")
-    if method in ("api_key", "api_key_helper"):
-        return None, "authMethod=%s" % method
-    sub = auth.get("subscriptionType")
-    plan = sub.lower() if isinstance(sub, str) else ""
-    if plan.startswith("max"):
-        return True, "subscriptionType=%s" % sub
-    if plan.startswith(("pro", "free")):
-        return False, "subscriptionType=%s" % sub
-    if plan.startswith(("team", "enterprise")):
-        tier = _seat_tier(auth)
-        if tier is None:
-            return None, "seat tier unknown (subscriptionType=%s)" % sub
-        return "premium" in tier.lower(), "seatTier=%s" % tier
-    return None, "subscriptionType=%s not recognized" % sub
-
-
-def ask_fable(detail: str, assume_yes: bool) -> Optional[bool]:
-    """Ask once whether to run on Fable; None when there is nobody to ask (never raises)."""
-    if assume_yes or not sys.stdin.isatty():
-        return None
-    answer = input("Cannot tell whether your plan includes Fable (%s). Run the Fable agents on Fable? [y/N] " % detail)
-    return answer.strip().lower() in ("y", "yes")
-
-
-def resolve_fable(args: argparse.Namespace, manifest: dict) -> Tuple[bool, str]:
-    """Flag, else saved choice, else detection (then a question); returns (enabled, reason)."""
-    if args.fable in ("yes", "no"):
-        return args.fable == "yes", "--fable " + args.fable
-    rec = manifest.get("fable")
-    if args.fable is None and isinstance(rec, dict) and isinstance(rec.get("enabled"), bool):
-        return rec["enabled"], "saved choice; pass --fable auto|yes|no to change"
-    verdict, detail = detect_fable()
-    if verdict is not None:
-        return verdict, "auto: " + detail
-    answer = ask_fable(detail, args.yes)
-    if answer is not None:
-        return answer, "asked: " + detail
-    return False, "unclear (%s); defaulted to opus, pass --fable yes to override" % detail
-
-
 # --------------------------------------------------------------------------- manifest / lock / settings
 
 def manifest_path(target: Path) -> Path:
@@ -541,9 +451,8 @@ def install_cmd(args: argparse.Namespace) -> int:
     with target_lock(target, args.dry_run):
         migrate_legacy(target, args.dry_run)
         manifest = load_manifest(target) or {}
-        fable, fable_reason = resolve_fable(args, manifest)
-        print("Fable: on (%s)" % fable_reason if fable
-              else "Fable: off (%s); fable agents deploy as opus" % fable_reason)
+        fable = args.fable
+        print("Fable: on" if fable else "Fable: off (fable agents deploy as opus)")
         prev = manifest.get("pack_version")
         print("Version: %s%s" % (pack_version or "unknown (no VERSION file in %s)" % source.parent,
                                  " (was %s)" % prev if pack_version and prev and prev != pack_version else ""))
@@ -645,7 +554,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             "installed_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
             "files": dict(sorted(new_files.items())),
             "settings": settings_rec,
-            "fable": {"enabled": fable, "reason": fable_reason},
+            "fable": fable,
         }
         if not args.dry_run:
             # Order the writes so a crash between them never leaves an unmanaged "supervisor" key:
@@ -672,7 +581,7 @@ def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tu
     src_files: Dict[str, Path] = {}
     if source is not None:
         src_files = collect_source(source)
-    fable = fable_enabled(manifest)
+    fable = manifest.get("fable") is True
     rows = []
     for key, entry in sorted(manifest["files"].items()):
         dst = target / key
@@ -705,11 +614,7 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("Source: %s" % manifest.get("source_dir"))
         print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
         print("Installed: %s" % manifest.get("installed_at"))
-        rec = manifest.get("fable")
-        if isinstance(rec, dict) and isinstance(rec.get("enabled"), bool):
-            print("Fable: %s (%s)" % ("on" if rec["enabled"] else "off", rec.get("reason")))
-        else:
-            print("Fable: not recorded (installed verbatim; the next install detects)")
+        print("Fable: on" if manifest.get("fable") is True else "Fable: off")
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         recorded = manifest.get("pack_version")
         current = read_pack_version(source) if source.is_dir() else None
@@ -921,10 +826,8 @@ def build_parser() -> argparse.ArgumentParser:
     common(sp)
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
     sp.add_argument("--yes", "-y", action="store_true",
-                    help="do not prompt (answers yes to --overwrite-local; an unclear Fable detection then defaults to Opus)")
-    sp.add_argument("--fable", choices=("auto", "yes", "no"), default=None,
-                    help="run the Fable agents on Fable (yes), on Opus (no), or detect from `claude auth status` "
-                         "(auto); default: the choice saved by the last install, else auto")
+                    help="do not prompt (answers yes to --overwrite-local)")
+    sp.add_argument("--fable", action="store_true", help="deploy the Fable agents on Fable instead of Opus")
     sp.add_argument("--overwrite-local", action="store_true",
                     help="back up and replace locally modified or unmanaged files")
     g = sp.add_mutually_exclusive_group()

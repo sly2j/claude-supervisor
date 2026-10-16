@@ -2,7 +2,7 @@
 
 claude-supervisor is an independent project. It is not affiliated with or endorsed by Anthropic.
 
-A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One Fable supervisor routes every request either to the full harness (leads that fan out to parallel workers, with a critic and a scope-critic loop) or to fast Haiku specialists for small tasks.
+A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One supervisor routes every request either to the full harness (leads that fan out to parallel workers, with a critic and a scope-critic loop) or to fast Haiku specialists for small tasks.
 
 The details are in [docs/architecture.md](docs/architecture.md).
 
@@ -107,7 +107,7 @@ flowchart LR
 | `git-ops` | Quick: routine git with guardrails | haiku / xhigh |
 | `scout` | Quick: read-only lookups | haiku / xhigh |
 
-Rows marked `fable` run on Opus when the pack is installed with `--fable no` or when `install` detects a plan without included Fable. See [docs/deploy.md](docs/deploy.md).
+Rows marked `fable`, and the `model: fable` dispatch overrides, deploy on Opus unless the pack is installed with `--fable`. See [docs/deploy.md](docs/deploy.md).
 
 ## Skills
 
@@ -150,7 +150,7 @@ Not every session needs the supervisor. To start one without it, install with `s
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "kept local modification" | Expected: your edit in `~/.claude` wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
 | `install` refuses an "unmanaged" file | A file with that name already exists in `~/.claude`. Rename yours, or use `--overwrite-local` |
-| Claude Code asks to bill Fable to usage credits | Run `scripts/deploy install --fable no`. `scripts/deploy status` prints the current choice |
+| Claude Code asks to bill Fable to usage credits | You installed with `--fable`; run `scripts/deploy install` without it. `scripts/deploy status` prints the current choice |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout

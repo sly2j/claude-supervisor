@@ -22,26 +22,6 @@
 
 ## Items
 
-### 1. Deploy: Opus by default, fable only on request
-
-- **Goal:** deployed `supervisor`, `planner`, `scope-critic` (and `critic`, already opus) default
-  to Opus. Fable is a manual option (e.g. `--fable`).
-- **Scope:**
-  - In: remove `detect_fable`, the TTY prompt, and the `auto` value; simplify `scripts/deploy`.
-  - In: drop the open Todo in `docs/plan-fable-fallback.md` (line 209) and archive that plan.
-  - Out: any form of model or subscription detection.
-- **Decisions already made:** no detection of any kind; Opus is the default; fable is manual.
-- **Left to planner:** whether the source says `opus` and `--fable` rewrites to `fable`, or the
-  reverse; whether the manifest still persists the choice. Either way, cover the prose dispatch
-  tokens in `planner.md` (~line 59) and `writer.md` (~line 26).
-- **Done when:**
-  - No model-detection code path remains; tests cover the manual flag, on and off.
-  - `docs/deploy.md`, README, and `docs/architecture.md` are updated where they mention fable.
-  - `docs/plan-fable-fallback.md` is archived.
-- **Pointers:** `scripts/deploy` (`detect_fable`, ~309-390), `docs/deploy.md` (`## Fable Or Opus`),
-  `docs/plan-fable-fallback.md`, `tests/test_deploy.py`,
-  `tests/test_pack_lint.py` (`test_fable_rewrite_covers_pack`).
-
 ### 2. Deploy: sandboxed installs with a launcher
 
 - **Goal:** by default the pack no longer touches `~/.claude`. Sandboxed installs let the owner
