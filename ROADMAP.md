@@ -97,17 +97,10 @@
 
 ### 5. Housekeeping
 
-- **Goal:** clear three loose ends.
+- **Goal:** clear the remaining loose end.
 - **Scope:**
-  - (a) `.claude/worktrees/rebrand-claude-supervisor/` (branch
-    `worktree-rebrand-claude-supervisor`) is locked by a Claude session and holds untracked
-    `docs/research/rebrand-claude-supervisor.md` (relevant to item 2) and
-    `docs/research/publish-sensitivity-audit.md`. Confirm with the owner that the session is
-    done and whether to keep those files, then `git worktree remove --force --force <path>` and
-    add `.claude/worktrees/` to `.gitignore`.
-  - (b) Confirm the three Mermaid diagrams in `README.md` render on the repo's web UI; fix the
+  - Confirm the three Mermaid diagrams in `README.md` render on the repo's web UI; fix the
     syntax if not.
-  - (c) Resolved: the Claude Code port research doc was deleted and its `README.md` link removed.
 - **Decisions already made:** none.
 - **Done when:** each sub-item is resolved or the owner declined it.
-- **Pointers:** `README.md`, `.gitignore`.
+- **Pointers:** `README.md`.
