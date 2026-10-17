@@ -39,6 +39,8 @@ DEFAULT_TAG = "supervisor"
 SEED = ("settings.json", "CLAUDE.md", "commands", "output-styles", "keybindings.json",
         "agents", "skills")
 LAUNCHER_MARKER = "# managed by claude-supervisor"
+# Fable agents run on this Opus model unless the launcher gets --fable; change it with each Opus release.
+OPUS_MODEL = "claude-opus-5-5"
 
 
 def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
@@ -57,7 +59,8 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
     if has_token:
         lines.append("ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN"
                      % target)
-    # ROADMAP item 6 adds its leading --fable branch here, above the exec line.
+    lines.append("if [ \"$1\" = --fable ]; then shift; unset ANTHROPIC_DEFAULT_FABLE_MODEL")
+    lines.append("else ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
     lines.append('exec claude "$@"')
     return "\n".join(lines) + "\n"
 
@@ -373,19 +376,6 @@ def read_pack_version(source: Path) -> Optional[str]:
     return path.read_text(encoding="utf-8").strip() or None
 
 
-# --------------------------------------------------------------------------- fable
-
-FABLE_TOKEN = re.compile(r"\bmodel:[ \t]*fable\b")
-
-
-def deployed_bytes(key: str, src: Path, fable: bool) -> bytes:
-    """The bytes that land in the target: agents/*.md get `model: fable` -> `model: opus` when Fable is off."""
-    data = src.read_bytes()
-    if fable or not (key.startswith("agents/") and key.endswith(".md")):
-        return data
-    return FABLE_TOKEN.sub("model: opus", data.decode("utf-8")).encode("utf-8")
-
-
 # --------------------------------------------------------------------------- manifest / lock / settings
 
 def manifest_path(target: Path) -> Path:
@@ -624,8 +614,8 @@ def install_cmd(args: argparse.Namespace) -> int:
         if tag and not manifest:
             seed_sandbox(target, args.dry_run)
         base_url = manifest.get("base_url") if args.base_url is None else args.base_url
-        fable = args.fable
-        print("Fable: on" if fable else "Fable: off (fable agents deploy as opus)")
+        if not tag:
+            print("Note: set ANTHROPIC_DEFAULT_FABLE_MODEL to run fable agents on Opus (see docs/deploy.md)")
         prev = manifest.get("pack_version")
         print("Version: %s%s" % (pack_version or "unknown (no VERSION file in %s)" % source.parent,
                                  " (was %s)" % prev if pack_version and prev and prev != pack_version else ""))
@@ -644,7 +634,7 @@ def install_cmd(args: argparse.Namespace) -> int:
 
         for key in sorted(src_files):
             src, dst = src_files[key], target / key
-            data = deployed_bytes(key, src, fable)
+            data = src.read_bytes()
             src_hash = sha256_bytes(data)
             base = (baseline.get(key) or {}).get("sha256")
             if dst.is_symlink() or (dst.exists() and not dst.is_file()):
@@ -727,7 +717,6 @@ def install_cmd(args: argparse.Namespace) -> int:
             "installed_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
             "files": dict(sorted(new_files.items())),
             "settings": settings_rec,
-            "fable": fable,
             "tag": tag,
             "launcher": str(launcher) if launcher else None,
             "prefix": str(prefix),
@@ -767,7 +756,6 @@ def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tu
     src_files: Dict[str, Path] = {}
     if source is not None:
         src_files = collect_source(source)
-    fable = manifest.get("fable") is True
     rows = []
     for key, entry in sorted(manifest["files"].items()):
         dst = target / key
@@ -779,7 +767,7 @@ def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tu
             rows.append((key, "modified"))
         elif source is not None and key not in src_files:
             rows.append((key, "outdated (removed from source)"))
-        elif key in src_files and sha256_bytes(deployed_bytes(key, src_files[key], fable)) != h:
+        elif key in src_files and sha256_file(src_files[key]) != h:
             rows.append((key, "outdated"))
         else:
             rows.append((key, "ok"))
@@ -800,7 +788,6 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("Source: %s" % manifest.get("source_dir"))
         print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
         print("Installed: %s" % manifest.get("installed_at"))
-        print("Fable: on" if manifest.get("fable") is True else "Fable: off")
         if manifest.get("launcher"):
             print("Launcher: %s" % manifest["launcher"])
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
@@ -963,8 +950,6 @@ def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run:
     argv += ["--prefix", manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())]
     if not (manifest.get("settings") or {}).get("managed_agent_key"):
         argv.append("--no-default-agent")
-    if manifest.get("fable") is True:
-        argv.append("--fable")
     if dry_run:
         argv.append("--dry-run")
     print("== update %s ==" % key)
@@ -1181,7 +1166,6 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
     sp.add_argument("--yes", "-y", action="store_true",
                     help="do not prompt (answers yes to --overwrite-local)")
-    sp.add_argument("--fable", action="store_true", help="deploy the Fable agents on Fable instead of Opus")
     sp.add_argument("--overwrite-local", action="store_true",
                     help="back up and replace locally modified or unmanaged files")
     g = sp.add_mutually_exclusive_group()

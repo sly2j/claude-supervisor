@@ -361,8 +361,8 @@ exec claude "$@"
   `README.md:111`, `docs/architecture.md:54`, and ROADMAP item 6.
 - Deps: P3
 - Stages: execute
-- Status: execute
-- Artifacts: ->
+- Status: done
+- Artifacts: commit on main (VERSION 1.14)
 
 ## Orchestration
 
@@ -431,9 +431,9 @@ User decisions on the former open questions (OQ1-OQ5):
 - [x] P3 U2: launcher subcommand tests (yes, refusal, `--all`, missing copy, passthrough)
 - [x] P3 U3: `## The Launcher`, README Install block
 - [ ] P3 glue: delete ROADMAP item 8, VERSION +1, pytest, 3.9 checks, review, commit, install
-- [ ] P4 U1: remove the rewrite, flag, manifest key and replay; launcher `--fable`; global note
-- [ ] P4 U2: launcher `--fable` tests, remove the fable block and lint test
-- [ ] P4 U3: `## Fable Or Opus`, README:111, architecture:54, any pack text
+- [x] P4 U1: remove the rewrite, flag, manifest key and replay; launcher `--fable`; global note
+- [x] P4 U2: launcher `--fable` tests, remove the fable block and lint test
+- [x] P4 U3: `## Fable Or Opus`, README:111, architecture:54, any pack text
 - [ ] P4 glue: delete ROADMAP item 6, VERSION +1, pytest, 3.9 checks, review, commit, install
 - [ ] P4: owner checks by hand that a `model: fable` dispatch runs Opus by default
-- [ ] P4 commit: archive this plan with `git mv` in the same change set
+- [x] P4 commit: archive this plan with `git mv` in the same change set

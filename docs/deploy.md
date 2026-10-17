@@ -12,7 +12,7 @@ cd "$REPO" && git pull               # when updating from the checkout (see Upda
 
 "$REPO/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/deploy" install --dry-run
-"$REPO/deploy" install       # sandbox ~/.config/claude-supervisor + launcher; add --fable to deploy the Fable agents on Fable (see Fable Or Opus)
+"$REPO/deploy" install       # sandbox ~/.config/claude-supervisor + launcher (fable agents run on Opus; see Fable Or Opus)
 "$REPO/deploy" status
 "$REPO/deploy" doctor        # should now report no FAIL
 ```
@@ -60,6 +60,7 @@ The launcher checks only its first argument. `update` and `uninstall` run the de
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run deploy install` and exits 1.
+- `claude-<tag> --fable ...` (first argument only) runs that session on Fable; see Fable Or Opus.
 - `--global` installs have no launcher; use the deploy tool.
 
 ## Update
@@ -72,7 +73,7 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 ~/.local/state/claude-supervisor/deploy update --all --yes    # every registered install
 ```
 
-`update` shallow-clones `main` from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, `--fable`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to `main`. `--all` asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes.
+`update` shallow-clones `main` from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to `main`. `--all` asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes.
 
 Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
 
@@ -80,9 +81,23 @@ After an update, `status` needs `--source "$REPO/pack"` to compare versions, bec
 
 ## Fable Or Opus
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. `install` deploys those agents and dispatch overrides as `opus`; `install --fable` deploys the source verbatim, on Fable. Only files under `agents/` change; skills and the source in `pack/` always name Fable.
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans, so each launcher exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`, which makes those agents and dispatch overrides run on Opus. `claude-<tag> --fable ...` strips the flag, unsets the variable and runs that session on Fable. The flag counts only as the first argument.
 
-Each `install` deploys what its flag says, so pass `--fable` on every install that should stay on Fable. The manifest records the choice and `status` prints it as a `Fable:` line.
+The value is a full model ID, the `OPUS_MODEL` constant in `deploy`. When a new Opus ships, update the constant and re-run `install` to regenerate the launchers.
+
+`--global` installs have no launcher, so `install --global` prints a note and the agents run on Fable until you set the variable yourself, in a shell profile or in `~/.claude/settings.json`:
+
+```bash
+export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5
+```
+
+```json
+{ "env": { "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-opus-5-5" } }
+```
+
+A sandbox created later copies `~/.claude/settings.json`, and there the settings value overrides `--fable`, so use the shell-profile form if you also use sandboxes.
+
+Global installs made before this change had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
 
 ## Doctor Checks
 

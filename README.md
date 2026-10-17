@@ -108,7 +108,7 @@ flowchart LR
 | `git-ops` | Quick: routine git with guardrails | haiku / xhigh |
 | `scout` | Quick: read-only lookups | haiku / xhigh |
 
-Rows marked `fable`, and the `model: fable` dispatch overrides, deploy on Opus unless the pack is installed with `--fable`. See [docs/deploy.md](docs/deploy.md).
+Rows marked `fable`, and the `model: fable` dispatch overrides, run on Opus in sandbox installs: the launcher sets `ANTHROPIC_DEFAULT_FABLE_MODEL`, and `claude-<tag> --fable` runs on Fable. For `--global` installs, set the variable yourself. See [docs/deploy.md](docs/deploy.md).
 
 ## Skills
 
@@ -151,7 +151,7 @@ Not every session needs the supervisor: plain `claude` starts plain Claude Code,
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "kept local modification" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
 | `install` refuses an "unmanaged" file | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
-| Claude Code asks to bill Fable to usage credits | You installed with `--fable`; run `./deploy install` without it. `./deploy status` prints the current choice |
+| Claude Code asks to bill Fable to usage credits | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout

@@ -287,7 +287,7 @@ def test_status_reports_states(pack, target):
 
 def test_help():
     r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
-    assert r.returncode == 0 and "--overwrite-local" in r.stdout and "--fable" in r.stdout
+    assert r.returncode == 0 and "--overwrite-local" in r.stdout and "--fable" not in r.stdout
     for flag in ("--tag", "--global", "--prefix", "--base-url", "--token", "--token-file"):
         assert flag in r.stdout, flag
     assert "--bin-dir" not in r.stdout
@@ -320,7 +320,7 @@ def test_settings_write_failure_keeps_manifest_consistent(pack, global_target, w
         raise RuntimeError("simulated crash")
 
     deploy.save_settings = failing_save
-    args = deploy.build_parser().parse_args(["install", "--global", "--source", str(pack), "--fable"])
+    args = deploy.build_parser().parse_args(["install", "--global", "--source", str(pack)])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
     assert manifest(global_target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
@@ -345,7 +345,7 @@ def test_release_write_failure_leaves_agent_revertible(pack, global_target, writ
 
     deploy.save_settings = failing_save
     args = deploy.build_parser().parse_args(
-        ["install", "--global", "--source", str(pack), "--no-default-agent", "--fable"])
+        ["install", "--global", "--source", str(pack), "--no-default-agent"])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
     r = run(pack, global_target, "uninstall", "--yes")
@@ -381,46 +381,62 @@ def fable_pack(pack: Path) -> Path:
     return pack
 
 
-def test_default_install_rewrites_agents(fable_pack, target):
+def test_install_is_verbatim_for_fable_agents(fable_pack, target):
     r = run(fable_pack, target, "install")
     assert r.returncode == 0, r.stdout + r.stderr
-    planner = (target / "agents" / "planner.md").read_text()
-    assert "\nmodel: opus\neffort: xhigh\n" in planner
-    assert "`model: opus`" in planner and "Critic runs on Fable." in planner
-    assert "model: fable" not in "".join(p.read_text() for p in (target / "agents").iterdir())
-    for key in ("agents/helper.md", "skills/demo/SKILL.md", "skills/demo/scripts/run.sh"):
+    assert "Fable:" not in r.stdout
+    assert "model: fable" in (target / "agents" / "planner.md").read_text()
+    files = manifest(target)["files"]
+    assert "agents/planner.md" in files and "fable" not in manifest(target)
+    for key in files:
         assert (target / key).read_bytes() == (fable_pack / key).read_bytes()
-    assert manifest(target)["fable"] is False
-    assert "Fable: off" in r.stdout
+    r = run(fable_pack, target, "status")
+    assert "Fable:" not in r.stdout
+    rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
+    assert rows and all(l.endswith("ok") for l in rows)
 
 
-def test_fable_flag_is_verbatim(fable_pack, target):
-    r = run(fable_pack, target, "install", "--fable")
+def fable_stub(tmp_path: Path) -> dict:
+    """A stub `claude` that prints the Fable model variable, then its args."""
+    stub = tmp_path / "bin" / "claude"
+    stub.parent.mkdir(exist_ok=True)
+    stub.write_text("#!/bin/sh\nprintf '%s\\n' \"${ANTHROPIC_DEFAULT_FABLE_MODEL-unset}\" \"$@\"\n")
+    stub.chmod(0o755)
+    return {"PATH": "%s:/usr/bin:/bin" % (tmp_path / "bin"), "HOME": str(tmp_path)}
+
+
+@pytest.mark.parametrize("args, caller, expect", [
+    (["-p", "x"], {}, ["OPUS", "-p", "x"]),
+    (["--fable", "-p", "x"], {}, ["unset", "-p", "x"]),
+    (["--fable"], {}, ["unset"]),
+    (["--fable", "-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["unset", "-p", "x"]),
+    (["-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["OPUS", "-p", "x"]),
+    (["x", "--fable"], {}, ["OPUS", "x", "--fable"]),
+])
+def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, monkeypatch):
+    assert run(pack, target, "install").returncode == 0
+    _, launcher = sandbox_paths(tmp_path, "supervisor")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    opus = load_deploy().OPUS_MODEL
+    assert opus == "claude-opus-5-5"
+    r = run_launcher(launcher, dict(fable_stub(tmp_path), **caller), *args)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines() == [opus if e == "OPUS" else e for e in expect]
+
+
+@pytest.mark.parametrize("dry", [[], ["--dry-run"]])
+def test_global_install_notes_fable_variable(pack, global_target, dry):
+    note = "set ANTHROPIC_DEFAULT_FABLE_MODEL to run fable agents on Opus"
+    r = run(pack, global_target, "install", *dry)
     assert r.returncode == 0, r.stdout + r.stderr
-    for key in manifest(target)["files"]:
-        assert (target / key).read_bytes() == (fable_pack / key).read_bytes()
-    assert manifest(target)["fable"] is True
-    assert "Fable: on" in r.stdout
+    assert note in r.stdout
 
 
-def test_status_matches_installed_variant(fable_pack, target):
-    for args, expect in (("--fable",), "Fable: on"), ((), "Fable: off"):
-        assert run(fable_pack, target, "install", *args).returncode == 0
-        r = run(fable_pack, target, "status")
-        assert expect in r.stdout
-        assert "outdated" not in r.stdout and "modified" not in r.stdout
-        rows = [l for l in r.stdout.splitlines() if l.startswith("  ")]
-        assert rows and all(l.endswith("ok") for l in rows)
-
-
-def test_fable_switch_updates(fable_pack, target):
-    run(fable_pack, target, "install")
-    r = run(fable_pack, target, "install", "--fable")
-    assert "updated=1" in r.stdout
-    assert (target / "agents" / "planner.md").read_bytes() == (fable_pack / "agents" / "planner.md").read_bytes()
-    r = run(fable_pack, target, "install")
-    assert "updated=1" in r.stdout
-    assert "model: opus" in (target / "agents" / "planner.md").read_text()
+def test_sandbox_install_has_no_fable_note(pack, target):
+    for dry in ([], ["--dry-run"]):
+        r = run(pack, target, "install", *dry)
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "ANTHROPIC_DEFAULT_FABLE_MODEL to run" not in r.stdout + r.stderr
 
 
 # --------------------------------------------------------------------------- version
@@ -507,7 +523,7 @@ def test_install_migrates_legacy_manifest(pack, legacy_install):
     assert not (legacy_install / ".claude-agents.lock").exists()
     after = manifest(legacy_install)
     assert after["settings"] == before["settings"]
-    assert after["fable"] is False
+    assert "fable" not in after
 
 
 def test_install_dry_run_does_not_migrate(pack, legacy_install):
@@ -572,7 +588,8 @@ def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
     assert os.access(launcher, os.X_OK)
     text = launcher.read_text()
     assert text.splitlines()[1].startswith(LAUNCHER_MARKER)
-    assert "CLAUDE_CONFIG_DIR='%s'" % sbx in text and "ANTHROPIC_" not in text
+    assert "CLAUDE_CONFIG_DIR='%s'" % sbx in text
+    assert "ANTHROPIC_BASE_URL" not in text and "ANTHROPIC_AUTH_TOKEN" not in text
     assert "Seed" not in r.stdout
 
     env = dict(claude_stub(tmp_path), HOME=str(tmp_path))
@@ -954,10 +971,13 @@ def test_update_from_remote_replays_options(remote, tmp_path):
     px = tmp_path / "px"
     sbx, _ = sandbox_paths(tmp_path, "t")
     launcher = px / "bin" / "claude-t"
-    install_from_clone(remote, "--tag", "t", "--prefix", str(px), "--no-default-agent", "--fable",
+    install_from_clone(remote, "--tag", "t", "--prefix", str(px), "--no-default-agent",
                        "--base-url", "https://llm.example")
     assert registry(tmp_path, px) == {str(sbx): {"tag": "t", "remote": remote.url}}
     assert "v1" in helper_text(sbx)
+    legacy = json.loads((sbx / MANIFEST).read_text())
+    legacy["fable"] = True  # a manifest written before the launcher took over the switch
+    (sbx / MANIFEST).write_text(json.dumps(legacy))
     push_change(remote, "v2 pushed")
 
     r = deploy_run(remote, state_dir(tmp_path, px) / "deploy", "update", "--prefix", str(px),
@@ -968,7 +988,7 @@ def test_update_from_remote_replays_options(remote, tmp_path):
     assert not (tmp_path / ".local").exists()
     assert not (sbx / "settings.json").exists() or "agent" not in settings(sbx)
     m = manifest(sbx)
-    assert m["fable"] is True and m["base_url"] == "https://llm.example"
+    assert "fable" not in m and m["base_url"] == "https://llm.example"
     assert m["settings"]["managed_agent_key"] is False
     assert m["launcher"] == str(launcher) and m["prefix"] == str(px.resolve())
     assert "ANTHROPIC_BASE_URL='https://llm.example'" in launcher.read_text()
