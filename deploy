@@ -41,8 +41,16 @@ SEED = ("settings.json", "CLAUDE.md", "commands", "output-styles", "keybindings.
 LAUNCHER_MARKER = "# managed by claude-supervisor"
 
 
-def launcher_text(tag: str, target: Path, base_url: Optional[str], has_token: bool) -> str:
+def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
+    d = state_dir(prefix) / "deploy"
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
+             'case "$1" in update|uninstall)',
+             "  d='%s'" % d,
+             '  [ -x "$d" ] || { echo "claude-%s: $d missing; run deploy install" >&2; exit 1; }' % tag,
+             "  s=$1; shift",
+             # the fixed flags come last, so argparse ignores a user's --tag/--target/--prefix
+             "  exec \"$d\" \"$s\" \"$@\" --prefix '%s' --tag '%s' --target '%s' --launcher;;" % (prefix, tag, target),
+             "esac",
              "CLAUDE_CONFIG_DIR='%s'; export CLAUDE_CONFIG_DIR" % target]
     if base_url:
         lines.append("ANTHROPIC_BASE_URL='%s'; export ANTHROPIC_BASE_URL" % base_url)
@@ -130,6 +138,14 @@ def confirm(prompt: str, assume_yes: bool) -> bool:
     if not sys.stdin.isatty():
         raise DeployError("%s -- refusing without a terminal; re-run with --yes" % prompt)
     return input(prompt + " [y/N] ").strip().lower() in ("y", "yes")
+
+
+def confirm_typed(prompt: str, expected: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        raise DeployError("%s -- refusing without a terminal; re-run with --yes" % prompt)
+    return input(prompt + " Type %s to confirm: " % expected).strip() == expected
 
 
 def target_tag(args: argparse.Namespace) -> Optional[str]:
@@ -731,7 +747,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             if launcher:
                 if token is not None:
                     atomic_write_bytes(target / "token", token, mode=0o600)
-                text = launcher_text(tag, target, base_url, (target / "token").exists())
+                text = launcher_text(tag, target, prefix, base_url, (target / "token").exists())
                 atomic_write_bytes(launcher, text.encode(), mode=0o755)
             register_install(prefix, target, tag, git_remote(source))
             atomic_write_bytes(state_dir(prefix) / "deploy", Path(__file__).read_bytes(), mode=0o755)
@@ -839,6 +855,8 @@ def uninstall_all(args: argparse.Namespace) -> int:
 
 
 def uninstall_cmd(args: argparse.Namespace) -> int:
+    if args.all and args.launcher:
+        raise DeployError("use deploy uninstall --all")
     if args.all:
         return uninstall_all(args)
     target, prefix = resolve_target(args), resolve_prefix(args)
@@ -852,7 +870,13 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
     tag = target_tag(args)
     prompt = "Delete %s (sessions, history, login) and its launcher?" if tag else \
         "Remove the agent pack from %s?"
-    if not args.dry_run and not confirm(prompt % target, args.yes):
+    if args.dry_run:
+        ok = True
+    elif args.launcher:
+        ok = confirm_typed(prompt % target, tag, args.yes)
+    else:
+        ok = confirm(prompt % target, args.yes)
+    if not ok:
         eprint("aborted")
         return 1
     if tag:
@@ -955,7 +979,8 @@ def update_cmd(args: argparse.Namespace) -> int:
     prefix = resolve_prefix(args)
     installs = load_registry(prefix)
     if args.all:
-        check_all_exclusive(args)
+        if not args.launcher:
+            check_all_exclusive(args)
         if not installs:
             print("No registered installs.")
             return 0
@@ -969,13 +994,32 @@ def update_cmd(args: argparse.Namespace) -> int:
     if source is not None and args.all:
         remote = git_remote(source)
         selected = {k: v for k, v in selected.items() if v.get("remote") == remote}
-    if args.all and selected and not args.dry_run:
+    if selected and not args.dry_run and (args.all or args.launcher):
         listing = ", ".join("%s (%s)" % (k, v.get("remote") or "no remote") for k, v in selected.items())
-        if not confirm("Update every registered install: %s?" % listing, args.yes):
+        if args.all:
+            question = "Update every registered install: %s%s?" % (listing, " and run claude update" if args.launcher else "")
+        else:
+            question = "Update %s from %s and run claude update?" % (target, selected[str(target)].get("remote") or "no remote")
+        if not confirm(question, args.yes):
             eprint("aborted")
             return 1
 
     failed = 0
+    if args.launcher and selected:
+        if args.dry_run:
+            print("[dry-run] would run claude update")
+        else:
+            print("== claude update ==")
+            sys.stdout.flush()
+            try:
+                rc = subprocess.run(["claude", "update"]).returncode
+                if rc != 0:
+                    print("ERROR claude update failed (exit %d); updating the pack anyway" % rc)
+                    failed += 1
+            except OSError as exc:
+                print("ERROR claude update: %s; updating the pack anyway" % exc)
+                failed += 1
+        sys.stdout.flush()
     groups: Dict[str, List[str]] = {}
     for key, entry in selected.items():
         try:
@@ -1163,6 +1207,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
     sp.add_argument("--force", action="store_true", help="also remove locally modified managed files")
     sp.add_argument("--all", action="store_true", help="uninstall every registered install")
+    sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=uninstall_cmd)
 
     sp = sub.add_parser("update", help="update registered installs from the git remote",
@@ -1174,6 +1219,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="repo checkout to install from instead of cloning the recorded remote")
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt (--all asks once)")
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
+    sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=update_cmd)
 
     sp = sub.add_parser("doctor", help="check the environment and the install",

@@ -46,6 +46,22 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 
 Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
 
+## The Launcher
+
+```bash
+claude-supervisor update              # claude update, then this sandbox's pack
+claude-supervisor update --all        # every install in this launcher's prefix
+claude-supervisor uninstall           # delete this sandbox
+```
+
+The launcher checks only its first argument. `update` and `uninstall` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`) for this sandbox; everything else goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
+
+- `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
+- `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
+- Without a terminal, both need `--yes` (exit code 2 otherwise).
+- If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run deploy install` and exits 1.
+- `--global` installs have no launcher; use the deploy tool.
+
 ## Update
 
 Every install records itself in a registry, `<prefix>/state/claude-supervisor/installs.json`, and writes a copy of the deploy tool to `<prefix>/state/claude-supervisor/deploy` (by default under `~/.local/state/claude-supervisor/`). Neither is ever deleted. Each prefix has its own registry and tool copy, and installs under different prefixes are independent: `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give. The commands below use the default prefix; add `--prefix P` for another.
@@ -58,7 +74,7 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 
 `update` shallow-clones `main` from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, `--fable`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to `main`. `--all` asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes.
 
-Installs made before this version are not registered. Run `"$REPO/deploy" install` once from the checkout. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
+Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
 
 After an update, `status` needs `--source "$REPO/pack"` to compare versions, because the manifest names the deleted clone.
 
@@ -105,7 +121,7 @@ Plain `claude` then starts plain Claude Code.
 
 ## Notes For Claude Running This
 
-- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all` and `uninstall --all` need `--yes`.
+- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.

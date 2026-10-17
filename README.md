@@ -23,8 +23,8 @@ Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-**Update:** `./deploy update` (`--all` for every install; it clones `main` from the recorded remote). Files you edited in the install dir are kept, and the script lists them.
-**Check:** `./deploy status`. **Remove:** `./deploy uninstall --yes`.
+**Update:** `./deploy update` (`--all` for every install; it clones `main` from the recorded remote), or `claude-supervisor update`, which runs `claude update` first. Files you edited in the install dir are kept, and the script lists them.
+**Check:** `./deploy status`. **Remove:** `./deploy uninstall --yes`, or `claude-supervisor uninstall` ([the launcher](docs/deploy.md#the-launcher)).
 **Token provider:** add `--base-url URL --token-file PATH` to a sandbox install ([docs/deploy.md](docs/deploy.md#token-provider)).
 **Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `./deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
 

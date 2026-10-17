@@ -187,7 +187,7 @@ case "$1" in update|uninstall)
   d='<prefix>/state/claude-supervisor/deploy'
   [ -x "$d" ] || { echo "claude-T: $d missing; run deploy install" >&2; exit 1; }
   s=$1; shift
-  exec "$d" "$s" --prefix '<prefix>' --tag 'T' --target '<target>' --launcher "$@";;
+  exec "$d" "$s" "$@" --prefix '<prefix>' --tag 'T' --target '<target>' --launcher;;
 esac
 CLAUDE_CONFIG_DIR='<target>'; export CLAUDE_CONFIG_DIR
 # ... base_url / token lines unchanged ...
@@ -351,8 +351,8 @@ exec claude "$@"
   subcommand tests, `## The Launcher` in the docs, and ROADMAP item 8.
 - Deps: P2
 - Stages: execute
-- Status: execute
-- Artifacts: ->
+- Status: done
+- Artifacts: commit on main (VERSION 1.13)
 
 ### P4: Launch-time Opus/Fable switch (ROADMAP 6)
 - Goal: the launcher `--fable` replaces the install-time rewrite; done when the P4 acceptance
@@ -426,10 +426,10 @@ User decisions on the former open questions (OQ1-OQ5):
 - [x] P2 U2: registry, update-from-`file://`, `--all`, stale-entry and null-remote tests
 - [x] P2 U3: `## Update`, `## Uninstall` `--all`, README Install block
 - [ ] P2 glue: delete ROADMAP item 7, VERSION +1, pytest, 3.9 checks, review, commit, install
-- [ ] P3 U1: launcher `case` dispatch, `--launcher`, `claude update` step, typed-tag confirm
+- [x] P3 U1: launcher `case` dispatch, `--launcher`, `claude update` step, typed-tag confirm
   for uninstall
-- [ ] P3 U2: launcher subcommand tests (yes, refusal, `--all`, missing copy, passthrough)
-- [ ] P3 U3: `## The Launcher`, README Install block
+- [x] P3 U2: launcher subcommand tests (yes, refusal, `--all`, missing copy, passthrough)
+- [x] P3 U3: `## The Launcher`, README Install block
 - [ ] P3 glue: delete ROADMAP item 8, VERSION +1, pytest, 3.9 checks, review, commit, install
 - [ ] P4 U1: remove the rewrite, flag, manifest key and replay; launcher `--fable`; global note
 - [ ] P4 U2: launcher `--fable` tests, remove the fable block and lint test

@@ -575,9 +575,14 @@ def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
     assert "CLAUDE_CONFIG_DIR='%s'" % sbx in text and "ANTHROPIC_" not in text
     assert "Seed" not in r.stdout
 
-    r = run_launcher(launcher, claude_stub(tmp_path), "a b", "--", "")
+    env = dict(claude_stub(tmp_path), HOME=str(tmp_path))
+    r = run_launcher(launcher, env, "a b", "--", "")
     assert r.returncode == 0, r.stderr
     assert r.stdout == "%s\n\n\na b\n--\n\n" % sbx
+    # only a leading update/uninstall is the launcher's own
+    r = run_launcher(launcher, env, "--help", "updates", "x", "update", "uninstall")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout == "%s\n\n\n--help\nupdates\nx\nupdate\nuninstall\n" % sbx
 
     r = run(pack, target, "status", target_args=extra)
     assert "Target: %s" % sbx in r.stdout
@@ -1030,3 +1035,115 @@ def test_stale_entry_skipped_by_update_and_pruned_by_uninstall(remote, three, tm
     assert "Removed stale registry entry for %s" % u in r.stdout
     assert registry(tmp_path) == {}
     assert not t.exists() and not u.exists()
+
+
+# launcher update and uninstall
+
+def launcher_env(remote: SimpleNamespace, tmp_path: Path, stub_exit: int = 0) -> dict:
+    """Env for a launcher run: fake HOME, stub `claude` first on PATH (never the real one), git on PATH."""
+    claude_stub(tmp_path)
+    env = dict(remote.env, PATH="%s:%s" % (tmp_path / "bin", remote.env["PATH"]))
+    if stub_exit:
+        stub = tmp_path / "bin" / "claude"
+        stub.write_text(stub.read_text() + "exit %d\n" % stub_exit)
+    return env
+
+
+def claude_launcher(tmp_path: Path, tag: str) -> Path:
+    return tmp_path / ".local" / "bin" / ("claude-" + tag)
+
+
+def test_launcher_update_yes(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    push_change(remote, "v6 launcher")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "== claude update ==" in r.stdout and "\n\n\nupdate\n" in r.stdout
+    assert "v6 launcher" in helper_text(sbx)
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_launcher_update_survives_claude_update_failure(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    push_change(remote, "v7 despite")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path, stub_exit=3),
+                     "update", "--yes")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "ERROR claude update failed (exit 3); updating the pack anyway" in r.stdout + r.stderr
+    assert "v7 despite" in helper_text(sbx)
+
+
+def test_launcher_uninstall_yes(remote, tmp_path):
+    for tag in ("t", "u"):
+        install_from_clone(remote, "--tag", tag)
+    (t, _), (u, _) = sandbox_paths(tmp_path, "t"), sandbox_paths(tmp_path, "u")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not t.exists() and not claude_launcher(tmp_path, "t").exists()
+    assert list(registry(tmp_path)) == [str(u)]
+    assert (u / MANIFEST).is_file() and claude_launcher(tmp_path, "u").is_file()
+    assert (remote.state / "deploy").is_file()
+
+
+def test_launcher_update_all_yes(remote, three, tmp_path):
+    push_change(remote, "v8 all")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path),
+                     "update", "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for t in three:
+        assert "v8 all" in helper_text(t), t
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_launcher_uninstall_all_refused(remote, three, tmp_path):
+    roots = [tmp_path / ".config", tmp_path / ".claude", tmp_path / ".local"]
+    before = [snapshot(p) for p in roots]
+    for extra in ([], ["--yes"]):
+        r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path),
+                         "uninstall", "--all", *extra)
+        assert r.returncode == 2, r.stdout + r.stderr
+        assert "use deploy uninstall --all" in r.stderr
+        assert [snapshot(p) for p in roots] == before
+        assert len(registry(tmp_path)) == 3
+
+
+@pytest.mark.parametrize("cmd", ["update", "uninstall"])
+def test_launcher_without_yes_and_no_tty_refuses(remote, three, tmp_path, cmd):
+    push_change(remote, "v9 unseen")
+    roots = [tmp_path / ".config", tmp_path / ".claude", tmp_path / ".local"]
+    before = [snapshot(p) for p in roots]
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), cmd)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "--yes" in r.stderr and "update" not in r.stdout.splitlines()
+    assert [snapshot(p) for p in roots] == before
+    assert len(registry(tmp_path)) == 3
+
+
+def test_launcher_missing_tool_copy(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    (remote.state / "deploy").unlink()
+    before = snapshot(tmp_path / ".config")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--yes")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "missing; run deploy install" in r.stderr and "update" not in r.stdout.splitlines()
+    assert snapshot(tmp_path / ".config") == before
+
+
+@pytest.mark.parametrize("cmd", ["update", "uninstall"])
+def test_launcher_ignores_user_selection(remote, tmp_path, cmd):
+    for tag in ("t", "other"):
+        install_from_clone(remote, "--tag", tag)
+    (t, _), (other, _) = sandbox_paths(tmp_path, "t"), sandbox_paths(tmp_path, "other")
+    push_change(remote, "v10 own")
+    before = snapshot(other)
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path),
+                     cmd, "--tag", "other", "--target", str(other), "--prefix", str(tmp_path / "px"), "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert snapshot(other) == before and claude_launcher(tmp_path, "other").is_file()
+    assert str(other) in registry(tmp_path) and not (tmp_path / "px").exists()
+    if cmd == "update":
+        assert "v10 own" in helper_text(t)
+    else:
+        assert not t.exists() and str(t) not in registry(tmp_path)

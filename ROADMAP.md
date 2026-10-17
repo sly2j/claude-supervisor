@@ -80,22 +80,3 @@
   `docs/architecture.md` are updated.
 - **Pointers:** `deploy` (`FABLE_TOKEN`, `deployed_bytes`, `launcher_text`),
   `tests/test_deploy.py`, `tests/test_pack_lint.py`.
-
-### 8. Launcher: `update` and `uninstall` subcommands
-
-- **Goal:** `claude-<tag> update` updates this sandbox and Claude Code, and
-  `claude-<tag> uninstall` removes this sandbox. Each asks for confirmation first.
-- **Scope:**
-  - In: the launcher intercepts `update` or `uninstall` as its first argument and runs the
-    deploy tool copy under the install's prefix (default
-    `~/.local/state/claude-supervisor/deploy`). `update --all` updates every registered
-    install. `update` also runs `claude update`. All other arguments still pass through to
-    `claude`.
-  - Out: global installs, which have no launcher and use the deploy tool. Uninstalling other
-    installs from a launcher.
-- **Decisions already made:** bare subcommand names, confirmation before either one runs, and
-  `update` covers only this sandbox unless `--all` is given.
-- **Done when:** launcher tests cover both subcommands, refusal without `--yes` or a terminal,
-  and passthrough of all other arguments. `docs/deploy.md` and README are updated.
-- **Pointers:** `docs/plan-install-lifecycle.md` (P3), `deploy` (`launcher_text`),
-  `tests/test_deploy.py` (`claude_stub`, `run_launcher`).
