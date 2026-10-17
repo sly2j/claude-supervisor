@@ -22,32 +22,6 @@
 
 ## Items
 
-### 2. Deploy: sandboxed installs with a launcher
-
-- **Goal:** by default the pack no longer touches `~/.claude`. Sandboxed installs let the owner
-  run token providers in parallel and try Claude Code versions or agent defaults side by side.
-- **Scope:**
-  - In: default target `~/.config/claude-supervisor`, launcher `claude-supervisor`.
-  - In: `--tag <tag>` targets `~/.config/claude-<tag>`; `--global` installs into `~/.claude`.
-  - In: a tagged install copies (not symlinks) selected items of `~/.claude` into its dir, then
-    installs a `claude-<tag>` launcher into `~/.local/bin` (prefix configurable) that runs
-    `claude` with `CLAUDE_CONFIG_DIR` set to that dir.
-  - In: tagged uninstall removes `~/.config/claude-<tag>` and its launcher; `--global` uninstall
-    removes only the pack's additions, manifest-driven as today.
-- **Decisions already made:** sandboxed default; `--global` is opt-in; copies, not symlinks.
-- **Left to planner, settle with the owner:**
-  - Which `~/.claude` items are copied (candidates: settings, CLAUDE.md, agents, skills,
-    commands, plugins) and which never are (candidates: credentials, history, sessions, caches).
-  - How today's target resolution (`--target`, else `$CLAUDE_CONFIG_DIR`, else `~/.claude`;
-    `scripts/deploy:116`) fits the new modes.
-  - Whether a tagged install still sets the `agent` key in its `settings.json`.
-  - Verify that `CLAUDE_CONFIG_DIR` is the supported mechanism for the launcher.
-- **Done when:**
-  - `install`, `status`, and `uninstall` work in tagged and global modes, with tests for both.
-  - `docs/deploy.md`, README, and `CLAUDE.md` are updated.
-- **Pointers:** `scripts/deploy` (~116, target resolution), `docs/deploy.md`,
-  `tests/test_deploy.py`.
-
 ### 3. Pack-wide line reflow and length lint
 
 - **Goal:** all `pack/` body lines are <= 100 chars, enforced by a lint.
@@ -102,8 +76,7 @@
 - **Left to planner:** the env var name (confirm with the owner); what `--global` installs
   (no launcher) do about Opus; how the prose dispatch tokens in `planner.md` and `writer.md`
   behave under the remap.
-- **Depends on:** item 2 (launcher).
 - **Done when:** launcher tests cover `--fable` on and off; `docs/deploy.md`, README, and
   `docs/architecture.md` are updated.
-- **Pointers:** `scripts/deploy` (`FABLE_TOKEN`, `deployed_bytes`, the item 2 launcher),
+- **Pointers:** `scripts/deploy` (`FABLE_TOKEN`, `deployed_bytes`, `launcher_text`),
   `tests/test_deploy.py`, `tests/test_pack_lint.py`.

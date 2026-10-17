@@ -16,15 +16,16 @@ Requirements:
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 cd ~/Work/claude-supervisor
 scripts/deploy doctor      # preflight check
-scripts/deploy install     # copies agents and skills into ~/.claude
+scripts/deploy install     # installs into ~/.config/claude-supervisor
 ```
 
-Then start a new `claude` session. It runs as the supervisor; type `/agents` to see the pack.
+Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/agents` to see the pack. `--global` installs into `~/.claude` instead; `--tag <t>` makes another sandbox, `claude-<t>`.
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-**Update:** `git pull && scripts/deploy install`. Files you edited in `~/.claude` are kept, and the script lists them.
+**Update:** `git pull && scripts/deploy install`. Files you edited in the install dir are kept, and the script lists them.
 **Check:** `scripts/deploy status`. **Remove:** `scripts/deploy uninstall --yes`.
+**Token provider:** add `--base-url URL --token-file PATH` to a sandbox install ([docs/deploy.md](docs/deploy.md#token-provider)).
 **Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `scripts/deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
 
 Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
@@ -139,25 +140,25 @@ Just ask for what you want. The supervisor picks the mode, but you can steer it:
 
 Larger work flows `researcher` -> `planner` -> your approval -> `executor`. Artifacts land in `docs/research-*.md` and `docs/plan-*.md`, so you can read and annotate them between steps.
 
-Not every session needs the supervisor. To start one without it, install with `scripts/deploy install --no-default-agent`, then add `alias cs='claude --agent supervisor'` to your shell profile. `claude` then starts plain Claude Code, and `cs` starts the supervisor.
+Not every session needs the supervisor: plain `claude` starts plain Claude Code, and `claude-supervisor` starts the supervisor.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Agents don't show in `/agents` | Start a new session. Run `scripts/deploy status` |
+| Agents don't show in `/agents` | Start a new `claude-supervisor` session. Run `scripts/deploy status` |
 | Leads do the work themselves instead of fanning out | Run `scripts/deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
-| `install` reports "kept local modification" | Expected: your edit in `~/.claude` wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
-| `install` refuses an "unmanaged" file | A file with that name already exists in `~/.claude`. Rename yours, or use `--overwrite-local` |
+| `install` reports "kept local modification" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
+| `install` refuses an "unmanaged" file | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
 | Claude Code asks to bill Fable to usage credits | You installed with `--fable`; run `scripts/deploy install` without it. `scripts/deploy status` prints the current choice |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
 
 ```
-pack/agents/        agent definitions (deployed to ~/.claude/agents)
-pack/skills/        skills (deployed to ~/.claude/skills)
+pack/agents/        agent definitions (deployed to <install dir>/agents)
+pack/skills/        skills (deployed to <install dir>/skills)
 scripts/deploy      installer: install | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
 docs/               research, architecture, deploy runbook

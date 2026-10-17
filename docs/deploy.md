@@ -12,16 +12,16 @@ cd "$REPO" && git pull               # when updating
 
 "$REPO/scripts/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/scripts/deploy" install --dry-run
-"$REPO/scripts/deploy" install       # add --fable to deploy the Fable agents on Fable (see Fable Or Opus)
+"$REPO/scripts/deploy" install       # sandbox ~/.config/claude-supervisor + launcher; add --fable to deploy the Fable agents on Fable (see Fable Or Opus)
 "$REPO/scripts/deploy" status
 "$REPO/scripts/deploy" doctor        # should now report no FAIL
 ```
 
-Start a new Claude Code session afterwards. The session runs as `supervisor` because of `"agent": "supervisor"` in `~/.claude/settings.json`. Type `/agents` to see the installed agents.
+Start it with `claude-supervisor` and log in once; each sandbox has its own login, settings, and history, and plain `claude` is untouched. The session runs as `supervisor` because install sets `"agent": "supervisor"` in the sandbox's `settings.json`. Type `/agents` to see the installed agents.
 
 ## What Install Does
 
-- Copies `pack/agents/*.md` to `<target>/agents/` and `pack/skills/*` to `<target>/skills/`. The target is `--target`, else `$CLAUDE_CONFIG_DIR`, else `~/.claude`.
+- Copies `pack/agents/*.md` to `<target>/agents/` and `pack/skills/*` to `<target>/skills/`. The target is a sandbox, `~/.config/claude-<tag>` (`--tag`, default `supervisor`; `--target DIR` sets another dir), or `~/.claude` with `--global`, which installs as before with no copy and no launcher. `$CLAUDE_CONFIG_DIR` is ignored.
 - Records SHA-256 hashes in `<target>/.claude-supervisor-manifest.json`. An install made before the rename (with `.claude-agents-manifest.json`) is still recognized by `status` and is migrated to the new name by the next `install`. Re-running `install` is the update path and is idempotent:
 
 | Situation | Action |
@@ -32,9 +32,19 @@ Start a new Claude Code session afterwards. The session runs as `supervisor` bec
 | A file with that name exists that the pack does not manage | refused, exit code 1 (`--overwrite-local` backs it up and replaces it) |
 | File removed from the pack | deleted if unmodified, otherwise kept and handed over to you |
 
-- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude --agent supervisor`. `claude --agent <other>` overrides the setting for a single session.
+- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude-supervisor --agent supervisor`. `claude-supervisor --agent <other>` overrides the setting for a single session.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
 - Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: 1.x`, with `(was 1.y)` on an update. `status` prints `Version: installed=1.x, source=1.y` and appends `(MISMATCH: run scripts/deploy install)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
+- On a sandbox's first install, copies from `~/.claude`: `settings.json` (without `agent`), `CLAUDE.md`, `commands/`, `output-styles/`, `keybindings.json`, and your own files in `agents/` and `skills/` (not `skills/.trash` or `skills/synced`). Plugins, logins, history, and sessions stay behind.
+- Writes the launcher `~/.local/bin/claude-<tag>` (`--bin-dir DIR` to change), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the sandbox. Install refuses a tag whose launcher path exists and was not written by the deploy.
+
+### Token Provider
+
+```bash
+"$REPO/scripts/deploy" install --tag work --base-url https://llm.example.com --token-file ~/work.token
+```
+
+Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
 
 ## Fable Or Opus
 
@@ -61,7 +71,19 @@ Anthropic's document skills are recommended for docx, pdf, pptx, and xlsx work, 
 "$REPO/scripts/deploy" uninstall --yes
 ```
 
+For a sandbox, uninstall deletes its dir, including sessions, history, login, and token, and its launcher. With `--global` it removes only the pack's files.
+
 Uninstall removes the unmodified managed files and keeps the ones you edited; `--force` removes those as well. It restores your previous `agent` setting.
+
+## Moving From A Global Install
+
+Versions before 1.10 installed into `~/.claude`. After the first sandboxed install, remove that copy once:
+
+```bash
+"$REPO/scripts/deploy" uninstall --global --yes
+```
+
+Plain `claude` then starts plain Claude Code.
 
 ## Notes For Claude Running This
 

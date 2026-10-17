@@ -15,6 +15,7 @@ import pytest
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "deploy"
 MANIFEST = ".claude-supervisor-manifest.json"
 LEGACY_MANIFEST = ".claude-agents-manifest.json"
+LAUNCHER_MARKER = "# managed by claude-supervisor"
 
 
 def agent_md(name: str, body: str = "Body.") -> str:
@@ -42,11 +43,18 @@ def target(tmp_path: Path) -> Path:
     return tmp_path / "claude"
 
 
-def run(pack: Path, target: Path, *args: str) -> subprocess.CompletedProcess:
+@pytest.fixture
+def global_target(tmp_path: Path) -> Path:
+    return tmp_path / ".claude"
+
+
+def run(pack: Path, target: Path, *args: str, target_args=None) -> subprocess.CompletedProcess:
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
     env["PATH"] = str(target.parent / "bin")  # hides the real claude (and git)
     env["HOME"] = str(target.parent)  # hides the real ~/.claude.json
-    cmd = [sys.executable, str(SCRIPT), args[0], "--target", str(target)]
+    if target_args is None:
+        target_args = ["--global"] if target.name == ".claude" else ["--target", str(target)]
+    cmd = [sys.executable, str(SCRIPT), args[0]] + list(target_args)
     if args[0] in ("install", "status"):
         cmd += ["--source", str(pack)]
     cmd += list(args[1:])
@@ -210,26 +218,26 @@ def test_dry_run_writes_nothing(pack, target):
     assert snapshot(target) == before
 
 
-def test_uninstall_restores_previous_agent(pack, target):
-    target.mkdir()
-    (target / "settings.json").write_text(json.dumps({"agent": "mine", "x": 1}))
-    run(pack, target, "install", "--force-default-agent")
-    (target / "skills" / "demo" / "SKILL.md").write_text("edited")
-    r = run(pack, target, "uninstall", "--yes")
+def test_uninstall_restores_previous_agent(pack, global_target):
+    global_target.mkdir()
+    (global_target / "settings.json").write_text(json.dumps({"agent": "mine", "x": 1}))
+    run(pack, global_target, "install", "--force-default-agent")
+    (global_target / "skills" / "demo" / "SKILL.md").write_text("edited")
+    r = run(pack, global_target, "uninstall", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert not (target / "agents" / "supervisor.md").exists()
-    assert not (target / "skills" / "demo" / "scripts").exists()
-    assert (target / "skills" / "demo" / "SKILL.md").read_text() == "edited"  # modified kept
-    assert settings(target) == {"agent": "mine", "x": 1}
-    assert not (target / MANIFEST).exists()
+    assert not (global_target / "agents" / "supervisor.md").exists()
+    assert not (global_target / "skills" / "demo" / "scripts").exists()
+    assert (global_target / "skills" / "demo" / "SKILL.md").read_text() == "edited"  # modified kept
+    assert settings(global_target) == {"agent": "mine", "x": 1}
+    assert not (global_target / MANIFEST).exists()
 
 
-def test_uninstall_removes_agent_key(pack, target):
-    run(pack, target, "install")
-    r = run(pack, target, "uninstall", "--yes")
+def test_uninstall_removes_agent_key(pack, global_target):
+    run(pack, global_target, "install")
+    r = run(pack, global_target, "uninstall", "--yes")
     assert r.returncode == 0
-    assert settings(target) == {}
-    assert not (target / "agents" / "helper.md").exists()
+    assert settings(global_target) == {}
+    assert not (global_target / "agents" / "helper.md").exists()
 
 
 def test_uninstall_without_yes_and_no_tty_refuses(pack, target):
@@ -278,6 +286,8 @@ def test_status_reports_states(pack, target):
 def test_help():
     r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
     assert r.returncode == 0 and "--overwrite-local" in r.stdout and "--fable" in r.stdout
+    for flag in ("--tag", "--global", "--bin-dir", "--base-url", "--token", "--token-file"):
+        assert flag in r.stdout, flag
 
 
 def test_symlinked_settings_survive_install(pack, target, tmp_path):
@@ -296,7 +306,8 @@ def test_symlinked_settings_survive_install(pack, target, tmp_path):
 
 
 @pytest.mark.parametrize("write_first", [True, False])
-def test_settings_write_failure_keeps_manifest_consistent(pack, target, write_first):
+def test_settings_write_failure_keeps_manifest_consistent(pack, global_target, write_first, monkeypatch):
+    monkeypatch.setenv("HOME", str(global_target.parent))
     deploy = load_deploy()
     real_save = deploy.save_settings
 
@@ -306,20 +317,21 @@ def test_settings_write_failure_keeps_manifest_consistent(pack, target, write_fi
         raise RuntimeError("simulated crash")
 
     deploy.save_settings = failing_save
-    args = deploy.build_parser().parse_args(["install", "--target", str(target), "--source", str(pack), "--fable"])
+    args = deploy.build_parser().parse_args(["install", "--global", "--source", str(pack), "--fable"])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
-    assert manifest(target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
-    r = run(pack, target, "uninstall", "--yes")
+    assert manifest(global_target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
+    r = run(pack, global_target, "uninstall", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
-    if (target / "settings.json").exists():
-        assert "agent" not in settings(target)
-    assert not (target / MANIFEST).exists()
+    if (global_target / "settings.json").exists():
+        assert "agent" not in settings(global_target)
+    assert not (global_target / MANIFEST).exists()
 
 
 @pytest.mark.parametrize("write_first", [True, False])
-def test_release_write_failure_leaves_agent_revertible(pack, target, write_first):
-    assert run(pack, target, "install").returncode == 0
+def test_release_write_failure_leaves_agent_revertible(pack, global_target, write_first, monkeypatch):
+    assert run(pack, global_target, "install").returncode == 0
+    monkeypatch.setenv("HOME", str(global_target.parent))
     deploy = load_deploy()
     real_save = deploy.save_settings
 
@@ -330,12 +342,12 @@ def test_release_write_failure_leaves_agent_revertible(pack, target, write_first
 
     deploy.save_settings = failing_save
     args = deploy.build_parser().parse_args(
-        ["install", "--target", str(target), "--source", str(pack), "--no-default-agent", "--fable"])
+        ["install", "--global", "--source", str(pack), "--no-default-agent", "--fable"])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
-    r = run(pack, target, "uninstall", "--yes")
+    r = run(pack, global_target, "uninstall", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "agent" not in settings(target)
+    assert "agent" not in settings(global_target)
 
 
 def test_non_utf8_source_file_exits_2(pack, target):
@@ -464,12 +476,12 @@ MIGRATION = ".claude-agents-manifest.json -> .claude-supervisor-manifest.json"
 
 
 @pytest.fixture
-def legacy_install(pack, target):
+def legacy_install(pack, global_target):
     """An install whose manifest and lock carry the pre-rebrand names."""
-    assert run(pack, target, "install").returncode == 0
-    (target / MANIFEST).rename(target / LEGACY_MANIFEST)
-    (target / ".claude-agents.lock").write_text("")
-    return target
+    assert run(pack, global_target, "install").returncode == 0
+    (global_target / MANIFEST).rename(global_target / LEGACY_MANIFEST)
+    (global_target / ".claude-agents.lock").write_text("")
+    return global_target
 
 
 def test_status_detects_legacy_install(pack, legacy_install):
@@ -519,3 +531,198 @@ def test_install_warns_when_both_manifests_exist(pack, legacy_install):
     assert ("WARNING: both .claude-agents-manifest.json and .claude-supervisor-manifest.json exist; "
             "using .claude-supervisor-manifest.json") in r.stdout
     assert (legacy_install / LEGACY_MANIFEST).exists()
+
+
+# --------------------------------------------------------------------------- sandbox
+
+def claude_stub(tmp_path: Path) -> dict:
+    """A stub `claude` that echoes its env and args; returns the env for running a launcher."""
+    stub = tmp_path / "bin" / "claude"
+    stub.parent.mkdir(exist_ok=True)
+    stub.write_text("#!/bin/sh\n"
+                    "printf '%s\\n' \"$CLAUDE_CONFIG_DIR\" \"$ANTHROPIC_BASE_URL\" "
+                    "\"$ANTHROPIC_AUTH_TOKEN\" \"$@\"\n")
+    stub.chmod(0o755)
+    return {"PATH": "%s:/usr/bin:/bin" % (tmp_path / "bin")}
+
+
+def run_launcher(launcher: Path, env: dict, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([str(launcher)] + list(args), capture_output=True, text=True, env=env,
+                          timeout=60, stdin=subprocess.DEVNULL)
+
+
+def sandbox_paths(tmp_path: Path, tag: str):
+    return ((tmp_path / ".config" / ("claude-" + tag)).resolve(),
+            (tmp_path / ".local" / "bin" / ("claude-" + tag)).resolve())
+
+
+@pytest.mark.parametrize("extra, tag", [([], "supervisor"), (["--tag", "t"], "t")])
+def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
+    sbx, launcher = sandbox_paths(tmp_path, tag)
+    r = run(pack, target, "install", "--dry-run", target_args=extra)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not sbx.exists() and not launcher.exists()
+
+    r = run(pack, target, "install", target_args=extra)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert manifest(sbx)["launcher"] == str(launcher)
+    assert os.access(launcher, os.X_OK)
+    text = launcher.read_text()
+    assert text.splitlines()[1].startswith(LAUNCHER_MARKER)
+    assert "CLAUDE_CONFIG_DIR='%s'" % sbx in text and "ANTHROPIC_" not in text
+    assert "Seed" not in r.stdout
+
+    r = run_launcher(launcher, claude_stub(tmp_path), "a b", "--", "")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout == "%s\n\n\na b\n--\n\n" % sbx
+
+    r = run(pack, target, "status", target_args=extra)
+    assert "Target: %s" % sbx in r.stdout
+    assert "Launcher: %s" % launcher in r.stdout
+    assert "Settings agent: 'supervisor' (managed)" in r.stdout
+
+    r = run(pack, target, "uninstall", "--yes", target_args=extra)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not sbx.exists() and not launcher.exists()
+
+
+def test_sandbox_token_provider(pack, target, tmp_path):
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    r = run(pack, target, "install", "--base-url", "https://llm.example", "--token", "s3cret",
+            target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (sbx / "token").read_text() == "s3cret"
+    assert (sbx / "token").stat().st_mode & 0o777 == 0o600
+    assert sbx.stat().st_mode & 0o777 == 0o700
+    text = launcher.read_text()
+    assert "ANTHROPIC_BASE_URL='https://llm.example'; export ANTHROPIC_BASE_URL" in text
+    assert "ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN" % sbx in text
+    status = run(pack, target, "status", target_args=["--tag", "t"])
+    for seen in (r.stdout, r.stderr, (sbx / MANIFEST).read_text(), (sbx / "settings.json").read_text(),
+                 status.stdout, status.stderr):
+        assert "s3cret" not in seen
+
+    r = run_launcher(launcher, claude_stub(tmp_path))
+    assert r.stdout == "%s\nhttps://llm.example\ns3cret\n" % sbx
+
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert launcher.read_text() == text
+
+    tok = tmp_path / "tok"
+    tok.write_bytes(b"f1le\n")
+    r = run(pack, target, "install", "--token-file", str(tok), target_args=["--tag", "u"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    sbx_u, launcher_u = sandbox_paths(tmp_path, "u")
+    assert (sbx_u / "token").read_bytes() == b"f1le\n"
+    assert (sbx_u / "token").stat().st_mode & 0o777 == 0o600
+    text_u = launcher_u.read_text()
+    assert "ANTHROPIC_AUTH_TOKEN=" in text_u and "ANTHROPIC_BASE_URL" not in text_u
+
+
+def test_global_round_trip(pack, global_target, tmp_path):
+    r = run(pack, global_target, "install")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert manifest(global_target)["launcher"] is None
+    assert not (tmp_path / ".local" / "bin").exists() and not (tmp_path / ".config").exists()
+
+    r = run(pack, global_target, "status")
+    assert "Settings agent: 'supervisor' (managed)" in r.stdout
+
+    (global_target / "mine.txt").write_text("mine")
+    r = run(pack, global_target, "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (global_target / "agents" / "helper.md").exists()
+    assert not (global_target / MANIFEST).exists()
+    assert (global_target / "mine.txt").read_text() == "mine"
+
+
+def test_sandbox_seeds_from_global_once(pack, global_target, target, tmp_path):
+    assert run(pack, global_target, "install").returncode == 0
+    (global_target / "settings.json").write_text(json.dumps({"agent": "supervisor", "theme": "dark"}))
+    for rel in ("CLAUDE.md", "agents/mine.md", "commands/c.md",
+                "agents/mine.md.bak-1", "skills/synced/x.md", "skills/.trash/y.md",
+                "plugins/p.json", "history.jsonl"):
+        (global_target / rel).parent.mkdir(parents=True, exist_ok=True)
+        (global_target / rel).write_text("global v1")
+    (global_target / "agents" / "helper.md").write_text("global edit")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "not managed" not in r.stdout + r.stderr
+    for rel in ("CLAUDE.md", "agents/mine.md", "commands/c.md"):
+        assert (sbx / rel).read_text() == "global v1", rel
+    for rel in ("agents/mine.md.bak-1", "skills/synced/x.md", "skills/.trash/y.md",
+                "plugins/p.json", "history.jsonl"):
+        assert not (sbx / rel).exists(), rel
+    assert settings(sbx) == {"theme": "dark", "agent": "supervisor"}
+    assert manifest(sbx)["settings"]["managed_agent_key"] is True
+
+    (global_target / "CLAUDE.md").write_text("global v2")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert (sbx / "CLAUDE.md").read_text() == "global v1"
+
+
+def test_tag_with_target_dir(pack, target, tmp_path):
+    box = tmp_path / "box"
+    _, launcher = sandbox_paths(tmp_path, "work")
+    args = ["--tag", "work", "--target", str(box)]
+    r = run(pack, target, "install", target_args=args)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "CLAUDE_CONFIG_DIR='%s'" % box.resolve() in launcher.read_text()
+    m = manifest(box)
+    assert m["tag"] == "work" and m["launcher"] == str(launcher)
+    r = run(pack, target, "status", target_args=["--target", str(box)])
+    assert "Launcher: %s" % launcher in r.stdout
+    r = run(pack, target, "uninstall", "--yes", target_args=["--target", str(box)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not box.exists() and not launcher.exists()
+
+
+def test_sandbox_refusals(pack, target, global_target, tmp_path):
+    def check(r, msg=None):
+        assert r.returncode == 2, r.stdout + r.stderr
+        if msg:
+            assert msg in r.stderr, r.stderr
+        assert not (tmp_path / ".config").exists() and not global_target.exists()
+
+    check(run(pack, target, "install", target_args=["--tag", "a/b"]), "invalid tag")
+    check(run(pack, target, "install", target_args=["--tag", ""]), "invalid tag")
+    for flag, value in (("--tag", "t"), ("--target", "d"), ("--bin-dir", "d"), ("--base-url", "u"),
+                        ("--token", "x"), ("--token-file", "f")):
+        check(run(pack, global_target, "install", flag, value),
+              "--global cannot be combined with " + flag)
+    check(run(pack, global_target, "status", "--tag", "t"), "--global cannot be combined with --tag")
+    check(run(pack, target, "install", "--token", "x", "--token-file", "y", target_args=["--tag", "t"]))
+    check(run(pack, target, "install", target_args=["--target", str(tmp_path / ".claude")]),
+          "use --global")
+
+    bin_dir = tmp_path / ".local" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "claude-t").write_text("#!/bin/sh\necho mine\n")
+    check(run(pack, target, "install", target_args=["--tag", "t"]),
+          "is not a claude-supervisor launcher")
+    assert (bin_dir / "claude-t").read_text() == "#!/bin/sh\necho mine\n"
+    (bin_dir / "claude-u").mkdir()
+    check(run(pack, target, "install", target_args=["--tag", "u"]),
+          "is not a claude-supervisor launcher")
+
+
+def test_bin_dir_recorded_for_uninstall(pack, target, tmp_path):
+    xbin = tmp_path / "xbin"
+    r = run(pack, target, "install", target_args=["--tag", "t", "--bin-dir", str(xbin)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (xbin / "claude-t").is_file()
+    assert not list((tmp_path / ".local" / "bin").glob("*"))
+    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (xbin / "claude-t").exists()
+
+
+def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
+    keep = tmp_path / ".config" / "claude-t" / "keep"
+    keep.parent.mkdir(parents=True)
+    keep.write_text("x")
+    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert keep.read_text() == "x"
