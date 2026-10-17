@@ -149,3 +149,23 @@ def test_no_opencode_leftovers():
             continue
         hits += ["%s: %s" % (p.relative_to(ROOT), b) for b in BANNED if b in text]
     assert not hits, "\n".join(hits)
+
+
+MAX_LINE = 100
+
+
+@pytest.mark.parametrize("path", sorted(PACK.rglob("*.md")), ids=lambda p: str(p.relative_to(PACK)))
+def test_body_line_length(path):
+    """Body lines stay within MAX_LINE; only table rows and fenced code lines are exempt."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if lines and lines[0] == "---":
+        close = next((i for i, l in enumerate(lines[1:], 1) if l == "---"), 0)
+        lines = [""] * (close + 1) + lines[close + 1:]  # keep line numbers
+    long, fenced = [], False
+    for n, line in enumerate(lines, 1):
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            fenced = not fenced
+        elif not fenced and not stripped.startswith("|") and len(line) > MAX_LINE:
+            long.append("%s:%d (%d)" % (path.relative_to(ROOT), n, len(line)))
+    assert not long, "lines over %d chars:\n%s" % (MAX_LINE, "\n".join(long))

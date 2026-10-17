@@ -24,7 +24,8 @@ relax this list.
   to. Use one calibrated hedge per claim.
 - **Performative signposting:** "In this section we describe", "As mentioned above" (except in long
   documents), "It is worth noting that".
-- **Filler subclauses:** "In order to achieve our objectives", "Given the current state of the field".
+- **Filler subclauses:** "In order to achieve our objectives", "Given the current state of the
+  field".
 - **Artificial enthusiasm:** "We are excited to propose", "This groundbreaking work".
 - **Synonym cycling:** repeat the precise technical term.
 - **Rhetorical contrast crutches:** "not X, but Y"; "not just X, but also Y"; "not only X but Y";
@@ -72,7 +73,8 @@ All **[overridable default]**:
 - Short paragraphs: 3-6 sentences, one point each.
 - **Sentence budget:** soft limit about 30 words; longer sentences must earn their length.
 - **Semicolons:** at most one per paragraph.
-- **Voice consistency:** one voice per section (first-person collective, third-person team, or passive).
+- **Voice consistency:** one voice per section (first-person collective, third-person team, or
+  passive).
 - **Precise terms:** reuse exact technical terms; define cross-domain terms once in a short clause.
 
 ## Emphasis
@@ -97,14 +99,17 @@ Genres: `proposal` (default), `paper-intro`, `abstract`, `report`, `pitch`, `let
   artifacts, milestones, and decision gates.
 - **Paper introduction.** Open with the broader question, narrow to the contribution, end with what
   the paper shows.
-- **Abstract.** One sentence each for motivation, method, key result, implication; about 150-250 words.
-- **Technical report.** Lead with the executive summary; prose connects figures, tables, deliverables.
+- **Abstract.** One sentence each for motivation, method, key result, implication; about 150-250
+  words.
+- **Technical report.** Lead with the executive summary; prose connects figures, tables,
+  deliverables.
 - **One-page pitch.** One claim, one figure-equivalent, one ask.
 - **Letter.** State role, contribution, and resources committed; then sign and date as required.
 
 ## Audience register
 
-- **[overridable default]** Assume domain competence; do not define standard field terms for experts.
+- **[overridable default]** Assume domain competence; do not define standard field terms for
+  experts.
 - **[overridable default]** For DOE proposals, lead with the deliverable; for collaborations, name
   who does what.
 
@@ -142,7 +147,8 @@ Use this section when reviewing a scientific draft against this skill.
   `rule conflict`, `scope mismatch`) so the `writer` lead escalates instead of iterating. Never use
   this label for fixable style, structure, or polish. When facts are missing, say what is missing
   instead of adding polish findings.
-- **Finding format.** Location (`file:line`, or `section <heading> paragraph <n> sentence <n>`, using
+- **Finding format.** Location (`file:line`, or `section <heading> paragraph <n> sentence <n>`,
+  using
   `(preamble)` before the first heading), quoted current text, reason with the rule it cites, and a
   suggested replacement or revision target. The quoted text is the finding's identity across rounds.
   Suggest sentence-level replacements; do not rewrite the draft.

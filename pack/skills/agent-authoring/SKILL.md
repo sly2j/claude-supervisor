@@ -18,10 +18,14 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
 | Quick | quick-edit, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
-- `planner` dispatches `critic` with `model: fable`; this per-call override is the only exception to the critic row.
-- Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches, so workers, reviewers, and quick agents never get `Agent`.
-- Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility matters.
-- One critic serves all domains. Add domain criteria to `critic.md` or to a skill it loads, not as a new critic agent.
+- `planner` dispatches `critic` with `model: fable`; this per-call override is the only exception to
+  the critic row.
+- Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches, so
+  workers, reviewers, and quick agents never get `Agent`.
+- Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility
+  matters.
+- One critic serves all domains. Add domain criteria to `critic.md` or to a skill it loads, not as a
+  new critic agent.
 
 ## Agent Files
 
@@ -31,18 +35,27 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   - `model`, `effort`
   - `tools` or `disallowedTools`
   - optional `skills` (a YAML list) and `color`
-- Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope, Rules or Operating, the domain procedure, then Report or Output. Use `##` headings, imperative mood, and `-` bullets.
-- Budget: 30-60 body lines. Go longer only for load-bearing contracts such as verdict tokens, output schemas, or routing tables.
-- State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B, B's scope must accept that work.
+- Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,
+  Rules or Operating, the domain procedure, then Report or Output. Use `##` headings, imperative
+  mood, and `-` bullets.
+- Budget: 30-60 body lines. Go longer only for load-bearing contracts such as verdict tokens, output
+  schemas, or routing tables.
+- State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,
+  B's scope must accept that work.
 - Agents that report upward use a bounded report with explicit size caps.
-- Prefer a skill over an agent when the thing is a procedure or a body of knowledge rather than a role with its own model or context needs.
+- Prefer a skill over an agent when the thing is a procedure or a body of knowledge rather than a
+  role with its own model or context needs.
 
 ## Skill Files
 
-- `skills/<name>/SKILL.md` with `name` equal to the directory name. Spend effort on the `description`, which triggers loading: say what it does and when to use it.
-- Set `user-invocable: false` for protocol skills that agents preload. Use `disable-model-invocation: true` for skills that should run only by slash command.
-- Keep each skill under about 300 lines. Put bulky references in `references/` and helpers in `scripts/`, and reference them via `${CLAUDE_SKILL_DIR}`.
-- Do not create skills that duplicate Claude Code built-ins or the Anthropic document skills (docx, pdf, pptx, xlsx).
+- `skills/<name>/SKILL.md` with `name` equal to the directory name. Spend effort on the
+  `description`, which triggers loading: say what it does and when to use it.
+- Set `user-invocable: false` for protocol skills that agents preload. Use
+  `disable-model-invocation: true` for skills that should run only by slash command.
+- Keep each skill under about 300 lines. Put bulky references in `references/` and helpers in
+  `scripts/`, and reference them via `${CLAUDE_SKILL_DIR}`.
+- Do not create skills that duplicate Claude Code built-ins or the Anthropic document skills (docx,
+  pdf, pptx, xlsx).
 
 ## Reviewing Definitions (for critic)
 
@@ -55,4 +68,5 @@ Judge a definition by its likely operational effect, not its tidiness:
 
 ## After Changing The Pack
 
-Update the agent inventory in `README.md` when an agent's name, scope, model, or tools change. Run `python3 -m pytest -q`, which includes the pack lint, then `./deploy install --dry-run`.
+Update the agent inventory in `README.md` when an agent's name, scope, model, or tools change. Run
+`python3 -m pytest -q`, which includes the pack lint, then `./deploy install --dry-run`.

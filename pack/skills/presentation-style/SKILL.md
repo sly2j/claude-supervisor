@@ -34,7 +34,8 @@ Use WHY, HOW, WHAT unless the talk type calls for another structure.
 
 - **No en-dashes or em-dashes.** Use hyphens, colons, or split bullets.
 - **Bullet ceiling.** At most 25 words per bullet; 8-12 is the target.
-- **Terminal punctuation.** Omit periods by default; use them only for important declarative statements.
+- **Terminal punctuation.** Omit periods by default; use them only for important declarative
+  statements.
 - **Slide idea limit.** 1-3 substantive points per slide. Sub-bullets, citations, attributions,
   and figure labels do not count.
 
@@ -70,7 +71,8 @@ future/outlook, conclusion, questions, backup. Short or special-purpose talks ma
 
 - One concept per slide.
 - Figures are primary; text supports and explains them.
-- Build complex ideas by duplicating a slide and adding one element per copy, not with in-slide animation.
+- Build complex ideas by duplicating a slide and adding one element per copy, not with in-slide
+  animation.
 - Mark major transitions with a section divider carrying a single bold statement or question.
 - Explain every figure with at least one bullet pointing to its key feature.
 - Cite every figure, dataset, and borrowed slide where it appears.

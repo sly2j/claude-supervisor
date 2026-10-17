@@ -15,26 +15,11 @@
   Long tasks may use work packages (`## Work Packages` in the plan; see README).
 - Owner's style rule is simplicity: add rules to agent files only for observed failures, no
   anticipated-failure clauses, keep line counts and line lengths down. The body of
-  `pack/agents/supervisor.md` (after frontmatter) is 76 lines; do not grow it, except through
-  item 3's reflow.
+  `pack/agents/supervisor.md` (after frontmatter) is 109 lines; do not grow it.
 - Items are orthogonal. Pick one item per change set; remove it from this file in the same
   commit when it lands.
 
 ## Items
-
-### 3. Pack-wide line reflow and length lint
-
-- **Goal:** all `pack/` body lines are <= 100 chars, enforced by a lint.
-- **Scope:**
-  - In: reflow `pack/` bodies; add the lint to `tests/test_pack_lint.py`.
-  - Out: wording changes.
-- **Decisions already made:** an explicit exemption list, only for lines that cannot split
-  (e.g. table rows).
-- **Background at time of writing:** 228 body lines > 100 chars, 166 > 120, longest 609.
-- **Done when:**
-  - The lint passes with no or a tiny exemption list.
-  - `git diff --stat` shows only pack files, the test, and `VERSION`.
-- **Pointers:** `pack/`, `tests/test_pack_lint.py`.
 
 ### 4. Persistence for long programs (deferred)
 

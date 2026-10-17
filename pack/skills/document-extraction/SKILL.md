@@ -19,9 +19,11 @@ downstream writer (usually the `writer` lead or a `writer-worker`) maps into its
 - Input is the raw document plus optional vocabulary or domain context.
 - Preserve the source section structure when clear; otherwise group by topic shifts.
 - Distinguish claims, evidence, methods, implications, and limitations.
-- Extract specific findings ("X reduces Y by 30% on dataset Z"), not labels ("the paper discusses X").
+- Extract specific findings ("X reduces Y by 30% on dataset Z"), not labels ("the paper discusses
+  X").
 - Include methodology only when it affects how a claim should be read.
-- Include implications and open questions only when stated or strongly supported; label inferred items.
+- Include implications and open questions only when stated or strongly supported; label inferred
+  items.
 - Include RAID items (risk, action, issue, assumption, dependency, decision) only when the document
   explicitly contains them, each in exactly one category.
 - Record ambiguity instead of guessing. Omit boilerplate.
