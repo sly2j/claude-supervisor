@@ -84,3 +84,26 @@
 - **Decisions already made:** none.
 - **Done when:** each sub-item is resolved or the owner declined it.
 - **Pointers:** `README.md`.
+
+### 6. Launcher: choose Opus or Fable at launch time
+
+- **Goal:** `claude-<tag> --fable` launches in Fable mode; without the flag, fable-tagged agents
+  run as Opus. The choice moves from install time to launch time.
+- **Scope:**
+  - In: deployed agent definitions always say `model: fable`; the launcher sets the environment
+    variable that remaps the fable model to Opus unless `--fable` is given, then runs `claude`
+    with the remaining arguments.
+  - In: once the launcher carries the choice, remove the install-time rewrite (`FABLE_TOKEN`,
+    `deployed_bytes`), the install `--fable` flag, the manifest `fable` boolean, and the lint
+    `test_fable_rewrite_covers_pack`.
+  - Out: any form of model or subscription detection.
+- **Decisions already made:** definitions always use fable; the launcher sets the env var; the
+  owner verified by hand that setting the env var before running `claude` works.
+- **Left to planner:** the env var name (confirm with the owner); what `--global` installs
+  (no launcher) do about Opus; how the prose dispatch tokens in `planner.md` and `writer.md`
+  behave under the remap.
+- **Depends on:** item 2 (launcher).
+- **Done when:** launcher tests cover `--fable` on and off; `docs/deploy.md`, README, and
+  `docs/architecture.md` are updated.
+- **Pointers:** `scripts/deploy` (`FABLE_TOKEN`, `deployed_bytes`, the item 2 launcher),
+  `tests/test_deploy.py`, `tests/test_pack_lint.py`.
