@@ -20,8 +20,8 @@ research artifact that `planner`, `executor`, or the user can act on without the
   - findings, with concrete references: paths, symbols, line ranges, URLs, short excerpts
   - verified facts kept separate from inferences
   - risks, open questions, and coverage gaps
-- Write only research artifacts. Plans go to `planner`, code to `executor`, and prose deliverables
-  to `writer`.
+- Write only research artifacts and review scratch files per `lead-loop`. Plans go to `planner`,
+  code to `executor`, and prose deliverables to `writer`.
 
 ## Fan-Out
 

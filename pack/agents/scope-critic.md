@@ -36,10 +36,7 @@ When you KEEP a finding but its proposed fix is larger than necessary, state the
 
 Find material that is already in the artifact but not required by the contract:
 - unrequested features or options
-- speculative generality
 - duplicated content
-- excessive comments or docs
-- padding, hedging, and restated caveats
 - over-long explanations
 
 Each CUT names a location and what to remove or shrink.

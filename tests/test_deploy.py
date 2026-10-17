@@ -50,18 +50,35 @@ def global_target(tmp_path: Path) -> Path:
     return tmp_path / ".claude"
 
 
-def run(pack: Path, target: Path, *args: str, target_args=None, path=None) -> subprocess.CompletedProcess:
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
-    env["PATH"] = path or str(target.parent / "bin")  # hides the real claude (and git)
-    env["HOME"] = str(target.parent)  # hides the real ~/.claude.json
+ENV_WHITELIST = ("PATH", "HOME", "TMPDIR", "LANG", "LC_ALL")
+
+
+def run(pack: Path, target: Path, *args: str, target_args=None, path=None,
+        env=None) -> subprocess.CompletedProcess:
+    """Run deploy with a whitelisted environment (no CLAUDE_CODE_*, GIT_*, XDG_* leaks) plus `env`."""
+    full = {k: os.environ[k] for k in ENV_WHITELIST if k in os.environ}
+    full["PATH"] = path or str(target.parent / "bin")  # hides the real claude (and git)
+    full["HOME"] = str(target.parent)  # hides the real ~/.claude.json
+    full.update(env or {})
     if target_args is None:
         target_args = ["--global"] if target.name == ".claude" else ["--target", str(target)]
     cmd = [sys.executable, str(SCRIPT), args[0]] + list(target_args)
     if args[0] in ("install", "status"):
         cmd += ["--source", str(pack)]
     cmd += list(args[1:])
-    return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60,
+    return subprocess.run(cmd, capture_output=True, text=True, env=full, timeout=60,
                           stdin=subprocess.DEVNULL)
+
+
+def stub_claude(bin_dir: Path, version: str = "2.1.300") -> Path:
+    """Write an executable `claude` that answers --version and records any other argv to claude.argv."""
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    stub = bin_dir / "claude"
+    stub.write_text("#!/bin/sh\n"
+                    "if [ \"$1\" = --version ]; then echo '%s (Claude Code)'; exit 0; fi\n"
+                    "printf '%%s\\n' \"$@\" >> '%s'\n" % (version, bin_dir / "claude.argv"))
+    stub.chmod(0o755)
+    return stub
 
 
 def load_deploy():
@@ -99,6 +116,7 @@ def test_fresh_install(pack, target):
     assert set(m["files"]) == {"agents/supervisor.md", "agents/helper.md",
                                "skills/demo/SKILL.md", "skills/demo/scripts/run.sh"}
     assert m["settings"] == {"managed_agent_key": True, "previous_agent": None}
+    assert m["source_commit"] is None and m["source_dirty"] is None  # the temp pack is not in a repo
     assert settings(target) == {"agent": "supervisor"}
 
 
@@ -148,6 +166,7 @@ def test_unmanaged_collision(pack, target):
     assert dst.read_text() == "someone else's agent"
     assert (target / "agents" / "supervisor.md").exists()  # other files still installed
     assert "agents/helper.md" not in manifest(target)["files"]
+    assert "run ./deploy install --overwrite-local from your checkout" in r.stdout
     r = run(pack, target, "install", "--overwrite-local", "--yes")
     assert r.returncode == 0, r.stdout
     assert dst.read_text() == agent_md("helper")
@@ -230,6 +249,7 @@ def test_uninstall_restores_previous_agent(pack, global_target):
     assert not (global_target / "agents" / "supervisor.md").exists()
     assert not (global_target / "skills" / "demo" / "scripts").exists()
     assert (global_target / "skills" / "demo" / "SKILL.md").read_text() == "edited"  # modified kept
+    assert "now unmanaged; delete it by hand" in r.stdout
     assert settings(global_target) == {"agent": "mine", "x": 1}
     assert not (global_target / MANIFEST).exists()
 
@@ -245,7 +265,7 @@ def test_uninstall_removes_agent_key(pack, global_target):
 def test_uninstall_without_yes_and_no_tty_refuses(pack, target):
     run(pack, target, "install")
     r = run(pack, target, "uninstall")
-    assert r.returncode == 2 and "--yes" in r.stderr
+    assert r.returncode == 2 and "cannot ask '" in r.stderr and "--yes" in r.stderr
     assert (target / "agents" / "helper.md").exists()
 
 
@@ -271,7 +291,7 @@ def test_lock_contention(pack, target):
         fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         r = run(pack, target, "install")
     assert r.returncode == 2
-    assert "lock" in r.stderr
+    assert "lock" in r.stderr and "wait for it to finish" in r.stderr
     assert not (target / "agents").exists()
 
 
@@ -471,7 +491,7 @@ def test_status_version_match_and_mismatch(pack, target):
     version_file(pack, "1.8\n")
     r = run(pack, target, "status")
     assert r.returncode == 0
-    assert "Version: installed=1.7, source=1.8 (MISMATCH: run deploy install)" in r.stdout
+    assert "Version: installed=1.7, source=1.8 (MISMATCH: run ./deploy install from your checkout)" in r.stdout
     r = run(pack, target, "install")
     assert "Version: 1.8 (was 1.7)" in r.stdout
     assert manifest(target)["pack_version"] == "1.8"
@@ -508,7 +528,7 @@ def test_status_detects_legacy_install(pack, legacy_install):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "No manifest" not in r.stdout
     assert "legacy manifest .claude-agents-manifest.json" in r.stdout
-    assert "run deploy install to migrate" in r.stdout
+    assert "run ./deploy install from your checkout to migrate" in r.stdout
     assert (legacy_install / LEGACY_MANIFEST).exists() and not (legacy_install / MANIFEST).exists()
 
 
@@ -649,6 +669,7 @@ def test_global_round_trip(pack, global_target, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert manifest(global_target)["launcher"] is None
     assert not (tmp_path / ".local" / "bin").exists() and not (tmp_path / ".config").exists()
+    assert "is not on your PATH" not in r.stdout  # no launcher, so no PATH hint
 
     r = run(pack, global_target, "status")
     assert "Settings agent: 'supervisor' (managed)" in r.stdout
@@ -705,9 +726,9 @@ def test_tag_with_target_dir(pack, target, tmp_path):
 
 
 def test_sandbox_refusals(pack, target, global_target, tmp_path):
-    def check(r, msg=None):
+    def check(r, *msgs):
         assert r.returncode == 2, r.stdout + r.stderr
-        if msg:
+        for msg in msgs:
             assert msg in r.stderr, r.stderr
         assert not (tmp_path / ".config").exists() and not global_target.exists()
 
@@ -726,11 +747,11 @@ def test_sandbox_refusals(pack, target, global_target, tmp_path):
     bin_dir.mkdir(parents=True)
     (bin_dir / "claude-t").write_text("#!/bin/sh\necho mine\n")
     check(run(pack, target, "install", target_args=["--tag", "t"]),
-          "is not a claude-supervisor launcher")
+          "is not a claude-supervisor launcher", "move it aside, or choose another --tag or --prefix")
     assert (bin_dir / "claude-t").read_text() == "#!/bin/sh\necho mine\n"
     (bin_dir / "claude-u").mkdir()
     check(run(pack, target, "install", target_args=["--tag", "u"]),
-          "is not a claude-supervisor launcher")
+          "is not a claude-supervisor launcher", "move it aside, or choose another --tag or --prefix")
 
 
 def test_prefix_launcher_recorded_for_uninstall(pack, target, tmp_path):
@@ -751,6 +772,7 @@ def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
     r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
     assert keep.read_text() == "x"
+    assert "nothing to uninstall" in r.stdout and "The directory still exists" in r.stdout
 
 
 # --------------------------------------------------------------------------- registry and update
@@ -817,15 +839,14 @@ def test_update_and_uninstall_selection_errors(pack, target, tmp_path):
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     r = run(pack, target, "update", "--yes", target_args=["--tag", "t"])
     assert r.returncode == 1, r.stdout + r.stderr
-    assert ("no recorded remote; run deploy install from a checkout, or pass --from"
-            in r.stdout + r.stderr)
+    assert "no recorded remote; run ./deploy install from your checkout, or pass --from" in r.stdout + r.stderr
     r = run(pack, target, "update", "--yes", target_args=["--all"])
     assert r.returncode == 1, r.stdout + r.stderr
     assert "no recorded remote" in r.stdout + r.stderr
 
     r = run(pack, target, "update", "--yes", target_args=["--tag", "never"])
     assert r.returncode == 2
-    assert "not registered; run deploy install once" in r.stderr
+    assert "is not registered under prefix" in r.stderr and "run ./deploy install once" in r.stderr
 
     for cmd in ("update", "uninstall"):
         for extra in (["--tag", "t"], ["--target", str(target)], ["--global"]):
@@ -1026,6 +1047,7 @@ def test_uninstall_all(remote, three, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     for t in three:
         assert not (t / MANIFEST).exists() and not (t / "agents" / "helper.md").exists(), t
+        assert "== uninstall %s ==" % t in r.stdout
     assert not three[0].exists() and not three[1].exists()
     assert registry(tmp_path) == {}
 
@@ -1128,7 +1150,7 @@ def test_launcher_uninstall_all_refused(remote, three, tmp_path):
         r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path),
                          "uninstall", "--all", *extra)
         assert r.returncode == 2, r.stdout + r.stderr
-        assert "use deploy uninstall --all" in r.stderr
+        assert "use ./deploy uninstall --all" in r.stderr
         assert [snapshot(p) for p in roots] == before
         assert len(registry(tmp_path)) == 3
 
@@ -1151,7 +1173,8 @@ def test_launcher_missing_tool_copy(remote, tmp_path):
     before = snapshot(tmp_path / ".config")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--yes")
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "missing; run deploy install" in r.stderr and "update" not in r.stdout.splitlines()
+    assert "missing; run ./deploy install from your checkout" in r.stderr
+    assert "update" not in r.stdout.splitlines()
     assert snapshot(tmp_path / ".config") == before
 
 
@@ -1203,7 +1226,7 @@ def install_dev(remote: SimpleNamespace, tree: Path, tmp_path: Path) -> Path:
 
 def stale_line(sbx: Path, remote_url: str, branch: str = "feat", tag: str = "dev") -> str:
     return ("STALE %s: nothing to update; branch %s is gone from %s; this install is stale. "
-            "Remove it with: claude-%s uninstall (or deploy uninstall --tag %s --target %s)"
+            "Remove it with: claude-%s uninstall (or ./deploy uninstall --tag %s --target %s)"
             % (sbx, branch, remote_url, tag, tag, sbx))
 
 
@@ -1460,7 +1483,8 @@ def test_migrate_stops_when_uninstall_fails(request, pack, global_target, tmp_pa
     sbx, launcher = sandbox_paths(tmp_path, "supervisor")
     r = migrate(pack, global_target, "--yes")
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "The default sandbox was not installed" in r.stdout
+    assert "pack files were removed from ~/.claude (backup:" in r.stdout
+    assert "re-run ./deploy migrate" in r.stdout
     assert not sbx.exists() and not launcher.exists()
     (backup,) = backups(global_target)
     assert (backup / "settings.json").read_text() == "{bad"
@@ -1492,3 +1516,669 @@ def test_migrate_honors_prefix(request, pack, global_target, tmp_path):
     assert not (tmp_path / ".local" / "bin").exists()
     assert str(bin_dir) in r.stdout and 'export PATH="%s:$PATH"' % bin_dir in r.stdout
     assert str(sandbox_paths(tmp_path, "supervisor")[0]) in registry(tmp_path, px)
+
+
+# --------------------------------------------------------------------------- doctor
+
+def doctor_bin(tmp_path: Path, version=None, tools=()) -> str:
+    """A PATH holding only a stub `claude` (none when version is None) and links to the named tools."""
+    bin_dir = tmp_path / "dbin"
+    bin_dir.mkdir(exist_ok=True)
+    if version is not None:
+        stub_claude(bin_dir, version)
+    for tool in tools:
+        found = shutil.which(tool)
+        if found is None:
+            pytest.skip("%s not available" % tool)
+        (bin_dir / tool).symlink_to(found)
+    return str(bin_dir)
+
+
+def run_doctor(pack, target, tmp_path, version="2.1.300", tools=(), env=None):
+    return run(pack, target, "doctor", path=doctor_bin(tmp_path, version, tools), env=env)
+
+
+def rows_of(r) -> list:
+    return [l for l in r.stdout.splitlines() if l[:5] in ("PASS ", "WARN ", "FAIL ")]
+
+
+def row(r, fragment: str) -> str:
+    hits = [l for l in rows_of(r) if fragment in l]
+    assert len(hits) == 1, (fragment, r.stdout)
+    return hits[0]
+
+
+def test_doctor_all_pass(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    r = run_doctor(pack, target, tmp_path, tools=("git", "zip"))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert len(rows_of(r)) >= 6 and all(l.startswith("PASS") for l in rows_of(r)), r.stdout
+    assert "0 FAIL, 0 WARN" in r.stdout
+    assert not (tmp_path / "dbin" / "claude.argv").exists()  # doctor only asks for --version
+
+
+def test_doctor_claude_missing_fails(pack, target, tmp_path):
+    r = run_doctor(pack, target, tmp_path, version=None)
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "claude CLI not found on PATH")
+    assert line.startswith("FAIL") and "install Claude Code" in line
+
+
+def test_doctor_old_claude_fails(pack, target, tmp_path):
+    r = run_doctor(pack, target, tmp_path, version="2.0.5")
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "older than")
+    assert line.startswith("FAIL") and "claude 2.0.5" in line and "claude update" in line
+
+
+def test_doctor_unparsable_claude_version_fails(pack, target, tmp_path):
+    r = run_doctor(pack, target, tmp_path, version="unknown-build")
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "cannot determine claude version")
+    assert line.startswith("FAIL") and "reinstall Claude Code" in line
+
+
+def test_doctor_missing_managed_file_fails(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    (target / "agents" / "helper.md").unlink()
+    r = run_doctor(pack, target, tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "managed files missing:")
+    assert line.startswith("FAIL") and "agents/helper.md" in line and "./deploy install" in line
+
+
+def test_doctor_modified_managed_file_warns(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    (target / "agents" / "helper.md").write_text("my edits")
+    r = run_doctor(pack, target, tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    line = row(r, "managed files modified:")
+    assert line.startswith("WARN") and "agents/helper.md" in line and "--overwrite-local" in line
+    assert "managed files missing" not in r.stdout
+
+
+@pytest.mark.parametrize("origin", ["environment", "settings.json env"])
+@pytest.mark.parametrize("var, value", [
+    ("CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH", "1"),
+    ("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "1"),
+    ("CLAUDE_CODE_EFFORT_LEVEL", "high"),
+])
+def test_doctor_env_var_warns_with_remedy(pack, target, tmp_path, var, value, origin):
+    assert run(pack, target, "install").returncode == 0
+    env = None
+    if origin == "environment":
+        env = {var: value}
+    else:
+        data = settings(target)
+        data["env"] = {var: value}
+        (target / "settings.json").write_text(json.dumps(data))
+    r = run_doctor(pack, target, tmp_path, env=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    line = row(r, var)
+    assert line.startswith("WARN") and "in " + origin in line
+    assert "unset it, or remove it from settings.json env" in line
+
+
+def test_doctor_without_manifest_gives_one_warn(pack, target, tmp_path):
+    r = run_doctor(pack, target, tmp_path, tools=("git", "zip"))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "0 FAIL, 1 WARN" in r.stdout
+    line = row(r, "pack not installed")
+    assert line.startswith("WARN") and "./deploy install" in line
+    assert "settings agent" not in r.stdout  # D-59: no row before an install
+
+
+def test_doctor_agent_not_default_warns_with_remedy(pack, target, tmp_path):
+    assert run(pack, target, "install", "--no-default-agent").returncode == 0
+    r = run_doctor(pack, target, tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    line = row(r, "settings agent")
+    assert line.startswith("WARN") and "./deploy install" in line and "--force-default-agent" in line
+
+
+@pytest.mark.parametrize("content, fragments", [
+    ("{bad", ["cannot read manifest", "restore it from a backup, or delete it"]),
+    (json.dumps({"version": 99, "files": {}}), ["unsupported version", "written by a newer deploy"]),
+])
+def test_doctor_corrupt_manifest_fails(pack, target, tmp_path, content, fragments):
+    target.mkdir()
+    (target / MANIFEST).write_text(content)
+    r = run_doctor(pack, target, tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "manifest")
+    assert line.startswith("FAIL")
+    for fragment in fragments:
+        assert fragment in line
+    assert "Traceback" not in r.stderr
+
+
+def test_doctor_unparsable_settings_fails(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    (target / "settings.json").write_text("{bad")
+    r = run_doctor(pack, target, tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    line = row(r, "cannot parse")
+    assert line.startswith("FAIL") and "fix the JSON" in line and "settings step skipped" not in line
+
+
+def test_doctor_git_missing_warns(pack, target, tmp_path):
+    r = run_doctor(pack, target, tmp_path, tools=("zip",))
+    assert r.returncode == 0, r.stdout + r.stderr
+    line = row(r, "git not found")
+    assert line.startswith("WARN") and "needed for ./deploy update" in line
+
+
+def test_doctor_old_python_fails(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", doctor_bin(tmp_path, "2.1.300"))
+    deploy = load_deploy()
+    deploy.sys = SimpleNamespace(version_info=(3, 8, 0), version="3.8.0 (fake)", executable=sys.executable,
+                                 stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, argv=sys.argv)
+    args = deploy.build_parser().parse_args(["doctor", "--target", str(tmp_path / "claude")])
+    assert deploy.doctor_cmd(args) == 1
+    out = capsys.readouterr().out
+    line = [l for l in out.splitlines() if l.startswith("FAIL") and "python" in l]
+    assert line and "deploy needs 3.9 or newer" in line[0]
+
+
+# --------------------------------------------------------------------------- prompts (in-process)
+
+def tty_deploy(monkeypatch, answers: list):
+    """The deploy module with a terminal stdin whose `input` returns (or raises) each answer in turn."""
+    deploy = load_deploy()
+    asked = []
+
+    def fake_input(prompt=""):
+        asked.append(prompt)
+        answer = answers.pop(0)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr("builtins.input", fake_input)
+    return deploy, asked
+
+
+@pytest.mark.parametrize("answer, expected", [
+    ("y", True), ("YES", True), (" yes ", True), ("n", False), ("", False), ("maybe", False)])
+def test_confirm_answers(monkeypatch, answer, expected):
+    deploy, asked = tty_deploy(monkeypatch, [answer])
+    assert deploy.confirm("Proceed?", False) is expected
+    assert asked == ["Proceed? [y/N] "]
+
+
+@pytest.mark.parametrize("answer, expected", [("t", True), (" t ", True), ("T", False), ("", False), ("y", False)])
+def test_confirm_typed_answers(monkeypatch, answer, expected):
+    deploy, asked = tty_deploy(monkeypatch, [answer])
+    assert deploy.confirm_typed("Delete it?", "t", False) is expected
+    assert "Type t to confirm" in asked[0]
+
+
+def test_uninstall_launcher_requires_typed_tag(pack, target, tmp_path, monkeypatch, capsys):
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy, asked = tty_deploy(monkeypatch, ["yes", "t"])
+    assert deploy.main(["uninstall", "--tag", "t", "--launcher"]) == 1  # "yes" is not the tag
+    assert "aborted" in capsys.readouterr().err
+    assert (sbx / MANIFEST).is_file() and launcher.is_file()
+    assert deploy.main(["uninstall", "--tag", "t", "--launcher"]) == 0
+    assert not sbx.exists() and not launcher.exists()
+    assert all("Type t to confirm" in q for q in asked)
+
+
+def test_eof_at_prompt_aborts(pack, global_target, target, tmp_path, monkeypatch, capsys):
+    assert run(pack, global_target, "install").returncode == 0
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy, _ = tty_deploy(monkeypatch, [EOFError()])
+    assert deploy.main(["uninstall", "--global"]) == 1
+    assert "aborted" in capsys.readouterr().err
+    assert (global_target / "agents" / "helper.md").exists()
+    assert (sandbox_paths(tmp_path, "t")[0] / MANIFEST).is_file()
+
+
+def test_keyboard_interrupt_names_the_next_step(pack, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy = load_deploy()
+
+    def interrupted(args):
+        raise KeyboardInterrupt
+
+    deploy.install_cmd = interrupted
+    assert deploy.main(["install", "--global", "--source", str(pack)]) == 130
+    assert "interrupted; re-run ./deploy install" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- errors without tracebacks
+
+def test_missing_token_file_is_a_clean_error(pack, target, tmp_path):
+    r = run(pack, target, "install", "--token-file", str(tmp_path / "nope"), target_args=["--tag", "t"])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "cannot read --token-file" in r.stderr and "Traceback" not in r.stderr
+    assert not (tmp_path / ".config").exists() and not (tmp_path / ".local").exists()  # validated first
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
+def test_oserror_is_a_clean_error(pack, global_target):
+    global_target.mkdir()
+    global_target.chmod(0o500)
+    try:
+        r = run(pack, global_target, "install")
+    finally:
+        global_target.chmod(0o700)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "error:" in r.stderr and "Traceback" not in r.stderr
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
+def test_seed_failure_cleans_up_and_names_the_source(pack, target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    unreadable = tmp_path / ".claude" / "skills" / "own" / "x.md"
+    unreadable.parent.mkdir(parents=True)
+    unreadable.write_text("x")
+    unreadable.chmod(0)
+    try:
+        r = run(pack, target, "install", target_args=["--tag", "t"])
+    finally:
+        unreadable.chmod(0o644)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "cannot seed from" in r.stderr and "Traceback" not in r.stderr
+    assert "Seeded" not in r.stdout
+    assert not (sbx / "skills").exists()  # no partial copy left to make a re-run skip the seed
+
+
+def test_seed_preserves_symlinks(pack, target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    own = tmp_path / ".claude" / "skills" / "own"
+    own.mkdir(parents=True)
+    (own / "SKILL.md").write_text("own")
+    (own / "link.md").symlink_to("SKILL.md")
+    (own / "dangling.md").symlink_to("missing.md")
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (sbx / "skills" / "own" / "link.md").is_symlink()
+    assert os.readlink(str(sbx / "skills" / "own" / "link.md")) == "SKILL.md"
+    assert (sbx / "skills" / "own" / "dangling.md").is_symlink()
+    assert r.stdout.index("Seeded") < r.stdout.index("Summary")
+
+
+def test_seed_with_invalid_global_settings_uses_seed_wording(pack, target, tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text("{bad")
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "cannot seed from" in r.stderr and "Traceback" not in r.stderr
+    assert "settings step skipped" not in r.stdout + r.stderr and "Seeded" not in r.stdout
+
+
+def test_seed_dry_run_reports_and_writes_nothing(pack, target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "CLAUDE.md").write_text("notes")
+    r = run(pack, target, "install", "--dry-run", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "Would seed" in r.stdout and "CLAUDE.md" in r.stdout
+    assert not sbx.exists()
+
+
+@pytest.mark.parametrize("content", ["{bad", '{"version": 1, "installs": []}', '{"version": 2, "installs": {}}'])
+def test_corrupt_registry_refuses_before_writing(pack, target, tmp_path, content):
+    reg = state_dir(tmp_path) / "installs.json"
+    reg.parent.mkdir(parents=True)
+    reg.write_text(content)
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+    assert "delete or fix that file, then re-run ./deploy install" in r.stderr
+    assert not (tmp_path / ".config").exists() and not (tmp_path / ".local" / "bin").exists()
+    assert snapshot(state_dir(tmp_path)) == {"installs.json": hashlib.sha256(content.encode()).hexdigest()}
+
+
+@pytest.mark.parametrize("content, fragments", [
+    ("{bad", ["cannot read manifest", "restore it from a backup, or delete it"]),
+    (json.dumps({"version": 99, "files": {}}), ["unsupported version", "written by a newer deploy"]),
+    (json.dumps({"version": 1, "files": {"agents/x.md": "oops"}}), ["manifest"]),
+    (json.dumps([1]), ["manifest"]),
+])
+def test_corrupt_manifest_is_a_clean_error(pack, target, content, fragments):
+    target.mkdir()
+    (target / MANIFEST).write_text(content)
+    before = snapshot(target)
+    r = run(pack, target, "install")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+    for fragment in fragments:
+        assert fragment in r.stderr, r.stderr
+    assert snapshot(target) == before
+
+
+@pytest.mark.parametrize("content, fragment", [("{bad", "cannot parse"), ("[]", "not a JSON object")])
+def test_malformed_settings_is_reported_not_overwritten(pack, target, content, fragment):
+    target.mkdir()
+    (target / "settings.json").write_text(content)
+    r = run(pack, target, "install")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert fragment in r.stdout and "Traceback" not in r.stderr
+    assert "settings step skipped" in r.stdout  # install wording stays on install
+    assert (target / "settings.json").read_text() == content
+    r = run(pack, target, "status")
+    assert r.returncode == 0 and fragment in r.stdout
+    assert "settings step skipped" not in r.stdout
+
+
+# --------------------------------------------------------------------------- source validation
+
+def _no_dirs(p):
+    shutil.rmtree(str(p / "agents"))
+    shutil.rmtree(str(p / "skills"))
+
+
+def _gone(p):
+    shutil.rmtree(str(p))
+
+
+def _agent_without_frontmatter(p):
+    (p / "agents" / "helper.md").write_text("no frontmatter here\n")
+
+
+def _agent_without_description(p):
+    (p / "agents" / "helper.md").write_text("---\nname: helper\n---\n\nBody.\n")
+
+
+def _skill_without_skill_md(p):
+    (p / "skills" / "demo" / "SKILL.md").unlink()
+
+
+def _skill_wrong_name(p):
+    (p / "skills" / "demo" / "SKILL.md").write_text("---\nname: other\ndescription: d.\n---\n")
+
+
+def _skill_without_frontmatter(p):
+    (p / "skills" / "demo" / "SKILL.md").write_text("Just text, no frontmatter.\n")
+
+
+def _symlinked_skill_dir(p):
+    (p / "skills" / "alias").symlink_to(p / "skills" / "demo")
+
+
+def _symlinked_agent(p):
+    (p / "agents" / "alias.md").symlink_to(p / "agents" / "helper.md")
+
+
+@pytest.mark.parametrize("mutate, fragment", [
+    (_no_dirs, "has neither agents/ nor skills/"),
+    (_gone, "source directory not found"),
+    (_agent_without_frontmatter, "missing --- frontmatter"),
+    (_agent_without_description, "missing description"),
+    (_skill_without_skill_md, "missing SKILL.md"),
+    (_skill_wrong_name, "frontmatter name 'other' != directory 'demo'"),
+    (_skill_without_frontmatter, "missing --- frontmatter"),
+    (_symlinked_skill_dir, "symlink not allowed"),
+    (_symlinked_agent, "symlink not allowed"),
+])
+def test_source_validation_branches(pack, target, mutate, fragment):
+    mutate(pack)
+    r = run(pack, target, "install")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert fragment in r.stderr and "Traceback" not in r.stderr
+    assert "frontmatter name None" not in r.stderr
+    if mutate is _gone:
+        assert "run ./deploy from the repo checkout or pass --source DIR" in r.stderr
+    assert not target.exists()
+
+
+# --------------------------------------------------------------------------- reconcile and status branches
+
+def test_status_reports_outdated_and_not_installed(pack, target):
+    assert run(pack, target, "install").returncode == 0
+    (pack / "agents" / "helper.md").write_text(agent_md("helper", "v2"))
+    (pack / "agents" / "extra.md").write_text(agent_md("extra"))
+    r = run(pack, target, "status")
+    assert r.returncode == 0, r.stdout + r.stderr
+    states = dict(l.strip().split(None, 1) for l in r.stdout.splitlines() if l.startswith("  "))
+    assert states["agents/helper.md"] == "outdated"
+    assert states["agents/extra.md"] == "not installed"
+    assert states["agents/supervisor.md"] == "ok"
+
+
+def test_status_after_source_dir_removed_says_what_to_do(pack, target):
+    assert run(pack, target, "install").returncode == 0
+    shutil.rmtree(str(pack))
+    env = {"PATH": str(target.parent / "bin"), "HOME": str(target.parent)}
+    r = subprocess.run([sys.executable, str(SCRIPT), "status", "--target", str(target)], capture_output=True,
+                       text=True, env=env, timeout=60, stdin=subprocess.DEVNULL)  # no --source, as after update
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "source dir gone; pass --source" in r.stdout
+
+
+def test_symlink_at_target_is_skipped_with_next_step(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    dst = target / "agents" / "helper.md"
+    elsewhere = tmp_path / "elsewhere.md"
+    elsewhere.write_text("elsewhere")
+    dst.unlink()
+    dst.symlink_to(elsewhere)
+    r = run(pack, target, "install")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "target is a symlink or not a regular file; skipped" in r.stdout
+    assert "replace it with a regular file or remove it, then re-run" in r.stdout
+    assert dst.is_symlink() and elsewhere.read_text() == "elsewhere"
+    assert "agents/helper.md" in manifest(target)["files"]  # the baseline survives
+
+
+def test_removed_from_source_but_modified_is_kept_unmanaged(pack, target):
+    assert run(pack, target, "install").returncode == 0
+    (pack / "agents" / "helper.md").unlink()
+    (target / "agents" / "helper.md").write_text("mine")
+    r = run(pack, target, "install")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "removed from source but locally modified; kept and no longer managed" in r.stdout
+    assert (target / "agents" / "helper.md").read_text() == "mine"
+    assert "agents/helper.md" not in manifest(target)["files"]
+
+
+def test_base_url_empty_string_clears(pack, target, tmp_path):
+    _, launcher = sandbox_paths(tmp_path, "t")
+    args = ["--tag", "t"]
+    assert run(pack, target, "install", "--base-url", "https://llm.example", target_args=args).returncode == 0
+    assert "ANTHROPIC_BASE_URL" in launcher.read_text()
+    r = run(pack, target, "install", "--base-url", "", target_args=args)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ANTHROPIC_BASE_URL" not in launcher.read_text()
+    assert manifest(sandbox_paths(tmp_path, "t")[0])["base_url"] is None
+
+
+def test_second_target_with_same_tag_refused(pack, target, tmp_path):
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    text, before = launcher.read_text(), snapshot(sbx)
+    other = tmp_path / "other"
+    r = run(pack, target, "install", target_args=["--tag", "t", "--target", str(other)])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "already launches" in r.stderr and "Traceback" not in r.stderr
+    assert launcher.read_text() == text and snapshot(sbx) == before and not other.exists()
+
+
+@pytest.mark.parametrize("on_path", [False, True])
+def test_install_warns_when_launcher_dir_is_off_path(pack, target, tmp_path, on_path):
+    bin_dir = (tmp_path / ".local" / "bin").resolve()
+    path = (str(tmp_path / ".local" / "bin") + os.pathsep + str(tmp_path / "bin")) if on_path else None
+    r = run(pack, target, "install", target_args=["--tag", "t"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    if on_path:
+        assert "is not on your PATH" not in r.stdout
+    else:
+        assert "is not on your PATH; add export PATH=" in r.stdout
+        assert 'export PATH="%s:$PATH"' % bin_dir in r.stdout
+
+
+def test_uninstall_help_states_the_sandbox_default():
+    r = subprocess.run([sys.executable, str(SCRIPT), "uninstall", "--help"], capture_output=True, text=True)
+    text = " ".join(r.stdout.split())
+    assert r.returncode == 0
+    assert "deletes the whole sandbox dir and its launcher" in text
+    assert "--global: removes only pack files" in text
+
+
+@pytest.mark.parametrize("kind", ["foreign", "missing"])
+def test_uninstall_reports_only_what_it_removed(pack, target, tmp_path, kind):
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    if kind == "foreign":
+        launcher.write_text("#!/bin/sh\necho mine\n")
+    else:
+        launcher.unlink()
+    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not sbx.exists()
+    removed = [l for l in r.stdout.splitlines() if l.startswith("Removed ")]
+    assert removed and str(launcher) not in removed[0]
+    if kind == "foreign":
+        assert "is not a claude-supervisor launcher; left in place" in r.stdout
+        assert launcher.read_text() == "#!/bin/sh\necho mine\n"
+
+
+def test_uninstall_prunes_dirs_holding_only_junk(pack, global_target):
+    assert run(pack, global_target, "install").returncode == 0
+    for rel in ("skills/demo", "skills/demo/scripts"):
+        (global_target / rel / ".DS_Store").write_text("junk")
+    r = run(pack, global_target, "uninstall", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (global_target / "skills" / "demo").exists()
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://user:tok3n@example.com/o/r.git", "https://example.com/o/r.git"),
+    ("https://tok3n@example.com/o/r.git", "https://example.com/o/r.git"),
+    ("file:///srv/r.git", "file:///srv/r.git"),
+    ("git@github.com:o/r.git", "git@github.com:o/r.git"),
+])
+def test_git_remote_strips_credentials(tmp_path, monkeypatch, url, expected):
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        pytest.skip("git not available")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    repo = tmp_path / "repo"
+    for cmd in (["init", "-q", str(repo)], ["-C", str(repo), "remote", "add", "origin", url]):
+        assert subprocess.run([git_bin] + cmd, capture_output=True).returncode == 0
+    assert load_deploy().git_remote(repo) == expected
+
+
+# --------------------------------------------------------------------------- update (remote fixture)
+
+def test_update_dry_run_changes_nothing(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    push_change(remote, "v11 dry")
+    before = (snapshot(sbx), snapshot(remote.state), registry(tmp_path))
+    r = update(remote, "--tag", "t", "--yes", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "[dry-run]" in r.stdout and "would update agents/helper.md" in r.stdout
+    assert "v11 dry" not in helper_text(sbx)
+    assert (snapshot(sbx), snapshot(remote.state), registry(tmp_path)) == before
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_update_clone_failure_names_the_next_step(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    before = snapshot(sbx)
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    real_git = shutil.which("git", path=remote.env["PATH"])
+    (shim / "git").write_text('#!/bin/sh\n[ "$1" = clone ] && exit 128\nexec %s "$@"\n' % real_git)
+    (shim / "git").chmod(0o755)
+    env = dict(remote.env, PATH="%s:%s" % (shim, remote.env["PATH"]))
+    r = subprocess.run([sys.executable, str(remote.state / "deploy"), "update", "--tag", "t", "--yes"],
+                       capture_output=True, text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "clone failed" in r.stdout
+    assert "check network access, credentials and that the branch exists, or pass --from DIR" in r.stdout
+    assert snapshot(sbx) == before and list(remote.tmpdir.iterdir()) == []
+
+
+def test_update_without_git_says_so(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    nogit = tmp_path / "nogit"
+    nogit.mkdir()
+    r = subprocess.run([sys.executable, str(remote.state / "deploy"), "update", "--tag", "t", "--yes"],
+                       capture_output=True, text=True, env=dict(remote.env, PATH=str(nogit)),
+                       timeout=120, stdin=subprocess.DEVNULL)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "git not found on PATH" in r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+
+
+def test_update_collision_names_the_real_fix(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    (remote.clone / "pack" / "agents" / "extra.md").write_text(agent_md("extra"))
+    (sbx / "agents" / "extra.md").write_text("mine")
+    r = deploy_run(remote, remote.state / "deploy", "update", "--from", str(remote.clone), "--tag", "t", "--yes")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "run ./deploy install --overwrite-local from your checkout" in r.stdout
+    assert (sbx / "agents" / "extra.md").read_text() == "mine"
+
+
+def test_update_all_from_checkout_on_other_branch_says_nothing_updated(remote, feat_tree, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    before = snapshot(sandbox_paths(tmp_path, "t")[0])
+    r = deploy_run(remote, remote.state / "deploy", "update", "--from", str(feat_tree), "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "no registered install follows branch feat" in r.stdout and "nothing updated" in r.stdout
+    assert snapshot(sandbox_paths(tmp_path, "t")[0]) == before
+
+
+def test_update_from_other_branch_reports_new_tracking(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    r = deploy_run(remote, remote.state / "deploy", "update", "--from", str(remote.clone), "--tag", "dev", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "now tracking branch main" in r.stdout + r.stderr
+    assert registry(tmp_path)[str(dev)] == entry("dev", remote.url, "main")
+
+
+def test_install_records_source_commit_and_dirty(remote, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    git_bin = shutil.which("git", path=remote.env["PATH"])
+    head = subprocess.run([git_bin, "-C", str(remote.clone), "rev-parse", "HEAD"], capture_output=True,
+                          text=True, env=remote.env).stdout.strip()
+    install_from_clone(remote, "--tag", "t")
+    assert manifest(sbx)["source_commit"] == head and manifest(sbx)["source_dirty"] is False
+    (remote.clone / "pack" / "agents" / "helper.md").write_text(agent_md("helper", "uncommitted"))
+    install_from_clone(remote, "--tag", "t")
+    assert manifest(sbx)["source_commit"] == head and manifest(sbx)["source_dirty"] is True
+
+
+# --------------------------------------------------------------------------- migrate (preflight)
+
+@pytest.mark.parametrize("breakage", ["launcher", "registry"])
+def test_migrate_preflight_failure_leaves_the_pack_in_place(request, pack, global_target, tmp_path, breakage):
+    old_install(request, pack, global_target)
+    if breakage == "launcher":
+        (tmp_path / ".local" / "bin").mkdir(parents=True)
+        (tmp_path / ".local" / "bin" / "claude-supervisor").write_text("#!/bin/sh\necho mine\n")
+    else:
+        (state_dir(tmp_path) / "installs.json").write_text("{bad")
+    before = snapshot(tmp_path)
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr and "pack files were removed" not in r.stdout + r.stderr
+    assert snapshot(tmp_path) == before  # ~/.claude still holds the pack, nothing backed up or installed
+    assert (global_target / MANIFEST).is_file() and (global_target / "agents" / "helper.md").is_file()
+    assert not backups(global_target) and not sandbox_paths(tmp_path, "supervisor")[0].exists()
+
+
+def test_migrate_prefix_mismatch_refuses(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    pa = tmp_path / "pa"
+    r = run(pack, global_target, "install", target_args=["--prefix", str(pa)])  # the default sandbox, prefix pa
+    assert r.returncode == 0, r.stdout + r.stderr
+    before = snapshot(tmp_path)
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "was installed with --prefix" in r.stderr and str(pa.resolve()) in r.stderr
+    assert snapshot(tmp_path) == before and not backups(global_target)
+    assert (global_target / "agents" / "helper.md").is_file()

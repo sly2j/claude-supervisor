@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -40,6 +41,9 @@ EXIT_STALE = 3  # update: the recorded branch is gone from the remote
 SEED = ("settings.json", "CLAUDE.md", "commands", "output-styles", "keybindings.json",
         "agents", "skills")
 LAUNCHER_MARKER = "# managed by claude-supervisor"
+MANIFEST_RECOVERY = ("restore it from a backup, or delete it and re-run ./deploy install "
+                     "(existing files then need --overwrite-local)")
+REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 # Fable agents run on this Opus model unless the launcher gets --fable; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
 
@@ -49,7 +53,7 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
              'case "$1" in update|uninstall)',
              "  d='%s'" % d,
-             '  [ -x "$d" ] || { echo "claude-%s: $d missing; run deploy install" >&2; exit 1; }' % tag,
+             '  [ -x "$d" ] || { echo "claude-%s: $d missing; run ./deploy install from your checkout" >&2; exit 1; }' % tag,
              "  s=$1; shift",
              # the fixed flags come last, so argparse ignores a user's --tag/--target/--prefix
              "  exec \"$d\" \"$s\" \"$@\" --prefix '%s' --tag '%s' --target '%s' --launcher;;" % (prefix, tag, target),
@@ -140,7 +144,7 @@ def confirm(prompt: str, assume_yes: bool) -> bool:
     if assume_yes:
         return True
     if not sys.stdin.isatty():
-        raise DeployError("%s -- refusing without a terminal; re-run with --yes" % prompt)
+        raise DeployError("cannot ask '%s' without a terminal; re-run with --yes" % prompt)
     return input(prompt + " [y/N] ").strip().lower() in ("y", "yes")
 
 
@@ -148,7 +152,7 @@ def confirm_typed(prompt: str, expected: str, assume_yes: bool) -> bool:
     if assume_yes:
         return True
     if not sys.stdin.isatty():
-        raise DeployError("%s -- refusing without a terminal; re-run with --yes" % prompt)
+        raise DeployError("cannot ask '%s' without a terminal; re-run with --yes" % prompt)
     return input(prompt + " Type %s to confirm: " % expected).strip() == expected
 
 
@@ -200,7 +204,7 @@ def check_prefix(args: argparse.Namespace, target: Path, manifest: Optional[dict
 def resolve_source(args: argparse.Namespace) -> Path:
     src = Path(args.source).expanduser().resolve() if args.source else REPO_ROOT / "pack"
     if not src.is_dir():
-        raise DeployError("source directory not found: %s" % src)
+        raise DeployError("source directory not found: %s; run ./deploy from the repo checkout or pass --source DIR" % src)
     return src
 
 
@@ -318,7 +322,10 @@ def collect_source(source: Path) -> Dict[str, Path]:
             if not skill_md.is_file():
                 problems.append("%s: missing SKILL.md" % sk)
                 continue
-            fm = parse_frontmatter(read_source_text(skill_md)) or {}
+            fm = parse_frontmatter(read_source_text(skill_md))
+            if fm is None:
+                problems.append("%s: missing --- frontmatter" % skill_md)
+                continue
             if fm.get("name") != sk.name:
                 problems.append("%s: frontmatter name %r != directory %r" % (skill_md, fm.get("name"), sk.name))
             if not str(fm.get("description") or "").strip():
@@ -366,7 +373,12 @@ def git_remote(source: Path) -> Optional[str]:
                              capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return None
-    return (out.stdout.strip() or None) if out.returncode == 0 else None
+    url = (out.stdout.strip() or None) if out.returncode == 0 else None
+    parts = urllib.parse.urlsplit(url) if url else None
+    # Drop credentials from http(s) URLs; an ssh:// user is needed to clone and holds no secret.
+    if parts and parts.scheme in ("http", "https") and "@" in parts.netloc:
+        url = urllib.parse.urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
+    return url
 
 
 def git_branch(source: Path) -> Optional[str]:
@@ -422,11 +434,14 @@ def load_manifest(target: Path) -> Optional[dict]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise DeployError("cannot read manifest %s: %s" % (path, exc))
-    if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
-        raise DeployError("manifest %s is malformed (no 'files' object)" % path)
+        raise DeployError("cannot read manifest %s: %s; %s" % (path, exc, MANIFEST_RECOVERY))
+    if not isinstance(data, dict) or not isinstance(data.get("files"), dict) \
+            or not all(isinstance(v, dict) for v in data["files"].values()):
+        raise DeployError("manifest %s is malformed (needs a 'files' object of objects); %s"
+                          % (path, MANIFEST_RECOVERY))
     if data.get("version") != MANIFEST_VERSION:
-        raise DeployError("manifest %s has unsupported version %r" % (path, data.get("version")))
+        raise DeployError("manifest %s has unsupported version %r; it was written by a newer deploy, "
+                          "update your checkout" % (path, data.get("version")))
     return data
 
 
@@ -442,13 +457,13 @@ def target_lock(target: Path, dry_run: bool):
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             raise DeployError("another deploy is running against %s (lock %s is held)"
-                              % (target, target / LOCK_NAME))
+                              "; wait for it to finish, then re-run" % (target, target / LOCK_NAME))
         yield
     finally:
         fh.close()
 
 
-def load_settings(target: Path) -> Optional[dict]:
+def load_settings(target: Path) -> dict:
     """Return parsed settings.json ({} if missing). Raise DeployError if unparseable."""
     path = target / "settings.json"
     if not path.exists():
@@ -456,9 +471,9 @@ def load_settings(target: Path) -> Optional[dict]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise DeployError("cannot parse %s: %s (settings step skipped, file not changed)" % (path, exc))
+        raise DeployError("cannot parse %s: %s; fix the JSON" % (path, exc))
     if not isinstance(data, dict):
-        raise DeployError("%s is not a JSON object (settings step skipped, file not changed)" % path)
+        raise DeployError("%s is not a JSON object; fix the JSON" % path)
     return data
 
 
@@ -521,11 +536,11 @@ def load_registry(prefix: Path) -> Dict[str, dict]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise DeployError("cannot read registry %s: %s" % (path, exc))
+        raise DeployError("cannot read registry %s: %s; %s" % (path, exc, REGISTRY_RECOVERY))
     installs = data.get("installs") if isinstance(data, dict) else None
     if not isinstance(installs, dict) or data.get("version") != 1 \
             or not all(isinstance(v, dict) for v in installs.values()):
-        raise DeployError("registry %s is malformed" % path)
+        raise DeployError("registry %s is malformed; %s" % (path, REGISTRY_RECOVERY))
     return installs
 
 
@@ -571,8 +586,13 @@ def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
     for rel in rel_files:
         d = (target / rel).parent
         while d not in stop and target in d.parents:
-            if dry_run or not d.is_dir() or any(d.iterdir()):
+            if dry_run or not d.is_dir() or any(p.name not in JUNK_NAMES for p in d.iterdir()):
                 break
+            for p in d.iterdir():
+                if p.is_dir() and not p.is_symlink():
+                    shutil.rmtree(str(p))
+                else:
+                    p.unlink()
             d.rmdir()
             d = d.parent
 
@@ -583,8 +603,8 @@ def seed_sandbox(target: Path, dry_run: bool) -> None:
     names = [n for n in SEED if (home / n).exists() and not (target / n).exists()]
     if not names:
         return
-    print("%s from %s: %s" % ("Would seed" if dry_run else "Seeded", home, ", ".join(names)))
     if dry_run:
+        print("Would seed from %s: %s" % (home, ", ".join(names)))
         return
     skip = {"skills/.trash", "skills/synced"} | set((load_manifest(home) or {}).get("files", {}))
 
@@ -593,28 +613,74 @@ def seed_sandbox(target: Path, dry_run: bool) -> None:
         return [e for e in entries if os.path.join(rel, e) in skip or ".bak-" in e]
 
     for n in names:
-        if n == "settings.json":
-            data = load_settings(home)
-            data.pop("agent", None)
-            write_json_atomic(target / n, data)
-        elif (home / n).is_dir():
-            shutil.copytree(home / n, target / n, ignore=ignore, dirs_exist_ok=True)
-        else:
-            shutil.copy2(home / n, target / n)
+        try:
+            if n == "settings.json":
+                data = json.loads((home / n).read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("not a JSON object")
+                data.pop("agent", None)
+                write_json_atomic(target / n, data)
+            elif (home / n).is_dir():
+                shutil.copytree(home / n, target / n, ignore=ignore, dirs_exist_ok=True, symlinks=True)
+            else:
+                shutil.copy2(home / n, target / n)
+        except (OSError, ValueError, shutil.Error) as exc:
+            # A partial copy would make every re-run skip this item as already seeded.
+            if (target / n).is_dir():
+                shutil.rmtree(str(target / n), ignore_errors=True)
+            else:
+                with contextlib.suppress(OSError):
+                    (target / n).unlink()
+            raise DeployError("cannot seed from %s: %s; fix or move that file and re-run" % (home / n, exc))
+    print("Seeded from %s: %s" % (home, ", ".join(names)))
 
 
-def install_cmd(args: argparse.Namespace) -> int:
+def on_path(bin_dir: Path) -> bool:
+    return any(e and Path(e).expanduser().resolve() == bin_dir.resolve() for e in os.environ.get("PATH", "").split(os.pathsep))
+
+
+def launcher_config_dir(launcher: Path) -> Optional[str]:
+    """The CLAUDE_CONFIG_DIR an existing launcher exports, or None when it cannot be read."""
+    try:
+        m = re.search(r"^CLAUDE_CONFIG_DIR='(.*)'; export", launcher.read_text(encoding="utf-8", errors="replace"), re.M)
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def install_preflight(args: argparse.Namespace) -> Tuple[Path, Path, Optional[str], Path, Optional[Path],
+                                                         Optional[bytes], Dict[str, Path]]:
+    """Everything install can refuse on, before any write.
+
+    Returns (source, target, tag, prefix, launcher, token, src_files); migrate calls it before it uninstalls.
+    """
     source, target = resolve_source(args), resolve_target(args)
     tag = target_tag(args)
     prefix = resolve_prefix(args)
     check_prefix(args, target, load_manifest(target))
     launcher = prefix / "bin" / ("claude-" + tag) if tag else None
-    if launcher and os.path.lexists(launcher) and not is_launcher(launcher):
-        raise DeployError("%s exists and is not a claude-supervisor launcher" % launcher)
-    token = Path(args.token_file).expanduser().read_bytes() if args.token_file else None
+    if launcher and os.path.lexists(launcher):
+        if not is_launcher(launcher):
+            raise DeployError("%s exists and is not a claude-supervisor launcher; "
+                              "move it aside, or choose another --tag or --prefix" % launcher)
+        existing = launcher_config_dir(launcher)
+        if existing is not None and existing != str(target):
+            raise DeployError("claude-%s already launches %s; pick another --tag" % (tag, existing))
+    token = None
+    if args.token_file:
+        try:
+            token = Path(args.token_file).expanduser().read_bytes()
+        except OSError as exc:
+            raise DeployError("cannot read --token-file %s: %s; check the path" % (args.token_file, exc))
     if args.token is not None:
         token = args.token.encode()
     src_files = collect_source(source)
+    load_registry(prefix)
+    return source, target, tag, prefix, launcher, token, src_files
+
+
+def install_cmd(args: argparse.Namespace) -> int:
+    source, target, tag, prefix, launcher, token, src_files = install_preflight(args)
     pack_version = read_pack_version(source)
     if args.overwrite_local and not args.dry_run:
         if not confirm("--overwrite-local will back up and replace locally modified/unmanaged files in %s. Continue?"
@@ -657,7 +723,8 @@ def install_cmd(args: argparse.Namespace) -> int:
             src_hash = sha256_bytes(data)
             base = (baseline.get(key) or {}).get("sha256")
             if dst.is_symlink() or (dst.exists() and not dst.is_file()):
-                print("  ERROR %s: target is a symlink or not a regular file; skipped" % key)
+                print("  ERROR %s: target is a symlink or not a regular file; skipped; "
+                      "replace it with a regular file or remove it, then re-run" % key)
                 counts["errors"] += 1
                 if base:
                     new_files[key] = baseline[key]
@@ -680,7 +747,7 @@ def install_cmd(args: argparse.Namespace) -> int:
                     new_files[key] = {"sha256": src_hash}
                 else:
                     print("  ERROR %s: exists but is not managed by this pack; not touched "
-                          "(use --overwrite-local to back it up and replace it)" % key)
+                          "(run ./deploy install --overwrite-local from your checkout to replace it)" % key)
                     counts["errors"] += 1
                 continue
             if dst_hash == base:
@@ -723,7 +790,7 @@ def install_cmd(args: argparse.Namespace) -> int:
                 if args.dry_run:
                     settings_msg = "would " + settings_msg
         except DeployError as exc:
-            settings_msg = "ERROR: %s" % exc
+            settings_msg = "ERROR: %s (settings step skipped, file not changed)" % exc
             counts["errors"] += 1
 
         commit, dirty = git_info(source)
@@ -760,13 +827,19 @@ def install_cmd(args: argparse.Namespace) -> int:
                     atomic_write_bytes(target / "token", token, mode=0o600)
                 text = launcher_text(tag, target, prefix, base_url, (target / "token").exists())
                 atomic_write_bytes(launcher, text.encode(), mode=0o755)
-            register_install(prefix, target, tag, git_remote(source), branch)
+            remote, old = git_remote(source), load_registry(prefix).get(str(target))
+            if old is not None and (old.get("remote") != remote or entry_branch(old) != (branch or "main")):
+                print("now tracking branch %s of %s" % (branch or "main", remote or "no remote"))
+            register_install(prefix, target, tag, remote, branch)
             atomic_write_bytes(state_dir(prefix) / "deploy", Path(__file__).read_bytes(), mode=0o755)
 
     print("\nSummary: " + ", ".join("%s=%d" % kv for kv in counts.items()))
     print("Settings: " + settings_msg)
     if launcher:
         print("Launcher: %s" % launcher)
+        if not getattr(args, "migrating", False) and not on_path(prefix / "bin"):
+            print('WARNING %s is not on your PATH; add export PATH="%s:$PATH" to your shell profile, '
+                  "then open a new terminal" % (prefix / "bin", prefix / "bin"))
     if args.dry_run:
         print("Dry run: nothing was written.")
     return 1 if counts["errors"] else 0
@@ -806,8 +879,9 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("No manifest: pack is not installed here.")
     else:
         if not (target / MANIFEST_NAME).exists():
-            print("Note: legacy manifest %s; run deploy install to migrate" % LEGACY_MANIFEST_NAME)
-        print("Source: %s" % manifest.get("source_dir"))
+            print("Note: legacy manifest %s; run ./deploy install from your checkout to migrate" % LEGACY_MANIFEST_NAME)
+        gone = not args.source and not Path(str(manifest.get("source_dir"))).is_dir()
+        print("Source: %s%s" % (manifest.get("source_dir"), " (source dir gone; pass --source <checkout>/pack)" if gone else ""))
         try:
             reg_prefix = Path(manifest["prefix"]) if manifest.get("prefix") else resolve_prefix(args)
             entry = load_registry(reg_prefix).get(str(target))
@@ -825,7 +899,7 @@ def status_cmd(args: argparse.Namespace) -> int:
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         recorded = manifest.get("pack_version")
         current = read_pack_version(source) if source.is_dir() else None
-        flag = " (MISMATCH: run deploy install)" if recorded and current and recorded != current else ""
+        flag = " (MISMATCH: run ./deploy install from your checkout)" if recorded and current and recorded != current else ""
         print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
         rows = file_states(target, manifest, source if source.is_dir() else None)
         width = max([len(k) for k, _ in rows] + [10])
@@ -864,6 +938,7 @@ def uninstall_all(args: argparse.Namespace) -> int:
     for key, entry in list(installs.items()):
         argv = ["uninstall", "--yes", "--prefix", str(prefix)] + entry_selection(key, entry) + \
             (["--dry-run"] if args.dry_run else []) + (["--force"] if args.force else [])
+        print("== uninstall %s ==" % key)
         try:
             rc = uninstall_cmd(build_parser().parse_args(argv))
         except DeployError as exc:
@@ -875,14 +950,16 @@ def uninstall_all(args: argparse.Namespace) -> int:
 
 def uninstall_cmd(args: argparse.Namespace) -> int:
     if args.all and args.launcher:
-        raise DeployError("use deploy uninstall --all")
+        raise DeployError("use ./deploy uninstall --all")
     if args.all:
         return uninstall_all(args)
     target, prefix = resolve_target(args), resolve_prefix(args)
     manifest = load_manifest(target)
     check_prefix(args, target, manifest)
     if manifest is None:
-        print("No manifest in %s; nothing to uninstall." % target)
+        print("No manifest in %s; nothing to uninstall.%s" % (
+            target, "" if args.use_global or not target.exists() else
+            " The directory still exists; delete it by hand if you no longer need it."))
         if not args.dry_run and unregister_install(prefix, target):
             print("Removed stale registry entry for %s" % target)
         return 0
@@ -900,15 +977,18 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
         return 1
     if tag:
         launcher = manifest.get("launcher")
-        gone = "%s and %s" % (target, launcher) if launcher else str(target)
         if args.dry_run:
-            print("[dry-run] would remove %s" % gone)
+            print("[dry-run] would remove %s" % ("%s and %s" % (target, launcher) if launcher else target))
             return 0
+        shutil.rmtree(target)
+        gone = [str(target)]
         if launcher and is_launcher(Path(launcher)):
             Path(launcher).unlink()
-        shutil.rmtree(target)
+            gone.append(launcher)
+        elif launcher and os.path.lexists(launcher):
+            print("WARNING %s is not a claude-supervisor launcher; left in place" % launcher)
         unregister_install(prefix, target)
-        print("Removed %s" % gone)
+        print("Removed %s" % " and ".join(gone))
         return 0
     verb = "would " if args.dry_run else ""
     kept: List[str] = []
@@ -965,7 +1045,7 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
                 (target / name).unlink()
 
     for key in kept:
-        print("  WARNING kept locally modified %s (use --force to remove)" % key)
+        print("  WARNING kept locally modified %s (now unmanaged; delete it by hand)" % key)
     print("\nSummary: removed=%d, kept-modified=%d, errors=%d" % (len(removed), len(kept), errors))
     print("Settings: " + settings_msg)
     if args.dry_run:
@@ -1005,13 +1085,17 @@ def update_cmd(args: argparse.Namespace) -> int:
     else:
         target = resolve_target(args)
         if str(target) not in installs:
-            raise DeployError("%s is not registered; run deploy install once" % target)
+            raise DeployError("%s is not registered under prefix %s; run ./deploy install once "
+                              "(pass --prefix if you installed with one)" % (target, prefix))
         selected = {str(target): installs[str(target)]}
     source = Path(args.from_dir).expanduser().resolve() if args.from_dir else None
     if source is not None and args.all:
         remote, branch = git_remote(source), git_branch(source) or "main"
         selected = {k: v for k, v in selected.items()
                     if v.get("remote") == remote and entry_branch(v) == branch}
+        if not selected:
+            print("no registered install follows branch %s of %s; nothing updated" % (branch, remote or "no remote"))
+            return 0
     if selected and not args.dry_run and (args.all or args.launcher):
         listing = ", ".join("%s (%s, branch %s)" % (k, v.get("remote") or "no remote", entry_branch(v))
                             for k, v in selected.items())
@@ -1054,7 +1138,7 @@ def update_cmd(args: argparse.Namespace) -> int:
         elif source is not None:
             failed += replay_install(key, entry, manifest, source, args.dry_run) != 0
         elif entry.get("remote") is None:
-            print("ERROR %s: no recorded remote; run deploy install from a checkout, or pass --from" % key)
+            print("ERROR %s: no recorded remote; run ./deploy install from your checkout, or pass --from" % key)
             failed += 1
         else:
             groups.setdefault((entry["remote"], entry_branch(entry)), []).append(key)
@@ -1064,13 +1148,17 @@ def update_cmd(args: argparse.Namespace) -> int:
             rc = subprocess.run(["git", "ls-remote", "--exit-code", "--heads", remote, "refs/heads/" + branch],
                                 stdout=subprocess.DEVNULL, timeout=60).returncode
             problem = "git ls-remote exit %d" % rc
+        except FileNotFoundError:
+            print("ERROR git not found on PATH; install git")
+            failed += len(keys)
+            continue
         except (OSError, subprocess.SubprocessError) as exc:
             rc, problem = -1, str(exc)
         if rc == 2:
             for key in keys:
                 tag = selected[key].get("tag")
-                how = "claude-%s uninstall (or deploy uninstall --tag %s --target %s)" % (tag, tag, key) \
-                    if tag else "deploy uninstall --global"
+                how = "claude-%s uninstall (or ./deploy uninstall --tag %s --target %s)" % (tag, tag, key) \
+                    if tag else "./deploy uninstall --global"
                 print("STALE %s: nothing to update; branch %s is gone from %s; this install is stale. "
                       "Remove it with: %s" % (key, branch, remote, how))
             stale += len(keys)
@@ -1085,10 +1173,15 @@ def update_cmd(args: argparse.Namespace) -> int:
             try:
                 cloned = subprocess.run(["git", "clone", "--depth", "1", "--branch", branch, "--quiet",
                                          remote, str(clone)]).returncode == 0
+            except FileNotFoundError:
+                print("ERROR git not found on PATH; install git")
+                failed += len(keys)
+                continue
             except OSError:
                 cloned = False
             if not cloned:
-                print("ERROR %s (branch %s): clone failed" % (remote, branch))
+                print("ERROR %s (branch %s): clone failed; check network access, credentials and that the "
+                      "branch exists, or pass --from DIR" % (remote, branch))
                 failed += len(keys)
                 continue
             selection = ["--all"] if args.all else entry_selection(keys[0], selected[keys[0]])
@@ -1108,9 +1201,10 @@ def migrate_cmd(args: argparse.Namespace) -> int:
     sandbox = Path("~/.config/claude-" + DEFAULT_TAG).expanduser().resolve()
     dry = ["--dry-run"] if args.dry_run else []
     inst = build_parser().parse_args(["install", "--prefix", str(prefix)] + dry)
-    resolve_source(inst)  # refuse before removing anything
-    check_prefix(inst, sandbox, load_manifest(sandbox))
+    inst.migrating = True  # install skips its PATH hint; migrate prints its own below
+    install_preflight(inst)  # refuse before removing anything
     manifest = load_manifest(home)
+    removed_msg = None
     if manifest is None:
         print("No pack install in %s; installing the default sandbox." % home)
     else:
@@ -1122,6 +1216,8 @@ def migrate_cmd(args: argparse.Namespace) -> int:
         while backup.exists():
             backup = home / ("claude-supervisor-backup-%s-%d" % (timestamp(), n))
             n += 1
+        recorded = manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())
+        load_registry(Path(recorded))  # the uninstall below registers under this prefix; fail before removing
         if not args.dry_run and not confirm(
                 "Remove the agent pack from %s (%d files, %d edited) and install the default sandbox %s? "
                 "settings.json and edited files are backed up to %s."
@@ -1138,14 +1234,23 @@ def migrate_cmd(args: argparse.Namespace) -> int:
             print("  backed up %s" % rel)
         if saved:
             print("Would back up to %s" % backup if args.dry_run else "Backup: %s" % backup)
-        recorded = manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())
+        if not args.dry_run:
+            removed_msg = ("pack files were removed from ~/.claude (backup: %s); "
+                           "fix the error above and re-run ./deploy migrate" % backup)
         if uninstall_cmd(build_parser().parse_args(
                 ["uninstall", "--global", "--yes", "--force", "--prefix", recorded] + dry)) != 0:
-            print("The default sandbox was not installed; fix the error above and re-run migrate.")
+            print(removed_msg or "fix the error above and re-run ./deploy migrate")
             return 1
-    rc = install_cmd(inst)
+    try:
+        rc = install_cmd(inst)
+    except (DeployError, OSError) as exc:
+        if removed_msg is None:
+            raise
+        eprint("error: %s" % exc)
+        eprint(removed_msg)
+        return 2
     bin_dir = prefix / "bin"
-    if any(e and Path(e).expanduser().resolve() == bin_dir.resolve() for e in os.environ.get("PATH", "").split(os.pathsep)):
+    if on_path(bin_dir):
         print("PATH: %s is on PATH" % bin_dir)
     else:
         print("WARNING: %s is not on PATH; add this line to your shell profile:" % bin_dir)
@@ -1164,8 +1269,19 @@ def is_truthy(value: object) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def install_hint(args: argparse.Namespace) -> str:
+    """The install command for the target doctor checks, with any non-default --tag/--target."""
+    hint = "./deploy install"
+    if args.use_global:
+        return hint + " --global"
+    if args.tag not in (None, DEFAULT_TAG):
+        hint += " --tag %s" % args.tag
+    return hint + (" --target %s" % args.target if args.target else "")
+
+
 def doctor_cmd(args: argparse.Namespace) -> int:
     target = resolve_target(args)
+    hint = install_hint(args)
     results: List[Tuple[str, str]] = []
 
     def add(level: str, msg: str) -> None:
@@ -1173,11 +1289,12 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         print("%-4s %s" % (level, msg))
 
     print("Target: %s" % target)
-    add("PASS" if sys.version_info >= (3, 9) else "FAIL", "python %s" % sys.version.split()[0])
+    add("PASS" if sys.version_info >= (3, 9) else "FAIL", "python %s%s" % (
+        sys.version.split()[0], "" if sys.version_info >= (3, 9) else "; deploy needs 3.9 or newer"))
 
     claude = shutil.which("claude")
     if not claude:
-        add("FAIL", "claude CLI not found on PATH")
+        add("FAIL", "claude CLI not found on PATH; install Claude Code and open a new terminal")
     else:
         try:
             out = subprocess.run([claude, "--version"], capture_output=True, text=True, timeout=30).stdout
@@ -1186,7 +1303,8 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         ver = parse_version(out)
         need = ".".join(map(str, MIN_CLAUDE_VERSION))
         if ver is None:
-            add("FAIL", "cannot determine claude version from `claude --version`: %r" % out.strip())
+            add("FAIL", "cannot determine claude version from `claude --version`: %r; reinstall Claude Code"
+                % out.strip())
         elif ver >= MIN_CLAUDE_VERSION:
             add("PASS", "claude %s (>= %s)" % (".".join(map(str, ver)), need))
         else:
@@ -1199,46 +1317,59 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         add("FAIL", str(exc))
     else:
         if manifest is None:
-            add("WARN", "pack not installed in %s yet; run `deploy install`" % target)
+            add("WARN", "pack not installed in %s yet; run %s from your checkout" % (target, hint))
         else:
             rows = file_states(target, manifest, None)
-            bad = [k for k, s in rows if s != "ok"]
-            if not bad:
+            missing = [k for k, s in rows if s == "missing"]
+            modified = [k for k, s in rows if s == "modified"]
+
+            def names(keys: List[str]) -> str:
+                return ", ".join(keys[:5]) + (" ..." if len(keys) > 5 else "")
+
+            if not missing and not modified:
                 add("PASS", "%d managed files intact" % len(rows))
-            else:
-                missing = [k for k, s in rows if s == "missing"]
-                add("FAIL" if missing else "WARN", "%d of %d managed files missing/modified: %s"
-                    % (len(bad), len(rows), ", ".join(bad[:5]) + (" ..." if len(bad) > 5 else "")))
+            if missing:
+                add("FAIL", "%d managed files missing: %s; run %s" % (len(missing), names(missing), hint))
+            if modified:
+                add("WARN", "%d managed files modified: %s; keep them, or run %s --overwrite-local"
+                    % (len(modified), names(modified), hint))
 
     env_block: Dict[str, object] = {}
     try:
         settings = load_settings(target)
         agent = settings.get("agent")
-        if agent == DEFAULT_AGENT:
+        if manifest is None:
+            pass  # nothing installed here, so the agent setting is not ours to judge
+        elif agent == DEFAULT_AGENT:
             add("PASS", "settings agent = %r" % agent)
         else:
-            add("WARN", "settings agent = %r (expected %r; supervisor is not the default)" % (agent, DEFAULT_AGENT))
+            add("WARN", "settings agent = %r (expected %r; supervisor is not the default); "
+                "run %s (--force-default-agent to replace another agent)" % (agent, DEFAULT_AGENT, hint))
         if isinstance(settings.get("env"), dict):
             env_block = settings["env"]
     except DeployError as exc:
         add("FAIL", str(exc))
 
+    UNSET = "unset it, or remove it from settings.json env"
     for origin, env in (("environment", os.environ), ("settings.json env", env_block)):
         depth = env.get("CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH")
         if depth is not None:
             try:
                 if int(str(depth)) < 2:
-                    add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%s in %s; full mode needs >= 2" % (depth, origin))
+                    add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%s in %s; full mode needs >= 2; %s" % (depth, origin, UNSET))
             except ValueError:
-                add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%r in %s is not an integer" % (depth, origin))
+                add("WARN", "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=%r in %s is not an integer; %s" % (depth, origin, UNSET))
         if is_truthy(env.get("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "")):
-            add("WARN", "CLAUDE_CODE_SUBAGENT_MODEL_FORCE set in %s; per-agent models/effort are ignored" % origin)
+            add("WARN", "CLAUDE_CODE_SUBAGENT_MODEL_FORCE set in %s; per-agent models/effort are ignored; %s" % (origin, UNSET))
         if env.get("CLAUDE_CODE_EFFORT_LEVEL") not in (None, ""):
-            add("WARN", "CLAUDE_CODE_EFFORT_LEVEL set in %s; it overrides per-agent effort" % origin)
+            add("WARN", "CLAUDE_CODE_EFFORT_LEVEL set in %s; it overrides per-agent effort; %s" % (origin, UNSET))
 
-    for tool in ("git", "zip"):
-        add("PASS" if shutil.which(tool) else "WARN", "%s %s" % (tool, "found" if shutil.which(tool) else
-                                                             "not found (optional, used by some skills)"))
+    if shutil.which("git"):
+        add("PASS", "git found")
+    else:
+        add("WARN", "git not found; needed for ./deploy update and to clone, optional otherwise")
+    add("PASS" if shutil.which("zip") else "WARN",
+        "zip found" if shutil.which("zip") else "zip not found (optional, used by some skills)")
 
     fails = sum(1 for lvl, _ in results if lvl == "FAIL")
     warns = sum(1 for lvl, _ in results if lvl == "WARN")
@@ -1296,7 +1427,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("uninstall", help="remove the pack",
                         description="Remove unmodified managed files, restore settings agent, delete the manifest. "
-                                    "Locally modified files are kept unless --force.")
+                                    "Locally modified files are kept unless --force. Sandbox installs (default): deletes the "
+                                    "whole sandbox dir and its launcher. --global: removes only pack files.")
     common(sp, source=False)
     sp.add_argument("--dry-run", action="store_true", help="show what would be removed; write nothing")
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
@@ -1341,8 +1473,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     except DeployError as exc:
         eprint("error: %s" % exc)
         return 2
+    except (OSError, shutil.Error) as exc:
+        eprint("error: %s; check the path and permissions, then re-run" % exc)
+        return 2
+    except EOFError:
+        eprint("aborted")
+        return 1
     except KeyboardInterrupt:
-        eprint("interrupted")
+        eprint("interrupted; re-run ./deploy install (use --overwrite-local if files are reported as not managed)")
         return 130
 
 

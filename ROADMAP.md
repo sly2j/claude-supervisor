@@ -21,58 +21,7 @@
 
 ## Items
 
-### 1. Full code review and new-user usability review
-
-- **Goal:** fix what a full code and usability review of `deploy`, `tests/`, and `pack/` finds,
-  and start `REVIEW.md` so critic reuses the checklist in every later review.
-- **Background:**
-  - Hosted on eicweb GitLab (`origin`) with a GitHub mirror at
-    `github.com/sly2j/claude-supervisor`, which the docs' clone URL uses. Anthropic's managed
-    GitHub Code Review reads `REVIEW.md`; the local `/code-review` does not.
-  - No `REVIEW.md` exists and nothing references one. `pack/agents/critic.md` loads project rules
-    only for prose (`docs/writing-rules.md` via `writing-rules-persistence`, L42-44) and the
-    `agent-authoring` skill for agent definitions (L45). It states no precedence between the
-    brief's contract and other rules; the only precedence stack in the pack is
-    `pack/skills/writing-rules-persistence/SKILL.md:24-32`. Its body is 543 words against the
-    Review-tier cap of 600 (`tests/test_pack_lint.py:21`).
-  - `CLAUDE.md` has no review-only rules today; pack review guidance lives in
-    `pack/skills/agent-authoring/SKILL.md` ("Reviewing Definitions (for critic)") and
-    `docs/architecture.md:50-55`.
-  - The journey spans `README.md` Quick Start through Troubleshooting and `docs/deploy.md` Steps
-    through Migrate. `doctor` prints PASS/WARN/FAIL rows and exits 1 only on a FAIL.
-  - Tests: `tests/test_deploy.py` (101, `deploy` as a subprocess against temp dirs),
-    `tests/test_pack_lint.py` (120), `tests/test_version.py` (9).
-- **Scope:**
-  - In: code review of `deploy`, `tests/`, and `pack/` for correctness, resilience, and edge
-    cases. Usability review for non-expert users across the whole journey: cloning, install
-    choices (sandbox vs `--global`, PATH, token), first launch, update, migrate, uninstall; whether
-    error messages and `doctor` output say what went wrong and what to do next; whether `README.md`
-    and `docs/deploy.md` match the tool's actual behavior. Fixes for the findings; `REVIEW.md`;
-    the `critic` change (see Decisions).
-  - Out: new `deploy` features; raising a word cap; rewrites beyond the findings.
-- **Decisions already made:**
-  - Output: fixes for the findings plus this repo's first `REVIEW.md`, built from the review's
-    checklist. Review-only rules move out of `CLAUDE.md` into it.
-  - `critic` loads project review rules when present: root `REVIEW.md`, plus a `REVIEW.md` in any
-    subdirectory containing changed files (mirroring Anthropic's Code Review convention). When
-    none exist, critic reviews as today. Precedence: the brief's contract, then `REVIEW.md`, then
-    critic's defaults. `REVIEW.md` never overrides the user's task decisions. This must work
-    across projects with different conventions, where the file is sometimes present and
-    sometimes not.
-- **Left to planner:** how critic finds "subdirectories containing changed files" for
-  non-code domains (the artifact's directory is the natural reading); whether the critic rule fits
-  in the 57 words of cap headroom or earns a shorter checklist elsewhere; how to split the review
-  into packages (code review, usability review, critic change) within one item.
-- **Done when:** every finding is fixed or recorded as rejected with a reason; `REVIEW.md` exists
-  at the root and `CLAUDE.md` holds no review-only rules; critic loads `REVIEW.md` per the
-  precedence above and still passes `tests/test_pack_lint.py`; `README.md` and `docs/deploy.md`
-  match `deploy`'s behavior for every journey step; `python3 -m pytest -q` passes.
-- **Pointers:** `deploy`; `tests/`; `pack/agents/critic.md`; `pack/skills/agent-authoring/SKILL.md`;
-  `pack/skills/lead-loop/SKILL.md:49-65` (critic inputs);
-  `pack/skills/writing-rules-persistence/SKILL.md:24-32`; `docs/architecture.md:37,50-55,90`;
-  `README.md`; `docs/deploy.md`; `CLAUDE.md`.
-
-### 2. Persistence for long programs (v2.0)
+### 1. Persistence for long programs (v2.0)
 
 - **Goal:** carry decisions and run history across long multi-package programs.
 - **Background:** the earlier gate (run the work-package flow on a real multi-package task) was
@@ -95,7 +44,7 @@
   - Development happens on a feature branch in a separate git worktree, deployed under a dev tag
     (the dev worktree flow in `docs/deploy.md`) so the stable sandbox is untouched. It may change
     designs that are not ready for general users.
-  - Lands as v2.0 (major bump per `CLAUDE.md`). Depends on item 1.
+  - Lands as v2.0 (major bump per `CLAUDE.md`).
 - **Left to planner:** which agent writes `docs/decisions.md` and the logbook (`supervisor` via
   `quick-edit`, or the lead that took the decision); where the tier word caps bind, since every
   candidate adds rule text to Main or Lead agents.

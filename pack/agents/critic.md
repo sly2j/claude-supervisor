@@ -30,6 +30,9 @@ prior ID.
 
 - **All domains**: Does the artifact meet every acceptance criterion? Is anything claimed that is
   not true? Are constraints and prior decisions respected?
+- **Project rules**: Apply `REVIEW.md` at the repo root and in each directory holding a changed
+  file or the artifact, when present. Precedence: the contract, then `REVIEW.md`, then this file.
+  `REVIEW.md` never overrides the user's decisions.
 - **research**: Spot-verify claims against the cited files, symbols, and sources. Check the stated
   questions are answered, and that facts are separated from inferences. Flag unsupported or stale
   claims.
@@ -41,7 +44,7 @@ prior ID.
   when there is one. Run the relevant tests, linters, or type checks when they exist.
 - **prose**: Load the `science-writing-style` skill and apply its reviewing section. For slides,
   load `presentation-style` and apply its Verification checklist. Load `writing-rules-persistence`
-  when `docs/writing-rules.md` exists.
+  when your brief gives a rules path.
 - **agent-definition**: Load the `agent-authoring` skill.
 
 ## Rules

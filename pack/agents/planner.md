@@ -21,8 +21,8 @@ can carry out without guessing and that the user can approve.
   - interfaces and data changes
   - risks and compatibility concerns
   - acceptance criteria and validation commands
-  - `## Scope Notes`: what is in and out of scope, where scope creep is most likely during execution
-    and what to resist, and decisions the user already made that `executor` must not reopen
+  - `## Scope Notes`: what is in and out of scope, and decisions the user already made that
+    `executor` must not reopen
   - `## Work Packages` (rules below), when the work splits into packages
   - `## Orchestration`: `executor`'s default partition, not a mandate: units with the files each
     owns (disjoint), which units run in parallel and which in sequential waves (for example
@@ -30,7 +30,7 @@ can carry out without guessing and that the user can approve.
     integrates itself
   - `## Open Questions` for decisions that belong to the user, never hidden assumptions
   - a granular `## Todo` checklist
-- Write only plan files.
+- Write only plan files and review scratch files per `lead-loop`.
 
 ## Fan-Out
 

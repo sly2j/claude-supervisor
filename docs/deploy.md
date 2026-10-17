@@ -1,15 +1,26 @@
 # Deploying claude-supervisor
 
-This runbook is for a human or for Claude asked to "deploy claude-supervisor". It works on macOS and Linux and needs only `python3` (3.9 or newer) and Claude Code 2.1.293 or newer.
+This runbook is for a human or for Claude asked to "deploy claude-supervisor". It works on macOS and Linux and needs `python3` (3.9 or newer), `git` (to clone, and for `update`) and Claude Code 2.1.293 or newer.
 
 ## Steps
 
+First time:
+
 ```bash
-# first time:
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 REPO=~/Work/claude-supervisor
-cd "$REPO" && git pull               # when updating from the checkout (see Update)
+```
 
+From an existing checkout (see Update):
+
+```bash
+REPO=~/Work/claude-supervisor
+cd "$REPO" && git pull
+```
+
+Then, in either case:
+
+```bash
 "$REPO/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/deploy" install --dry-run
 "$REPO/deploy" install       # sandbox ~/.config/claude-supervisor + launcher (fable agents run on Opus; see Fable Or Opus)
@@ -18,6 +29,10 @@ cd "$REPO" && git pull               # when updating from the checkout (see Upda
 ```
 
 Start it with `claude-supervisor` and log in once; each sandbox has its own login, settings, and history, and plain `claude` is untouched. The session runs as `supervisor` because install sets `"agent": "supervisor"` in the sandbox's `settings.json`. Type `/agents` to see the installed agents.
+
+If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$PATH" to your shell profile, then open a new terminal`, `claude-supervisor` will not be found until that line is in the shell profile (`<bin>` is `~/.local/bin` by default).
+
+`doctor`, `status`, `update` and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
 ## What Install Does
 
@@ -35,7 +50,7 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 - Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude-supervisor --agent supervisor`. `claude-supervisor --agent <other>` overrides the setting for a single session.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
 - Records the checkout's current git branch next to the remote in the registry; `update` follows it. A detached HEAD records `main` and prints a one-line warning; a source that is not a git checkout records `main` silently. `status` prints `Remote: <url or none>` and `Branch: <branch>` from the registry, or `Remote: not registered`.
-- Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: 1.x`, with `(was 1.y)` on an update. `status` prints `Version: installed=1.x, source=1.y` and appends `(MISMATCH: run deploy install)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
+- Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: X.y`, with `(was X.z)` on an update. `status` prints `Version: installed=X.y, source=X.z` and appends `(MISMATCH: run ./deploy install from your checkout)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
 - On a sandbox's first install, copies from `~/.claude`: `settings.json` (without `agent`), `CLAUDE.md`, `commands/`, `output-styles/`, `keybindings.json`, and your own files in `agents/` and `skills/` (not `skills/.trash` or `skills/synced`). Plugins, logins, history, and sessions stay behind.
 - Writes the launcher `<prefix>/bin/claude-<tag>` (`--prefix P`, default `~/.local`), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the sandbox. The sandbox dir does not depend on the prefix. The manifest records the prefix, and `install` and `uninstall` refuse a different `--prefix` for an existing install (exit code 2, with the prefix to pass). Install also refuses a tag whose launcher path exists and was not written by the deploy.
 
@@ -45,7 +60,7 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 "$REPO/deploy" install --tag work --base-url https://llm.example.com --token-file ~/work.token
 ```
 
-Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
+Use this only for a proxy or gateway; omit it to use a normal login. Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
 
 ## The Launcher
 
@@ -60,13 +75,13 @@ The launcher checks only its first argument. `update` and `uninstall` run the de
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
-- If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run deploy install` and exits 1.
+- If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run ./deploy install from your checkout` and exits 1.
 - `claude-<tag> --fable ...` (first argument only) runs that session on Fable; see Fable Or Opus.
 - `--global` installs have no launcher; use the deploy tool.
 
 ## Update
 
-Every install records itself in a registry, `<prefix>/state/claude-supervisor/installs.json`, and writes a copy of the deploy tool to `<prefix>/state/claude-supervisor/deploy` (by default under `~/.local/state/claude-supervisor/`). Neither is ever deleted. Each prefix has its own registry and tool copy, and installs under different prefixes are independent: `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give. The commands below use the default prefix; add `--prefix P` for another.
+Every install records itself in a registry, `<prefix>/state/claude-supervisor/installs.json`, and writes a copy of the deploy tool to `<prefix>/state/claude-supervisor/deploy` (by default under `~/.local/state/claude-supervisor/`). The registry file and tool copy stay after uninstall (the install's entry is removed). Each prefix has its own registry and tool copy, and installs under different prefixes are independent: `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give. The commands below use the default prefix; add `--prefix P` for another.
 
 ```bash
 ~/.local/state/claude-supervisor/deploy update                # the default sandbox; or "$REPO/deploy" update
@@ -78,7 +93,7 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 
 Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout. Registry entries from before branches were recorded count as `main`.
 
-If the recorded branch is gone from the remote, `update` leaves that install unchanged and prints `STALE <target>: nothing to update; branch <b> is gone from <remote>; this install is stale. Remove it with: claude-<tag> uninstall (or deploy uninstall --tag <tag> --target <target>)` (a `--global` install says `deploy uninstall --global`). Under `--all` the other installs still update, and the exit code is 3. A network or auth failure reaching the remote is an error (exit code 1), not stale.
+If the recorded branch is gone from the remote, `update` leaves that install unchanged and prints `STALE <target>: nothing to update; branch <b> is gone from <remote>; this install is stale. Remove it with: claude-<tag> uninstall (or ./deploy uninstall --tag <tag> --target <target>)` (a `--global` install says `./deploy uninstall --global`). Under `--all` the other installs still update, and the exit code is 3. A network or auth failure reaching the remote is an error (exit code 1), not stale.
 
 After an update, `status` needs `--source "$REPO/pack"` to compare versions, because the manifest names the deleted clone.
 
@@ -114,19 +129,31 @@ export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5
 
 A sandbox created later copies `~/.claude/settings.json`, and there the settings value overrides `--fable`, so use the shell-profile form if you also use sandboxes.
 
-Global installs made before this change had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
+Global installs made before 1.14 had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
 
 ## Doctor Checks
 
-| Check | FAIL / WARN meaning |
-|---|---|
-| `claude --version` >= 2.1.293 | Older versions lack Haiku 5.5, per-agent `effort`, or nested subagents |
-| `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` < 2 | Leads cannot dispatch workers, so Mode 1 breaks |
-| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set | Every agent runs on one model, so model tiering is lost |
-| `CLAUDE_CODE_EFFORT_LEVEL` set | Per-agent effort levels are ignored |
-| git, zip | Optional tools used by `git-ops` and `project-backup` |
+| Check | Level | Meaning and remedy |
+|---|---|---|
+| python >= 3.9 | FAIL | Deploy needs 3.9 or newer |
+| `claude` on `PATH` | FAIL | Install Claude Code and open a new terminal |
+| `claude --version` readable | FAIL | Reinstall Claude Code |
+| `claude --version` >= 2.1.293 | FAIL | Older versions lack Haiku 5.5, per-agent `effort`, or nested subagents; run `claude update` |
+| Manifest readable | FAIL | Restore it from a backup, or delete it and re-run `./deploy install` (existing files then need `--overwrite-local`) |
+| Pack installed (manifest exists) | WARN | Pack not installed in the target yet; run `./deploy install` from your checkout (the one expected WARN before install) |
+| Managed files missing | FAIL | Run `./deploy install` |
+| Managed files modified | WARN | Keep them, or run `./deploy install --overwrite-local` |
+| `settings.json` parses | FAIL | Fix the JSON |
+| `settings.json` `agent` is `supervisor` | WARN | Run `./deploy install` (`--force-default-agent` replaces another agent); skipped when no manifest exists |
+| `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` < 2 | WARN | Leads cannot dispatch workers, so Mode 1 breaks; unset it, or remove it from `settings.json` `env` |
+| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set | WARN | Every agent runs on one model, so model tiering is lost; unset it, or remove it from `settings.json` `env` |
+| `CLAUDE_CODE_EFFORT_LEVEL` set | WARN | Per-agent effort levels are ignored; unset it, or remove it from `settings.json` `env` |
+| `git` | WARN | Needed for `./deploy update` and to clone; optional otherwise (`git-ops` uses it) |
+| `zip` | WARN | Optional; used by `project-backup` |
 
-Anthropic's document skills are recommended for docx, pdf, pptx, and xlsx work, but doctor does not check for them. In Claude Code, run `/plugin marketplace add anthropics/skills`, then install `document-skills`.
+The three environment variables are checked both in the shell environment and in the `env` block of the target's `settings.json`. Doctor exits 1 if any row is FAIL; WARN rows do not change the exit code.
+
+Anthropic's document skills are recommended for docx, pdf, pptx, and xlsx work, but doctor does not check for them. Inside a claude-supervisor session, run `/plugin marketplace add anthropics/skills`, then install `document-skills`.
 
 ## Uninstall
 
@@ -160,6 +187,6 @@ With no old install, it just installs. It removes edited pack files too, after t
 
 - Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `migrate`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
-- If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
-- Exit codes: 0 means success, 1 means a file or settings step failed (see the output), 2 means a usage error, a failed source validation, or a held lock, and 3 means `update` found an install whose recorded branch is gone from its remote.
+- If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile (including the PATH line `install` prints) or environment variables without asking.
+- Exit codes: 0 means success, 1 means a file or settings step failed (see the output), a `doctor` row was FAIL, or a prompt was aborted (declined or Ctrl-D), 2 means a usage error, a failed source validation, a held lock, or an OS error such as an unreadable path, and 3 means `update` found an install whose recorded branch is gone from its remote.
 - If `status` shows `MISMATCH`, the installed pack is not the checkout's version: run `install`.

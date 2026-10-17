@@ -20,6 +20,12 @@ NO_AGENT_TOOL = {"critic", "scope-critic", "quick-edit", "git-ops", "scout"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
 BODY_WORD_CAPS = {"Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Quick": 350}
 SKILL_WORD_CAP = 1300
+TIER_TOOLS = {  # agent -> (field, entries it must list), from the Tools column of the Tiers table
+    "supervisor": ("disallowedTools", ["Bash"]),
+    "critic": ("disallowedTools", ["Write", "Edit"]),
+    "scope-critic": ("disallowedTools", ["Bash"]),
+    **{lead: ("skills", ["lead-loop"]) for lead in ("researcher", "planner", "executor", "writer")},
+}
 LEAD_WORKERS = {
     "executor": ["executor-worker"],
     "researcher": ["researcher-worker"],
@@ -76,7 +82,7 @@ def body_words(path: Path) -> int:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     if lines and lines[0] == "---":
-        close = next((i for i, l in enumerate(lines[1:], 1) if l == "---"), 0)
+        close = next((i for i, l in enumerate(lines[1:], 1) if l.strip() == "---"), 0)
         text = "\n".join(lines[close + 1:])
     return len(text.split())
 
@@ -105,6 +111,14 @@ def test_agent_matches_tier_table(path):
     assert (fm.get("model"), fm.get("effort")) == tiers[path.stem], \
         "%s: frontmatter %s / %s != Tiers table %s / %s" % (
             (path.stem, fm.get("model"), fm.get("effort")) + tiers[path.stem])
+
+
+@pytest.mark.parametrize("name", sorted(TIER_TOOLS))
+def test_agent_matches_tier_tools(name):
+    field, required = TIER_TOOLS[name]
+    have = deploy.as_list(frontmatter(PACK / "agents" / (name + ".md")).get(field))
+    missing = [r for r in required if r not in tool_names(have)]
+    assert not missing, "%s: %s must list %s" % (name, field, missing)
 
 
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)

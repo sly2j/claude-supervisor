@@ -9,6 +9,7 @@ A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). O
 Requirements:
 - Claude Code 2.1.293 or newer, logged in
 - `python3` 3.9 or newer, on macOS or Linux
+- `git`, to clone and for `update`
 
 ```bash
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
@@ -18,11 +19,19 @@ cd ~/Work/claude-supervisor
 ./deploy doctor      # should now report no FAIL
 ```
 
-The launcher, `claude-supervisor`, lands in `~/.local/bin`, which must be on your `PATH`; `doctor` does not check this. Run `claude-supervisor` and log in once. The session runs as the supervisor; type `/agents` to see the pack.
+A sandbox is a private config dir, not a security sandbox. If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
+
+The launcher, `claude-supervisor`, lands in `~/.local/bin`, which must be on your `PATH`; `install` prints a WARNING if it is not. To add it, run this, then open a new terminal (zsh is the macOS default; use `~/.bashrc` for bash):
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+```
+
+Run `claude-supervisor` and log in once. The session runs as the supervisor; type `/agents` to see the pack.
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
+Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. Inside a claude-supervisor session, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
 ## Choosing An Install
 
@@ -32,9 +41,9 @@ Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In 
 | `./deploy install --tag <t>` | Another sandbox, `~/.config/claude-<t>` | `claude-<t>` |
 | `./deploy install --global` | `~/.claude`, no launcher | plain `claude` |
 
-A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
+A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind, and so do MCP servers and `~/.claude.json` state. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`. `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable. Fable is billed to usage credits on some plans, so the launcher runs them on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, the strongest and costliest model (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable is billed to usage credits on some plans, so the launcher runs them on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
@@ -56,7 +65,7 @@ Ask for the strongest drafter ("best possible") and `writer` drafts on Fable. Th
 
 ## How It Works
 
-**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). Details are in [docs/architecture.md](docs/architecture.md).
+**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). A project can add a REVIEW.md at the repo root (and in subdirectories) with review-only rules; critic applies it after the brief's contract and before its own defaults. Details are in [docs/architecture.md](docs/architecture.md).
 
 **Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a Haiku specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
 
@@ -169,11 +178,11 @@ claude-supervisor update        # claude update first, then this sandbox's pack
 ./deploy uninstall --yes        # or: claude-supervisor uninstall
 ```
 
-`update` follows the branch the install came from (`main` for a normal clone) and sees only what is pushed to it. To deploy local edits, run `./deploy install` from the checkout. Files you edited in the install dir are kept.
+`update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default sandbox. Files you edited in the install dir are kept.
 
 A sandbox uninstall deletes the sandbox dir, including its sessions, history, login, and token. Run `--dry-run` first.
 
-To route a sandbox through a token provider, see [docs/deploy.md](docs/deploy.md#token-provider).
+To route a sandbox through a token provider (only for a proxy or gateway; omit it to use a normal login), see [docs/deploy.md](docs/deploy.md#token-provider).
 
 ## Migrating From Older Versions
 
@@ -188,7 +197,13 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 | Leads do the work themselves instead of fanning out | Run `./deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "locally modified; kept" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
-| `install` reports a file "not managed by this pack" | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
+| `exists but is not managed by this pack` (`install` or `update`) | A file with that name, such as your own agent or skill seeded from `~/.claude`, shadows a pack name. Rename yours, or run `./deploy install --overwrite-local` from your checkout to replace it; `update` never does |
+| `STALE <key>: ... branch <b> is gone` (`update` exits 3) | The install's branch no longer exists on its remote. Remove the install with the command the message prints, then install from a checkout of a live branch |
+| `was installed with --prefix X` | Pass `--prefix X` |
+| `exists and is not a claude-supervisor launcher` | Move that file aside, or choose another `--tag` or `--prefix` |
+| `another deploy is running` | Wait for it to finish, then re-run |
+| `is not registered under prefix X` | Run `./deploy install` once (pass `--prefix` if you installed with one) |
+| `cannot read branch` | Check network access and credentials |
 | Claude Code asks to bill Fable to usage credits | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 

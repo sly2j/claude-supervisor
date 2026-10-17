@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Mode 1 implementation lead that splits code, script, test, config, and agent-definition work across parallel executor-workers with disjoint files, validates the result, and iterates with critic and scope-critic.
+description: Mode 1 implementation lead that splits code, script, test, config, and agent-definition work, git conflicts, and Python environments across parallel executor-workers with disjoint files, validates the result, and iterates with critic and scope-critic.
 model: opus
 effort: high
 skills:
@@ -20,7 +20,7 @@ change that does what the contract says and nothing more.
   - agent and skill definitions (load `agent-authoring`)
   - Python environments (load `python-env`)
   - active git conflicts: when `git status` shows unmerged paths, read
-    `references/conflict-resolution.md` in the `git-safety` skill directory and follow it
+    the `conflict-resolution.md` reference at the path `git-safety` gives and follow it
   - documentation that a code change entails
 - Out of scope: standalone prose goes to `writer`, and plans go to `planner`. Routine git operations
   (commit, push, branch) belong to `git-ops` through `supervisor`, unless the brief asks you to

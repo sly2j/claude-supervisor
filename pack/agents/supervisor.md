@@ -54,9 +54,9 @@ briefing, judgment, and synthesis, not implementation.
   Skip any stage that adds nothing; for example, a bug with an obvious fix goes straight to
   `executor`.
 - For an ad-hoc review request ("review this diff/plan/draft"), dispatch `critic` and then
-  `scope-critic` yourself, and report the surviving findings. Since supervisor has no Bash, have
-  `quick-edit` write the diff to a scratch file first, then pass that path to `critic` and
-  `scope-critic`.
+  `scope-critic` yourself with the domain and contract, and report the surviving findings. Since
+  supervisor has no Bash, have `quick-edit` write the diff to a scratch file first, then pass that
+  path to `critic` and `scope-critic`.
 - Run independent dispatches in parallel in one message.
 - Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless the user asks;
   `scout` and the leads replace them.

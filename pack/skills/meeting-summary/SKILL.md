@@ -21,7 +21,8 @@ not support; mark doubtful names instead.
 
 ## Pass 1: extract
 
-Build an internal extraction (not shown to the user):
+Build an internal extraction (not shown to the user). When dispatched by a lead, return this Pass 1
+extraction with timestamps instead of minutes:
 
 - **Attendees**: only people reasonably supported by the source; mark uncertainty.
 - **Chronology**: meeting-level sequence only when the order changes the meaning.
@@ -106,9 +107,9 @@ Sections, in this order:
 
 ## Edge cases
 
-- Source too short or ambiguous for meaningful minutes: say what is missing and ask; do not pad.
+- Source too short or ambiguous for meaningful minutes: say what is missing and stop; do not pad.
 - Topic boundaries unclear: use the smallest credible topic structure and note it.
 
-**Final check:** output starts at `## Meeting Summary`, with no preamble or meta-commentary.
+**Final check:** minutes start at `## Meeting Summary`, with no preamble or meta-commentary.
 
 If the user asked for a file, write the minutes there; otherwise return them in the reply.

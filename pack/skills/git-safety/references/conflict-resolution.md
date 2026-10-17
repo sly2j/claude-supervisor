@@ -20,4 +20,4 @@ yourself.
    `--abort`.
 
 Report each conflicted file and how it was resolved (kept, combined, or discarded). Never silently
-drop changes, and warn immediately if a conflict involves credentials.
+drop changes.

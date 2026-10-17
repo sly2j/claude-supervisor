@@ -1,6 +1,7 @@
 ---
 name: project-backup
 description: Create a timestamped, integrity-checked zip backup of the current project directory and prune older backups with tiered retention (recent, weekly, monthly, half-yearly). Use when the user asks to back up, snapshot, or archive the project or vault before risky changes, or asks to run "the backup". Not for git commits, remote sync, or restoring from a backup.
+disable-model-invocation: true
 context: fork
 ---
 

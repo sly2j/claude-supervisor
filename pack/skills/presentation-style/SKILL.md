@@ -9,7 +9,9 @@ Apply to outlines, slide text, bullets, titles, subtitles, and flow. Content onl
 use the pptx skill.
 
 Priority: explicit slide-specific exceptions and hard language rules, then AI-tell avoidance, then
-the narrative arc, then the default conventions. Apply only the subset relevant to the task.
+the narrative arc, then the default conventions. Apply only the subset relevant to the task. The
+"Hard language rules" and "AI-tell avoidance" sections are hard floors; everything else is an
+overridable default.
 
 ## Narrative arc
 

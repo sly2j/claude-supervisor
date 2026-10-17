@@ -18,8 +18,9 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
 | Quick | quick-edit, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
-- `planner` dispatches `critic` with `model: fable`; this per-call override is the only exception to
-  the critic row.
+- `planner` dispatches `critic` with `model: fable`, and `writer` dispatches `writer-worker` with
+  `model: fable` when the user asks for the strongest drafter; these per-call overrides are the only
+  exceptions to the Tiers table.
 - Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches.
 - Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility
   matters.

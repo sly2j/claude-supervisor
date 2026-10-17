@@ -133,10 +133,9 @@ Genres: `proposal` (default), `paper-intro`, `abstract`, `report`, `pitch`, `let
   this label for fixable style, structure, or polish. When facts are missing, say what is missing
   instead of adding polish findings.
 - **Finding format.** Location (`file:line`, or `section <heading> paragraph <n> sentence <n>`,
-  using
-  `(preamble)` before the first heading), quoted current text, reason with the rule it cites, and a
-  suggested replacement or revision target. The quoted text is the finding's identity across rounds.
-  Suggest sentence-level replacements; do not rewrite the draft.
+  using `(preamble)` before the first heading), quoted current text, reason with the rule it cites,
+  and a suggested replacement or revision target. The quoted text is the finding's identity across
+  rounds. Suggest sentence-level replacements; do not rewrite the draft.
 - **Stale content.** Raise only findings whose quoted text appears verbatim in the current draft.
 - **Standing-rule challenges.** At most one per round, and only on new substantive grounds, with
   fields `pattern`, `current standing rule`, `new substantive grounds`, `recommended action`

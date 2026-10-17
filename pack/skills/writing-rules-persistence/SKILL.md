@@ -54,7 +54,7 @@ Then:
   `watchlist` note.
 - Never edit `docs/writing-rules.md`.
 
-## Lead procedures (writer only)
+## Lead procedures
 
 The `writer` lead reads `${CLAUDE_SKILL_DIR}/references/lead-procedures.md` before dispatching,
 and again when promoting rules or creating the file. A critic running without a lead (an ad-hoc

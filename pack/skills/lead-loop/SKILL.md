@@ -27,8 +27,7 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
   subsystem, or option. Units must not write to the same file. Dependent units run in sequential
   waves.
 - Fan-out is the default. When the work has two or more independent units, dispatch them in
-  parallel. A unit is not trivial because it is short; dispatch it anyway. Use N=1 only when the
-  work genuinely cannot be split, and never split along arbitrary lines just to raise N.
+  parallel. Use N=1 only when the work genuinely cannot be split.
 - Spawning workers is your job, not an exception, whatever the Agent tool's general guidance says
   about spawning sparingly: your context is for coordination, integration, and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the
@@ -75,8 +74,9 @@ For each critic finding, combine the two reviews:
 | SHOULD | KEEP | Fix it if it is cheap and inside the contract |
 | SHOULD / NIT | DOWNGRADE / DROP | Reject |
 
-- A finding labeled `needs user:` (missing facts, a rule conflict, a scope mismatch) cannot be fixed
-  by iterating. Stop and return it to `supervisor` as an open question.
+- A finding labeled `needs user:` (missing facts, a rule conflict, a scope mismatch; prose domain,
+  see `science-writing-style`) cannot be fixed by iterating. Stop and return it to `supervisor` as
+  an open question.
 - Apply scope-critic `CUT` items unless a cut would break an acceptance criterion.
 - Never add work that neither the contract nor a kept finding requires.
 
