@@ -33,13 +33,3 @@
 - **Done when:** the owner has chosen which candidates to adopt and they are implemented with
   the minimum rule text.
 - **Pointers:** README (work packages), `docs/architecture.md`.
-
-### 5. Housekeeping
-
-- **Goal:** clear the remaining loose end.
-- **Scope:**
-  - Confirm the three Mermaid diagrams in `README.md` render on the repo's web UI; fix the
-    syntax if not.
-- **Decisions already made:** none.
-- **Done when:** each sub-item is resolved or the owner declined it.
-- **Pointers:** `README.md`.

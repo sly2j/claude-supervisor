@@ -68,5 +68,6 @@ Judge a definition by its likely operational effect, not its tidiness:
 
 ## After Changing The Pack
 
-Update the agent inventory in `README.md` when an agent's name, scope, model, or tools change. Run
-`python3 -m pytest -q`, which includes the pack lint, then `./deploy install --dry-run`.
+Update the inventory in `docs/architecture.md` (`## Agents`, `## Skills`) when an agent's name,
+scope, model, or tools change. Run `python3 -m pytest -q`, which includes the pack lint, then
+`./deploy install --dry-run`.

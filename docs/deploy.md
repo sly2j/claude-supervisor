@@ -124,19 +124,24 @@ For a sandbox, uninstall deletes its dir, including sessions, history, login, an
 
 Uninstall removes the unmodified managed files and keeps the ones you edited; `--force` removes those as well. It restores your previous `agent` setting.
 
-## Moving From A Global Install
-
-Versions before 1.10 installed into `~/.claude`. After the first sandboxed install, remove that copy once:
+## Migrate
 
 ```bash
-"$REPO/deploy" uninstall --global --yes
+"$REPO/deploy" migrate
 ```
 
-Plain `claude` then starts plain Claude Code.
+`migrate` moves a pack installed straight into `~/.claude` (versions before 1.10) to the default sandbox, after one confirmation:
+
+1. It finds the old install by its manifest in `~/.claude`: `.claude-supervisor-manifest.json`, or `.claude-agents-manifest.json` (lock `.claude-agents.lock`) for installs from before 1.6.
+2. It copies the pack files you edited to a timestamped backup directory at the top level of `~/.claude`, removes all of the pack's files and its manifest, and restores the `agent` setting as `uninstall` does. `settings.json` is backed up first; nothing else in `~/.claude` is touched besides these backups.
+3. It installs and registers the default sandbox and its launcher, as `install` does.
+4. It checks that `~/.local/bin` is on `PATH`.
+
+With no old install, it just installs. It removes edited pack files too, after the backup: a pack file left in `~/.claude` without its manifest is seeded into the next new sandbox and refused as unmanaged. Plain `claude` then starts plain Claude Code.
 
 ## Notes For Claude Running This
 
-- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
+- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `migrate`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.

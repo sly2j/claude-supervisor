@@ -2,11 +2,9 @@
 
 claude-supervisor is an independent project. It is not affiliated with or endorsed by Anthropic.
 
-A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One supervisor routes every request either to the full harness (leads that fan out to parallel workers, with a critic and a scope-critic loop) or to fast Haiku specialists for small tasks.
+A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One agent, the supervisor, reads every request and decides who handles it. It answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to a team that splits it across parallel agents and reviews the result before it reaches you.
 
-The details are in [docs/architecture.md](docs/architecture.md).
-
-## Install
+## Quick Start
 
 Requirements:
 - Claude Code 2.1.293 or newer, logged in
@@ -15,143 +13,183 @@ Requirements:
 ```bash
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 cd ~/Work/claude-supervisor
-./deploy doctor      # preflight check
-./deploy install     # installs into ~/.config/claude-supervisor
+./deploy doctor      # preflight; a WARN "not installed yet" is expected
+./deploy install     # sandbox in ~/.config/claude-supervisor, launcher in ~/.local/bin
+./deploy doctor      # should now report no FAIL
 ```
 
-Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/agents` to see the pack. `--global` installs into `~/.claude` instead; `--tag <t>` makes another sandbox, `claude-<t>`; `--prefix <dir>` (default `~/.local`) sets where the launcher and the update registry go.
+The launcher, `claude-supervisor`, lands in `~/.local/bin`, which must be on your `PATH`; `doctor` does not check this. Run `claude-supervisor` and log in once. The session runs as the supervisor; type `/agents` to see the pack.
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-**Update:** `./deploy update` (`--all` for every install; it clones `main` from the recorded remote), or `claude-supervisor update`, which runs `claude update` first. Files you edited in the install dir are kept, and the script lists them.
-**Check:** `./deploy status`. **Remove:** `./deploy uninstall --yes`, or `claude-supervisor uninstall` ([the launcher](docs/deploy.md#the-launcher)).
-**Token provider:** add `--base-url URL --token-file PATH` to a sandbox install ([docs/deploy.md](docs/deploy.md#token-provider)).
-**Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `./deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
-
 Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
-## How It Works
+## Choosing An Install
 
-**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches N parallel workers. `critic` reviews the result for quality and compliance. `scope-critic` then reviews the critic's findings and the artifact for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds.
-
-**Mode 2, the quick tier.** Few-line edits, commits, and lookups go straight to a Haiku specialist. It escalates with `ESCALATE:` if the task is bigger than it looked.
-
-The supervisor chooses the mode. To choose it yourself, say "quick" or "full".
-
-## Work Packages
-
-Work too large for one plan is broken into packages. Each package is a small project of its own, with only the stages it needs: `research`, `plan`, `execute`, `write`. Packages depend only on the packages whose output they consume, so independent ones run in parallel. The planner writes them as a `## Work Packages` section of the plan; you can ask for packages or a flat plan explicitly.
-
-The supervisor runs the packages in waves: every package whose dependencies are done gets its next stage dispatched to that stage's lead, all at once. After each wave one `quick-edit` call records the new status lines, and you see a table of every package plus the questions the leads raised. The plan file is the only state, so a new session resumes from it. A package that needs its own breakdown is split into new packages in the parent plan, so plans never nest and agent depth never grows; when every package is done, the plan, its child plans, and its research move to `docs/archive/`.
-
-A package block (field rules in `pack/agents/planner.md`):
-
-```
-### P2: deploy hook
-- Goal: deploy installs the hook; done when `./deploy doctor` reports it
-- Owns: `deploy`, tests/test_deploy.py
-- Deps: P1
-- Stages: plan, execute
-- Status: plan
-- Artifacts: docs/plan-hooks-p2.md
-```
-
-Three shapes of work.
-
-A single fix needs no packages: one lead, one report, no plan to archive.
-
-```mermaid
-flowchart LR
-  user --> supervisor --> executor --> result
-```
-
-A chain, where each package consumes the one before it: six waves, one package each, a table after every wave, then the archive move.
-
-```mermaid
-flowchart LR
-  P1[P1 research] --> P2[P2 plan, execute] --> P3[P3 plan, execute] --> P4[P4 write] --> A[archive]
-```
-
-A graph: wave 1 runs P1 and P2 together. P4's plan stage returns `Amend parent:`, which splits it into P6, P7 and P8, each with its own plan. P5 asks you a question and blocks; the session ends; a new session asks `scout` for the state, you answer, and P5 runs.
-
-```mermaid
-flowchart LR
-  P1[P1 research] --> P3[P3 plan, execute]
-  P2[P2 research] --> P3
-  P1 --> P4[P4 plan]
-  P4 -- split --> P6[P6 plan, execute]
-  P4 -- split --> P7[P7 plan, execute]
-  P4 -- split --> P8[P8 plan, execute]
-  P3 --> P5[P5 write]
-  P6 --> P5
-  P7 --> P5
-  P8 --> P5
-  P5 -- question, resume, answer --> A[archive]
-```
-
-## Agents
-
-| Agent | Role | Model / effort |
+| Install | Where | Start it with |
 |---|---|---|
-| `supervisor` | Main thread: routing, briefing, synthesis | fable / high |
-| `researcher` | Lead: research artifacts in `docs/research-*.md` | opus / high |
-| `planner` | Lead: implementation plans in `docs/plan-*.md` | fable / xhigh |
-| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / high |
-| `writer` | Lead: scientific and technical prose, slide content, project docs | opus / high |
-| `researcher-worker` | Worker: one bounded investigation | sonnet / high |
-| `planner-worker` | Worker: one bounded repo question for a plan | sonnet / high |
-| `executor-worker` | Worker: one unit of change in its assigned files | sonnet / high |
-| `writer-worker` | Worker: extracts sources, drafts and revises prose | opus / high |
-| `critic` | Reviewer: quality and compliance, PASS/REVISE | opus / xhigh (fable when called by planner) |
-| `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / high |
-| `quick-edit` | Quick: small, exact edits | haiku / xhigh |
-| `git-ops` | Quick: routine git with guardrails | haiku / xhigh |
-| `scout` | Quick: read-only lookups | haiku / xhigh |
+| `./deploy install` | Sandbox in `~/.config/claude-supervisor` | `claude-supervisor` |
+| `./deploy install --tag <t>` | Another sandbox, `~/.config/claude-<t>` | `claude-<t>` |
+| `./deploy install --global` | `~/.claude`, no launcher | plain `claude` |
 
-Rows marked `fable`, and the `model: fable` dispatch overrides, run on Opus in sandbox installs: the launcher sets `ANTHROPIC_DEFAULT_FABLE_MODEL`, and `claude-<tag> --fable` runs on Fable. For `--global` installs, set the variable yourself. See [docs/deploy.md](docs/deploy.md).
+A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
 
-## Skills
-
-| Skill | Purpose |
-|---|---|
-| `lead-loop` | The Mode 1 protocol, preloaded by every lead |
-| `git-safety` | Git guardrails, commit rules, conflict-resolution procedure |
-| `python-env` | Creating, repairing, and validating conda, uv, or venv environments |
-| `agent-authoring` | Conventions for this pack's agents and skills |
-| `writing-rules-persistence` | Per-project `docs/writing-rules.md` schema and precedence |
-| `science-writing-style` | Scientific prose style, AI-tell avoidance, prose review criteria |
-| `presentation-style` | Slide content style |
-| `document-extraction`, `email-extraction` | Structured extraction from source documents and email threads |
-| `meeting-summary` | Meeting transcript to minutes (`/meeting-summary <file>`) |
-| `project-backup` | Timestamped, verified zip backups with retention |
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable. Fable is billed to usage credits on some plans, so the launcher runs them on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
-Just ask for what you want. The supervisor picks the mode, but you can steer it:
+Just ask for what you want. The supervisor picks the path:
 
-| You say | What happens |
-|---|---|
-| "fix the typo in README line 12", "commit this" | Mode 2: one Haiku specialist, done in seconds |
-| "research how X works", "plan Y", "implement the plan", "draft the proposal intro" | Mode 1: a lead, parallel workers, then critic and scope-critic |
-| "quick: ..." or "just do it" | Forces Mode 2 |
-| "full: ..." or "with review" | Forces Mode 1 |
-| "review this diff/plan/draft" | critic, then scope-critic, with no edits |
-| "use the strongest drafter" | writer runs writer-worker on Fable |
+| Situation | Path | Why |
+|---|---|---|
+| Conversation, general advice, one or two small reads | The supervisor answers directly | Nothing to delegate |
+| Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `quick-edit`, `git-ops`, or `scout` | Cheapest path, no review loop |
+| Anything else in one area of work | One lead (`researcher`, `planner`, `executor`, or `writer`) with workers and review | Design judgment gets reviewed |
+| Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor`, skipping stages that add nothing | You approve the plan before code is written |
+| Streams that each need their own research, plan, or write stage | Work packages, run in waves | Independent streams run in parallel |
+| "review this diff/plan/draft" | Reviewers only, no edits | You asked for a review |
+| A quick specialist finds the task bigger than it looked | Re-routed to one lead, with the specialist's findings | The quick path no longer fits |
 
-Larger work flows `researcher` -> `planner` -> your approval -> `executor`. Artifacts land in `docs/research-*.md` and `docs/plan-*.md`, so you can read and annotate them between steps.
+To choose yourself, say "quick" or "just do it" for a quick specialist, or "full", "thorough", or "with review" for a lead.
 
-Not every session needs the supervisor: plain `claude` starts plain Claude Code, and `claude-supervisor` starts the supervisor.
+Ask for the strongest drafter ("best possible") and `writer` drafts on Fable. This has an effect only where Fable is not remapped to Opus: a session started with `--fable`, or a `--global` install without `ANTHROPIC_DEFAULT_FABLE_MODEL`.
+
+## How It Works
+
+**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). Details are in [docs/architecture.md](docs/architecture.md).
+
+**Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a Haiku specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
+
+```mermaid
+flowchart LR
+  R[Request] --> S{Supervisor}
+  S -->|conversation, small reads| D[Answer directly]
+  S -->|small, exact, cheap to undo| Q[Quick specialist]
+  S -->|one area of work| L["One lead: workers, critic, scope-critic"]
+  S -->|investigate, design, build| C1[researcher] --> C2[planner] --> C3[your approval] --> C4[executor]
+  S -->|independent streams| W[Work packages in waves]
+  Q -->|ESCALATE| L
+```
+
+## Larger Work
+
+Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `docs/` (`docs/plan-*.md`, `docs/research-*.md`), so you can read and annotate them between steps; finished ones move to `docs/archive/` with `git mv`.
+
+The planner breaks a plan into work packages when streams each need their own research, plan, or write stage. Plain parallel work stays a flat plan. Each package lists only the stages it needs (`research`, `plan`, `execute`, `write`) and depends only on the packages whose output it consumes. A package block (field rules in `pack/agents/planner.md`):
+
+```
+### P9: deploy hook
+- Goal: deploy installs the hook; done when `./deploy doctor` reports it
+- Owns: `deploy`, tests/test_deploy.py
+- Deps: none
+- Stages: plan, execute
+- Status: plan
+- Artifacts: docs/plan-hooks-p9.md
+```
+
+The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package, and your answer re-runs that stage, also in a new session: the plan file holds the state.
+
+A chain, where each package consumes the one before it: six stages, six waves.
+
+```mermaid
+flowchart LR
+  A1[P1 research] --> A2[P2 plan] --> A3[P2 execute] --> A4[P3 plan] --> A5[P3 execute] --> A6[P4 write] --> A[archive]
+```
+
+A graph: P4's plan splits it into P6, P7, and P8; P5 asks a question in wave 5 and blocks; in a new session you answer, and wave 6 re-runs P5.
+
+```mermaid
+flowchart LR
+  subgraph W1[Wave 1]
+    P1r[P1 research]
+    P2r[P2 research]
+  end
+  subgraph W2[Wave 2]
+    P3p[P3 plan]
+    P4p[P4 plan]
+  end
+  subgraph W3[Wave 3]
+    P3e[P3 execute]
+    P6p[P6 plan]
+    P7p[P7 plan]
+    P8p[P8 plan]
+  end
+  subgraph W4[Wave 4]
+    P6e[P6 execute]
+    P7e[P7 execute]
+    P8e[P8 execute]
+  end
+  subgraph W5[Wave 5]
+    P5q["P5 write (asks, blocks)"]
+  end
+  subgraph W6["Wave 6 (new session)"]
+    P5w[P5 write]
+  end
+  P1r & P2r --> P3p --> P3e
+  P1r --> P4p
+  P4p -.->|Amend parent| P7p
+  P4p -.-> P6p & P8p
+  P6p --> P6e
+  P7p --> P7e
+  P8p --> P8e
+  P3e & P6e & P7e & P8e --> P5q
+  P5q ==>|"session ends; scout reads plan; you answer"| P5w --> A[archive]
+  P3e ~~~ P6e
+```
+
+The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
+
+## What's In The Pack
+
+Who handles what:
+- `supervisor`: your session; routes requests, briefs agents, and reports back
+- `researcher`: investigation, code tracing, literature; writes `docs/research-*.md`
+- `planner`: implementation plans in `docs/plan-*.md`
+- `executor`: code, tests, config, agent definitions, git conflicts, Python environments
+- `writer`: scientific and technical prose, slide content, project docs
+- `quick-edit`: small, exact edits; runs a given command
+- `git-ops`: routine git with guardrails
+- `scout`: read-only lookups
+
+Skills you run yourself:
+- `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
+- `/project-backup`: timestamped, verified zip backup with retention
+- `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
+
+The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
+
+## Maintaining An Install
+
+```bash
+./deploy update                 # clone main from the recorded remote and reinstall
+./deploy update --all           # every registered install
+claude-supervisor update        # claude update first, then this sandbox's pack
+./deploy status                 # installed files and version
+./deploy uninstall --dry-run    # show what would be removed
+./deploy uninstall --yes        # or: claude-supervisor uninstall
+```
+
+`update` sees only what is pushed to `main`. To deploy local edits, run `./deploy install` from the checkout. Files you edited in the install dir are kept.
+
+A sandbox uninstall deletes the sandbox dir, including its sessions, history, login, and token. Run `--dry-run` first.
+
+To route a sandbox through a token provider, see [docs/deploy.md](docs/deploy.md#token-provider).
+
+## Migrating From Older Versions
+
+Run `./deploy migrate` from the checkout and confirm once. It removes the old pack from `~/.claude` (backing up files you edited and restoring your `agent` setting), installs and registers the default sandbox with its `claude-supervisor` launcher, and checks that `~/.local/bin` is on `PATH`. See [docs/deploy.md](docs/deploy.md#migrate).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Agents don't show in `/agents` | Start a new `claude-supervisor` session. Run `./deploy status` |
+| `claude-supervisor: command not found` | Add `~/.local/bin` (or `<prefix>/bin` for a `--prefix` install) to `PATH` |
+| Agents don't show in `/agents` | Start a new `claude-supervisor` (or `claude-<tag>`) session. Run `./deploy status` |
 | Leads do the work themselves instead of fanning out | Run `./deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
-| `install` reports "kept local modification" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
-| `install` refuses an "unmanaged" file | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
-| Claude Code asks to bill Fable to usage credits | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md)) |
+| `install` reports "locally modified; kept" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
+| `install` reports a file "not managed by this pack" | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
+| Claude Code asks to bill Fable to usage credits | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
@@ -159,11 +197,13 @@ Not every session needs the supervisor: plain `claude` starts plain Claude Code,
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-deploy              installer: install | update | status | uninstall | doctor
-tests/              deploy behavior tests + pack lint
-docs/               research, architecture, deploy runbook
-docs/archive/       finished plans, their child plans and research
-VERSION             pack version (1.x, bumped in every commit on main)
+deploy              installer: install | update | status | uninstall | doctor | migrate
+tests/              deploy tests, pack lint, VERSION check
+docs/               architecture.md, deploy.md (deploy runbook)
+docs/archive/       finished plans and their research
+CLAUDE.md           instructions for Claude working in this repo
+ROADMAP.md          open work items
+VERSION             pack version
 ```
 
-Run `python3 -m pytest -q` before deploying changes to the pack.
+To edit the pack, follow [CLAUDE.md](CLAUDE.md).

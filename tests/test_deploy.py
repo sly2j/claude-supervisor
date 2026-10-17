@@ -50,9 +50,9 @@ def global_target(tmp_path: Path) -> Path:
     return tmp_path / ".claude"
 
 
-def run(pack: Path, target: Path, *args: str, target_args=None) -> subprocess.CompletedProcess:
+def run(pack: Path, target: Path, *args: str, target_args=None, path=None) -> subprocess.CompletedProcess:
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
-    env["PATH"] = str(target.parent / "bin")  # hides the real claude (and git)
+    env["PATH"] = path or str(target.parent / "bin")  # hides the real claude (and git)
     env["HOME"] = str(target.parent)  # hides the real ~/.claude.json
     if target_args is None:
         target_args = ["--global"] if target.name == ".claude" else ["--target", str(target)]
@@ -1167,3 +1167,171 @@ def test_launcher_ignores_user_selection(remote, tmp_path, cmd):
         assert "v10 own" in helper_text(t)
     else:
         assert not t.exists() and str(t) not in registry(tmp_path)
+
+
+# --------------------------------------------------------------------------- migrate
+
+SANDBOX_AGENT = "agents/supervisor.md"
+OLD_FILES = ("agents/helper.md", "agents/supervisor.md", "skills/demo/SKILL.md", "skills/demo/scripts/run.sh")
+OLD_NAMES = {MANIFEST, LEGACY_MANIFEST, ".claude-supervisor.lock", ".claude-agents.lock"}
+
+
+def migrate(pack, global_target, *args, **kw) -> subprocess.CompletedProcess:
+    return run(pack, global_target, "migrate", *args, target_args=[], **kw)
+
+
+def old_install(request, pack, global_target, legacy=False) -> None:
+    if legacy:
+        request.getfixturevalue("legacy_install")
+    else:
+        assert run(pack, global_target, "install").returncode == 0
+
+
+def backups(global_target: Path) -> list:
+    return sorted(global_target.glob("claude-supervisor-backup-*"))
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_migrate_moves_old_install_to_sandbox(request, pack, global_target, tmp_path, legacy):
+    old_install(request, pack, global_target, legacy)
+    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for name in OLD_NAMES:
+        assert not (global_target / name).exists(), name
+    for rel in OLD_FILES:
+        assert not (global_target / rel).exists(), rel
+    assert (sbx / MANIFEST).is_file() and (sbx / SANDBOX_AGENT).is_file()
+    assert launcher.is_file()
+    reg = registry(tmp_path)
+    assert str(sbx) in reg and str(global_target.resolve()) not in reg
+
+
+def test_migrate_backs_up_edited_files_only(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    sbx, _ = sandbox_paths(tmp_path, "supervisor")
+    (global_target / "agents" / "helper.md").write_text("my edits")
+    settings_before = (global_target / "settings.json").read_text()
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    (backup,) = backups(global_target)
+    assert snapshot(backup).keys() == {"agents/helper.md", "settings.json"}
+    assert (backup / "agents" / "helper.md").read_text() == "my edits"
+    assert (backup / "settings.json").read_text() == settings_before
+    assert "  backed up agents/helper.md" in r.stdout
+    assert not (global_target / "agents" / "helper.md").exists()
+    assert not (sbx / "agents" / "helper.md").exists()
+
+
+def test_migrate_leaves_other_files_alone(request, pack, global_target):
+    old_install(request, pack, global_target)
+    user = {"CLAUDE.md": "notes", "agents/mine.md": "mine", "skills/own/SKILL.md": "own",
+            "history.jsonl": "{}", "plugins/p.json": "[]"}
+    for rel, text in user.items():
+        (global_target / rel).parent.mkdir(parents=True, exist_ok=True)
+        (global_target / rel).write_text(text)
+    before_files = {rel: (global_target / rel).read_bytes() for rel in user}
+    before = {p.name for p in global_target.iterdir()}
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for rel, data in before_files.items():
+        assert (global_target / rel).read_bytes() == data, rel
+    after = {p.name for p in global_target.iterdir()}
+    extras = {n for n in after if n.startswith(("claude-supervisor-backup-", "settings.json.bak-"))}
+    assert len(backups(global_target)) == 1
+    assert after - extras == before - OLD_NAMES
+
+
+@pytest.mark.parametrize("prior_agent, expected", [
+    ("other", {"agent": "other", "theme": "dark"}),
+    (None, {"theme": "dark"}),
+])
+def test_migrate_restores_agent_setting(pack, global_target, tmp_path, prior_agent, expected):
+    global_target.mkdir()
+    prior = {"theme": "dark"} if prior_agent is None else {"agent": prior_agent, "theme": "dark"}
+    (global_target / "settings.json").write_text(json.dumps(prior))
+    assert run(pack, global_target, "install", "--force-default-agent").returncode == 0
+    assert settings(global_target)["agent"] == "supervisor"
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert settings(global_target) == expected
+    assert settings(sandbox_paths(tmp_path, "supervisor")[0])["agent"] == "supervisor"
+
+
+@pytest.mark.parametrize("user_files", [{}, {"CLAUDE.md": "notes"}])
+def test_migrate_without_old_install(pack, global_target, tmp_path, user_files):
+    for rel, text in user_files.items():
+        global_target.mkdir(exist_ok=True)
+        (global_target / rel).write_text(text)
+    before = snapshot(global_target)
+    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    r = migrate(pack, global_target)  # no --yes and no terminal: nothing to confirm
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "No pack install in %s; installing the default sandbox." % global_target.resolve() in r.stdout
+    assert (sbx / MANIFEST).is_file() and launcher.is_file()
+    assert snapshot(global_target) == before and not backups(global_target)
+
+
+def test_migrate_dry_run_writes_nothing(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    (global_target / "agents" / "helper.md").write_text("my edits")
+    before = snapshot(tmp_path)
+    r = migrate(pack, global_target, "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "  would back up agents/helper.md" in r.stdout
+    assert snapshot(tmp_path) == before
+    assert not backups(global_target) and not (tmp_path / ".config").exists()
+
+
+def test_migrate_without_yes_and_no_tty_refuses(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    (global_target / "agents" / "helper.md").write_text("my edits")
+    before = snapshot(tmp_path)
+    r = migrate(pack, global_target)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "re-run with --yes" in r.stderr
+    home, sbx = global_target.resolve(), sandbox_paths(tmp_path, "supervisor")[0]
+    assert ("Remove the agent pack from %s (4 files, 1 edited) and install the default sandbox %s? "
+            "settings.json and edited files are backed up to %s/claude-supervisor-backup-"
+            % (home, sbx, home)) in r.stderr
+    assert snapshot(tmp_path) == before
+
+
+def test_migrate_stops_when_uninstall_fails(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    (global_target / "settings.json").write_text("{bad")
+    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    r = migrate(pack, global_target, "--yes")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "The default sandbox was not installed" in r.stdout
+    assert not sbx.exists() and not launcher.exists()
+    (backup,) = backups(global_target)
+    assert (backup / "settings.json").read_text() == "{bad"
+
+
+@pytest.mark.parametrize("on_path", [False, True])
+def test_migrate_path_warning(pack, global_target, tmp_path, on_path):
+    bin_dir = (tmp_path / ".local" / "bin").resolve()
+    path = None
+    if on_path:
+        path = str(tmp_path / ".local" / "bin") + os.pathsep + str(tmp_path / "bin")
+    r = migrate(pack, global_target, "--yes", path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    if on_path:
+        assert "PATH: %s is on PATH" % bin_dir in r.stdout
+        assert "export PATH=" not in r.stdout
+    else:
+        assert "WARNING: %s is not on PATH" % bin_dir in r.stdout
+        assert 'export PATH="%s:$PATH"' % bin_dir in r.stdout
+
+
+def test_migrate_honors_prefix(request, pack, global_target, tmp_path):
+    old_install(request, pack, global_target)
+    px = tmp_path / "px"
+    bin_dir = (px / "bin").resolve()
+    r = migrate(pack, global_target, "--yes", "--prefix", str(px))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (px / "bin" / "claude-supervisor").is_file()
+    assert not (tmp_path / ".local" / "bin").exists()
+    assert str(bin_dir) in r.stdout and 'export PATH="%s:$PATH"' % bin_dir in r.stdout
+    assert str(sandbox_paths(tmp_path, "supervisor")[0]) in registry(tmp_path, px)
