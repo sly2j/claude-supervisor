@@ -161,15 +161,15 @@ The full inventory, with models, effort, workers, reviewers, and internal skills
 ## Maintaining An Install
 
 ```bash
-./deploy update                 # clone main from the recorded remote and reinstall
+./deploy update                 # clone the install's branch from the recorded remote and reinstall
 ./deploy update --all           # every registered install
 claude-supervisor update        # claude update first, then this sandbox's pack
-./deploy status                 # installed files and version
+./deploy status                 # installed files, version, remote, and branch
 ./deploy uninstall --dry-run    # show what would be removed
 ./deploy uninstall --yes        # or: claude-supervisor uninstall
 ```
 
-`update` sees only what is pushed to `main`. To deploy local edits, run `./deploy install` from the checkout. Files you edited in the install dir are kept.
+`update` follows the branch the install came from (`main` for a normal clone) and sees only what is pushed to it. To deploy local edits, run `./deploy install` from the checkout. Files you edited in the install dir are kept.
 
 A sandbox uninstall deletes the sandbox dir, including its sessions, history, login, and token. Run `--dry-run` first.
 

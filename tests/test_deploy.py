@@ -763,11 +763,15 @@ def registry(tmp_path: Path, prefix: Path = None) -> dict:
     return json.loads((state_dir(tmp_path, prefix) / "installs.json").read_text())["installs"]
 
 
+def entry(tag, remote=None, branch="main") -> dict:
+    return {"tag": tag, "remote": remote, "branch": branch}
+
+
 def test_install_records_registry_and_tool_copy(pack, target, tmp_path):
     sbx, _ = sandbox_paths(tmp_path, "t")
     r = run(pack, target, "install", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
-    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None}}
+    assert registry(tmp_path) == {str(sbx): entry("t")}
     copy = state_dir(tmp_path) / "deploy"
     assert copy.read_bytes() == SCRIPT.read_bytes()
     assert os.access(copy, os.X_OK)
@@ -778,7 +782,7 @@ def test_install_records_registry_and_tool_copy(pack, target, tmp_path):
     copy.write_bytes(b"old")
     r = run(pack, target, "install", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
-    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None}}
+    assert registry(tmp_path) == {str(sbx): entry("t")}
     assert copy.read_bytes() == SCRIPT.read_bytes() and os.access(copy, os.X_OK)
 
 
@@ -786,10 +790,10 @@ def test_uninstall_removes_registry_entries(pack, target, global_target, tmp_pat
     sbx, _ = sandbox_paths(tmp_path, "t")
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     assert run(pack, global_target, "install").returncode == 0
-    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None},
-                                  str(global_target.resolve()): {"tag": None, "remote": None}}
+    assert registry(tmp_path) == {str(sbx): entry("t"),
+                                  str(global_target.resolve()): entry(None)}
     assert run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"]).returncode == 0
-    assert registry(tmp_path) == {str(global_target.resolve()): {"tag": None, "remote": None}}
+    assert registry(tmp_path) == {str(global_target.resolve()): entry(None)}
     assert run(pack, global_target, "uninstall", "--yes").returncode == 0
     assert registry(tmp_path) == {}
 
@@ -841,8 +845,8 @@ def test_prefixes_are_independent(pack, target, tmp_path):
         assert (px / "bin" / ("claude-" + tag)).is_file()
         assert (state_dir(tmp_path, px) / "deploy").read_bytes() == SCRIPT.read_bytes()
         assert manifest(sandbox_paths(tmp_path, tag)[0])["prefix"] == str(px.resolve())
-    assert registry(tmp_path, pa) == {str(sbx_a): {"tag": "a", "remote": None}}
-    assert registry(tmp_path, pb) == {str(sbx_b): {"tag": "b", "remote": None}}
+    assert registry(tmp_path, pa) == {str(sbx_a): entry("a")}
+    assert registry(tmp_path, pb) == {str(sbx_b): entry("b")}
     assert not (tmp_path / ".local").exists()
 
     r = run(pack, target, "update", "--yes", target_args=["--all", "--prefix", str(pa)])
@@ -855,7 +859,7 @@ def test_prefixes_are_independent(pack, target, tmp_path):
     assert not sbx_a.exists() and not (pa / "bin" / "claude-a").exists()
     assert registry(tmp_path, pa) == {}
     assert (sbx_b / MANIFEST).is_file() and (pb / "bin" / "claude-b").is_file()
-    assert registry(tmp_path, pb) == {str(sbx_b): {"tag": "b", "remote": None}}
+    assert registry(tmp_path, pb) == {str(sbx_b): entry("b")}
     assert snapshot(pb) == before_b
 
 
@@ -973,7 +977,7 @@ def test_update_from_remote_replays_options(remote, tmp_path):
     launcher = px / "bin" / "claude-t"
     install_from_clone(remote, "--tag", "t", "--prefix", str(px), "--no-default-agent",
                        "--base-url", "https://llm.example")
-    assert registry(tmp_path, px) == {str(sbx): {"tag": "t", "remote": remote.url}}
+    assert registry(tmp_path, px) == {str(sbx): entry("t", remote.url)}
     assert "v1" in helper_text(sbx)
     legacy = json.loads((sbx / MANIFEST).read_text())
     legacy["fable"] = True  # a manifest written before the launcher took over the switch
@@ -993,7 +997,7 @@ def test_update_from_remote_replays_options(remote, tmp_path):
     assert m["launcher"] == str(launcher) and m["prefix"] == str(px.resolve())
     assert "ANTHROPIC_BASE_URL='https://llm.example'" in launcher.read_text()
     assert list(remote.tmpdir.iterdir()) == []
-    assert registry(tmp_path, px) == {str(sbx): {"tag": "t", "remote": remote.url}}
+    assert registry(tmp_path, px) == {str(sbx): entry("t", remote.url)}
 
 
 @pytest.fixture
@@ -1167,6 +1171,159 @@ def test_launcher_ignores_user_selection(remote, tmp_path, cmd):
         assert "v10 own" in helper_text(t)
     else:
         assert not t.exists() and str(t) not in registry(tmp_path)
+
+
+# branches: install records one, update follows it
+
+def push_feat(remote: SimpleNamespace, body: str, create: bool = False) -> None:
+    """Commit a pack change on branch feat in the work tree and push it; work returns to its own branch."""
+    remote.git(remote.work, "checkout", "-q", *(["-b"] if create else []), "feat")
+    (remote.work / "pack" / "agents" / "helper.md").write_text(agent_md("helper", body))
+    remote.git(remote.work, "add", "-A")
+    remote.git(remote.work, "commit", "-q", "-m", body)
+    remote.git(remote.work, "push", "-q", "origin", "feat")
+    remote.git(remote.work, "checkout", "-q", "-")
+
+
+@pytest.fixture
+def feat_tree(remote, tmp_path) -> Path:
+    """A worktree of the install clone on branch feat, which exists on the remote (the dev workflow)."""
+    push_feat(remote, "feat v1", create=True)
+    remote.git(remote.clone, "fetch", "-q", "origin")
+    tree = tmp_path / "feat-tree"
+    remote.git(remote.clone, "worktree", "add", "-q", "-b", "feat", str(tree), "origin/feat")
+    return tree
+
+
+def install_dev(remote: SimpleNamespace, tree: Path, tmp_path: Path) -> Path:
+    r = deploy_run(remote, tree / "deploy", "install", "--tag", "dev")
+    assert r.returncode == 0, r.stdout + r.stderr
+    return sandbox_paths(tmp_path, "dev")[0]
+
+
+def stale_line(sbx: Path, remote_url: str, branch: str = "feat", tag: str = "dev") -> str:
+    return ("STALE %s: nothing to update; branch %s is gone from %s; this install is stale. "
+            "Remove it with: claude-%s uninstall (or deploy uninstall --tag %s --target %s)"
+            % (sbx, branch, remote_url, tag, tag, sbx))
+
+
+def test_install_records_checkout_branch(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    install_from_clone(remote, "--tag", "t")
+    assert "feat v1" in helper_text(dev)
+    assert registry(tmp_path) == {str(dev): entry("dev", remote.url, "feat"),
+                                  str(sandbox_paths(tmp_path, "t")[0]): entry("t", remote.url)}
+
+
+def test_branch_shadowed_by_tag_records_plain_name(remote, feat_tree, tmp_path):
+    remote.git(feat_tree, "tag", "feat")  # makes `symbolic-ref --short HEAD` print heads/feat
+    dev = install_dev(remote, feat_tree, tmp_path)
+    assert registry(tmp_path)[str(dev)] == entry("dev", remote.url, "feat")
+
+
+def test_install_on_detached_head_records_main(remote, tmp_path):
+    remote.git(remote.clone, "checkout", "-q", "--detach")
+    r = deploy_run(remote, remote.clone / "deploy", "install", "--tag", "t")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "is on a detached HEAD; recording branch main for update" in r.stdout + r.stderr
+    assert registry(tmp_path) == {str(sandbox_paths(tmp_path, "t")[0]): entry("t", remote.url)}
+
+
+def test_update_follows_recorded_branch(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    install_from_clone(remote, "--tag", "t")
+    t = sandbox_paths(tmp_path, "t")[0]
+    push_feat(remote, "feat v2")
+    push_change(remote, "main v2")
+
+    r = update(remote, "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "feat v2" in helper_text(dev) and "main v2" in helper_text(t)
+    assert registry(tmp_path) == {str(dev): entry("dev", remote.url, "feat"), str(t): entry("t", remote.url)}
+    assert list(remote.tmpdir.iterdir()) == []
+
+    push_feat(remote, "feat v3")
+    r = run_launcher(claude_launcher(tmp_path, "dev"), launcher_env(remote, tmp_path), "update", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "feat v3" in helper_text(dev) and "main v2" in helper_text(t)
+    assert registry(tmp_path)[str(dev)] == entry("dev", remote.url, "feat")
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_update_entry_without_branch_counts_as_main(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    t = sandbox_paths(tmp_path, "t")[0]
+    reg = state_dir(tmp_path) / "installs.json"
+    data = json.loads(reg.read_text())
+    del data["installs"][str(t)]["branch"]
+    reg.write_text(json.dumps(data))
+    push_change(remote, "main legacy")
+    r = update(remote, "--tag", "t", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "main legacy" in helper_text(t)
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_update_gone_branch_is_stale(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    before, reg_before = snapshot(dev), registry(tmp_path)
+    remote.git(remote.work, "push", "-q", "origin", "--delete", "feat")
+
+    r = update(remote, "--tag", "dev", "--yes")
+    assert r.returncode == 3, r.stdout + r.stderr
+    assert stale_line(dev, remote.url) in r.stdout.splitlines()
+    assert snapshot(dev) == before and registry(tmp_path) == reg_before
+    assert list(remote.tmpdir.iterdir()) == []
+
+    # under --all the other installs carry on, and the exit code is still 3
+    install_from_clone(remote, "--tag", "t")
+    t = sandbox_paths(tmp_path, "t")[0]
+    push_change(remote, "main after stale")
+    r = update(remote, "--all", "--yes")
+    assert r.returncode == 3, r.stdout + r.stderr
+    assert stale_line(dev, remote.url) in r.stdout.splitlines()
+    assert "main after stale" in helper_text(t) and snapshot(dev) == before
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_update_ls_remote_failure_is_error_not_stale(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    t = sandbox_paths(tmp_path, "t")[0]
+    before = snapshot(t)
+    bad = "file://%s" % (tmp_path / "nowhere.git")
+    reg = state_dir(tmp_path) / "installs.json"
+    data = json.loads(reg.read_text())
+    data["installs"][str(t)]["remote"] = bad
+    reg.write_text(json.dumps(data))
+
+    r = update(remote, "--tag", "t", "--yes")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "ERROR %s: cannot read branch main" % bad in r.stdout
+    assert "STALE" not in r.stdout + r.stderr and snapshot(t) == before
+
+
+def test_update_from_checkout_skips_other_branches(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    install_from_clone(remote, "--tag", "t")
+    t = sandbox_paths(tmp_path, "t")[0]
+    before = snapshot(dev)
+    (remote.clone / "pack" / "agents" / "helper.md").write_text(agent_md("helper", "local main"))
+    r = deploy_run(remote, remote.clone / "deploy", "update", "--from", str(remote.clone), "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "local main" in helper_text(t)
+    assert snapshot(dev) == before and "feat v1" in helper_text(dev)
+    assert registry(tmp_path)[str(dev)] == entry("dev", remote.url, "feat")
+
+
+def test_status_shows_remote_and_branch(remote, feat_tree, tmp_path):
+    install_dev(remote, feat_tree, tmp_path)
+    r = deploy_run(remote, feat_tree / "deploy", "status", "--tag", "dev")
+    assert "Remote: %s" % remote.url in r.stdout.splitlines() and "Branch: feat" in r.stdout.splitlines()
+
+    reg = state_dir(tmp_path) / "installs.json"
+    reg.write_text(json.dumps({"version": 1, "installs": {}}))
+    r = deploy_run(remote, feat_tree / "deploy", "status", "--tag", "dev")
+    assert "Remote: not registered" in r.stdout.splitlines() and "Branch:" not in r.stdout
 
 
 # --------------------------------------------------------------------------- migrate

@@ -42,6 +42,8 @@ def test_version_file_format():
     ("1.0\n", "1.0\n", False, True),
     ("1.9\n", "1.10\n", True, True),
     ("1.2\n", "1.1\n", True, False),
+    ("1.17\n", "2.0\n", True, True),
+    ("2.0\n", "1.18\n", True, False),
 ])
 def test_bump_rule(committed, worktree, changed, expected):
     assert bump_ok(committed, worktree, changed) is expected

@@ -34,6 +34,7 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 
 - Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude-supervisor --agent supervisor`. `claude-supervisor --agent <other>` overrides the setting for a single session.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
+- Records the checkout's current git branch next to the remote in the registry; `update` follows it. A detached HEAD records `main` and prints a one-line warning; a source that is not a git checkout records `main` silently. `status` prints `Remote: <url or none>` and `Branch: <branch>` from the registry, or `Remote: not registered`.
 - Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: 1.x`, with `(was 1.y)` on an update. `status` prints `Version: installed=1.x, source=1.y` and appends `(MISMATCH: run deploy install)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
 - On a sandbox's first install, copies from `~/.claude`: `settings.json` (without `agent`), `CLAUDE.md`, `commands/`, `output-styles/`, `keybindings.json`, and your own files in `agents/` and `skills/` (not `skills/.trash` or `skills/synced`). Plugins, logins, history, and sessions stay behind.
 - Writes the launcher `<prefix>/bin/claude-<tag>` (`--prefix P`, default `~/.local`), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the sandbox. The sandbox dir does not depend on the prefix. The manifest records the prefix, and `install` and `uninstall` refuse a different `--prefix` for an existing install (exit code 2, with the prefix to pass). Install also refuses a tag whose launcher path exists and was not written by the deploy.
@@ -56,7 +57,7 @@ claude-supervisor uninstall           # delete this sandbox
 
 The launcher checks only its first argument. `update` and `uninstall` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`) for this sandbox; everything else goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
 
-- `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
+- `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run deploy install` and exits 1.
@@ -73,11 +74,27 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 ~/.local/state/claude-supervisor/deploy update --all --yes    # every registered install
 ```
 
-`update` shallow-clones `main` from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to `main`. `--all` asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes.
+`update` shallow-clones the branch recorded at install from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
 
-Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
+Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout. Registry entries from before branches were recorded count as `main`.
+
+If the recorded branch is gone from the remote, `update` leaves that install unchanged and prints `STALE <target>: nothing to update; branch <b> is gone from <remote>; this install is stale. Remove it with: claude-<tag> uninstall (or deploy uninstall --tag <tag> --target <target>)` (a `--global` install says `deploy uninstall --global`). Under `--all` the other installs still update, and the exit code is 3. A network or auth failure reaching the remote is an error (exit code 1), not stale.
 
 After an update, `status` needs `--source "$REPO/pack"` to compare versions, because the manifest names the deleted clone.
+
+### Dev Worktree Install
+
+To try a feature branch next to your normal install, give it its own worktree and tag:
+
+```bash
+git -C "$REPO" worktree add ../claude-supervisor-dev -b my-feature
+"$REPO/../claude-supervisor-dev/deploy" install --tag supervisor-dev
+claude-supervisor-dev            # runs the branch's pack
+git -C "$REPO/../claude-supervisor-dev" push -u origin my-feature
+claude-supervisor-dev update     # pulls the pushed my-feature branch
+```
+
+`update` follows the pushed branch, so push it first. To deploy unpushed edits, run `./deploy install --tag supervisor-dev` from the worktree. Once the branch is deleted from the remote, `update` reports the install as stale (exit code 3); remove it with `claude-supervisor-dev uninstall`.
 
 ## Fable Or Opus
 
@@ -144,5 +161,5 @@ With no old install, it just installs. It removes edited pack files too, after t
 - Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `migrate`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
-- Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.
+- Exit codes: 0 means success, 1 means a file or settings step failed (see the output), 2 means a usage error, a failed source validation, or a held lock, and 3 means `update` found an install whose recorded branch is gone from its remote.
 - If `status` shows `MISMATCH`, the installed pack is not the checkout's version: run `install`.
