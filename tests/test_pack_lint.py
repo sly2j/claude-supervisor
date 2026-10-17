@@ -27,7 +27,7 @@ LEAD_WORKERS = {
 
 
 def _load_deploy():
-    loader = importlib.machinery.SourceFileLoader("deploy_script", str(ROOT / "scripts" / "deploy"))
+    loader = importlib.machinery.SourceFileLoader("deploy_script", str(ROOT / "deploy"))
     spec = importlib.util.spec_from_loader("deploy_script", loader)
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)

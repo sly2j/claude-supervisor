@@ -32,7 +32,7 @@ LEGACY_LOCK_NAME = ".claude-agents.lock"
 MANIFEST_VERSION = 1
 DEFAULT_AGENT = "supervisor"
 MIN_CLAUDE_VERSION = (2, 1, 293)
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent
 JUNK_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".swx", "~", ".orig", ".rej")
 JUNK_NAMES = {"__pycache__", ".DS_Store", "Thumbs.db"}
 DEFAULT_TAG = "supervisor"
@@ -702,7 +702,7 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("No manifest: pack is not installed here.")
     else:
         if not (target / MANIFEST_NAME).exists():
-            print("Note: legacy manifest %s; run scripts/deploy install to migrate" % LEGACY_MANIFEST_NAME)
+            print("Note: legacy manifest %s; run deploy install to migrate" % LEGACY_MANIFEST_NAME)
         print("Source: %s" % manifest.get("source_dir"))
         print("Commit: %s%s" % (manifest.get("source_commit"), " (dirty)" if manifest.get("source_dirty") else ""))
         print("Installed: %s" % manifest.get("installed_at"))
@@ -712,7 +712,7 @@ def status_cmd(args: argparse.Namespace) -> int:
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         recorded = manifest.get("pack_version")
         current = read_pack_version(source) if source.is_dir() else None
-        flag = " (MISMATCH: run scripts/deploy install)" if recorded and current and recorded != current else ""
+        flag = " (MISMATCH: run deploy install)" if recorded and current and recorded != current else ""
         print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
         rows = file_states(target, manifest, source if source.is_dir() else None)
         width = max([len(k) for k, _ in rows] + [10])
@@ -865,7 +865,7 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         add("FAIL", str(exc))
     else:
         if manifest is None:
-            add("WARN", "pack not installed in %s yet; run `scripts/deploy install`" % target)
+            add("WARN", "pack not installed in %s yet; run `deploy install`" % target)
         else:
             rows = file_states(target, manifest, None)
             bad = [k for k, s in rows if s != "ok"]

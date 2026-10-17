@@ -15,18 +15,18 @@ Requirements:
 ```bash
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 cd ~/Work/claude-supervisor
-scripts/deploy doctor      # preflight check
-scripts/deploy install     # installs into ~/.config/claude-supervisor
+./deploy doctor      # preflight check
+./deploy install     # installs into ~/.config/claude-supervisor
 ```
 
 Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/agents` to see the pack. `--global` installs into `~/.claude` instead; `--tag <t>` makes another sandbox, `claude-<t>`.
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-**Update:** `git pull && scripts/deploy install`. Files you edited in the install dir are kept, and the script lists them.
-**Check:** `scripts/deploy status`. **Remove:** `scripts/deploy uninstall --yes`.
+**Update:** `git pull && ./deploy install`. Files you edited in the install dir are kept, and the script lists them.
+**Check:** `./deploy status`. **Remove:** `./deploy uninstall --yes`.
 **Token provider:** add `--base-url URL --token-file PATH` to a sandbox install ([docs/deploy.md](docs/deploy.md#token-provider)).
-**Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `scripts/deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
+**Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `./deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
 
 Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. In Claude Code, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
@@ -48,8 +48,8 @@ A package block (field rules in `pack/agents/planner.md`):
 
 ```
 ### P2: deploy hook
-- Goal: deploy installs the hook; done when `scripts/deploy doctor` reports it
-- Owns: scripts/deploy, tests/test_deploy.py
+- Goal: deploy installs the hook; done when `./deploy doctor` reports it
+- Owns: `deploy`, tests/test_deploy.py
 - Deps: P1
 - Stages: plan, execute
 - Status: plan
@@ -146,12 +146,12 @@ Not every session needs the supervisor: plain `claude` starts plain Claude Code,
 
 | Symptom | Fix |
 |---|---|
-| Agents don't show in `/agents` | Start a new `claude-supervisor` session. Run `scripts/deploy status` |
-| Leads do the work themselves instead of fanning out | Run `scripts/deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
+| Agents don't show in `/agents` | Start a new `claude-supervisor` session. Run `./deploy status` |
+| Leads do the work themselves instead of fanning out | Run `./deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "kept local modification" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
 | `install` refuses an "unmanaged" file | A file with that name already exists in the install dir. Rename yours, or use `--overwrite-local` |
-| Claude Code asks to bill Fable to usage credits | You installed with `--fable`; run `scripts/deploy install` without it. `scripts/deploy status` prints the current choice |
+| Claude Code asks to bill Fable to usage credits | You installed with `--fable`; run `./deploy install` without it. `./deploy status` prints the current choice |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
@@ -159,7 +159,7 @@ Not every session needs the supervisor: plain `claude` starts plain Claude Code,
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-scripts/deploy      installer: install | status | uninstall | doctor
+deploy              installer: install | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
 docs/               research, architecture, deploy runbook
 docs/archive/       finished plans, their child plans and research

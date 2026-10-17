@@ -1,4 +1,4 @@
-"""Behavior tests for scripts/deploy, run as a subprocess against temp dirs."""
+"""Behavior tests for deploy, run as a subprocess against temp dirs."""
 
 import fcntl
 import hashlib
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "deploy"
+SCRIPT = Path(__file__).resolve().parent.parent / "deploy"
 MANIFEST = ".claude-supervisor-manifest.json"
 LEGACY_MANIFEST = ".claude-agents-manifest.json"
 LAUNCHER_MARKER = "# managed by claude-supervisor"
@@ -452,7 +452,7 @@ def test_status_version_match_and_mismatch(pack, target):
     version_file(pack, "1.8\n")
     r = run(pack, target, "status")
     assert r.returncode == 0
-    assert "Version: installed=1.7, source=1.8 (MISMATCH: run scripts/deploy install)" in r.stdout
+    assert "Version: installed=1.7, source=1.8 (MISMATCH: run deploy install)" in r.stdout
     r = run(pack, target, "install")
     assert "Version: 1.8 (was 1.7)" in r.stdout
     assert manifest(target)["pack_version"] == "1.8"
@@ -489,7 +489,7 @@ def test_status_detects_legacy_install(pack, legacy_install):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "No manifest" not in r.stdout
     assert "legacy manifest .claude-agents-manifest.json" in r.stdout
-    assert "run scripts/deploy install to migrate" in r.stdout
+    assert "run deploy install to migrate" in r.stdout
     assert (legacy_install / LEGACY_MANIFEST).exists() and not (legacy_install / MANIFEST).exists()
 
 

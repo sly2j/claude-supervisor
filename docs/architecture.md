@@ -51,7 +51,7 @@ Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE`
 
 ## Models And Cost
 
-The full assignment is in the README agent table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. The critic runs on Opus at xhigh effort, and planner overrides it to Fable for plan reviews. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. `scripts/deploy install` deploys those agents and dispatch overrides on Opus unless given `--fable` (see `docs/deploy.md`); the source stays on Fable and the lint checks the source.
+The full assignment is in the README agent table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. The critic runs on Opus at xhigh effort, and planner overrides it to Fable for plan reviews. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. `./deploy install` deploys those agents and dispatch overrides on Opus unless given `--fable` (see `docs/deploy.md`); the source stays on Fable and the lint checks the source.
 
 A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and the lead's own turns). Mode 2 costs one Haiku call. Routing small work to Mode 2 is the main cost control; `Review: light` drops the extra rounds for mechanical Mode 1 work.
 
@@ -72,7 +72,7 @@ Anthropic's document skills (docx, pdf, pptx, xlsx) and Claude Code built-ins (w
 
 ## Platform Constraints
 
-- Nesting depth: the default allows 3 levels below the main thread, and this design uses 2. If `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` is below 2, Mode 1 breaks. `scripts/deploy doctor` checks for this.
+- Nesting depth: the default allows 3 levels below the main thread, and this design uses 2. If `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` is below 2, Mode 1 breaks. `./deploy doctor` checks for this.
 - An `Agent(type, ...)` allowlist only applies to the main-thread agent. Leads are restricted by their prompts. The supervisor's ban on the built-in `general-purpose`, `Explore`, `Plan`, and `claude` agents is prompt-only too: a `tools` allowlist would drop unlisted MCP tools, and a `permissions.deny` rule in `settings.json` would also apply to plain sessions.
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` ignores every per-agent model, and `CLAUDE_CODE_EFFORT_LEVEL` overrides every per-agent effort. `doctor` warns about both.
 - Subagents cannot ask the user questions directly. Leads return questions to the supervisor, which batches them.

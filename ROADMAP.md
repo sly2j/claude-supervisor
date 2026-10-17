@@ -2,14 +2,14 @@
 
 ## Context
 
-- This repo is the source of a Claude Code agent pack. `pack/` deploys via `scripts/deploy`
+- This repo is the source of a Claude Code agent pack. `pack/` deploys via `deploy`
   (stdlib-only, Python 3.9, which macOS ships as `/usr/bin/python3`).
 - Work goes through the supervisor harness: `researcher`/`planner`/`executor`/`writer` leads with
   worker fan-out and `critic`/`scope-critic` loops; quick tier `quick-edit`/`git-ops`/`scout`.
 - Before touching the pack, read `CLAUDE.md`, `docs/architecture.md`, and the `agent-authoring`
   skill (`pack/skills/agent-authoring/SKILL.md`).
 - Per change set on `main`: edit, bump `VERSION` once (`1.x` -> `1.x+1`), run
-  `python3 -m pytest -q`, run `scripts/deploy install` if `pack/` changed, commit with the trailer
+  `python3 -m pytest -q`, run `./deploy install` if `pack/` changed, commit with the trailer
   exactly `Co-Authored-By: Claude`, push.
 - Plans live in `docs/plan-<topic>.md`; finished plans move to `docs/archive/` with `git mv`.
   Long tasks may use work packages (`## Work Packages` in the plan; see README).
@@ -78,5 +78,45 @@
   behave under the remap.
 - **Done when:** launcher tests cover `--fable` on and off; `docs/deploy.md`, README, and
   `docs/architecture.md` are updated.
-- **Pointers:** `scripts/deploy` (`FABLE_TOKEN`, `deployed_bytes`, `launcher_text`),
+- **Pointers:** `deploy` (`FABLE_TOKEN`, `deployed_bytes`, `launcher_text`),
   `tests/test_deploy.py`, `tests/test_pack_lint.py`.
+
+### 7. Install registry, `deploy update`, and `--all`
+
+- **Goal:** one machine-wide registry lists every install, so the deploy tool can update or
+  uninstall one or all installs without the source checkout.
+- **Scope:**
+  - In: a registry at `~/.local/state/claude-supervisor/installs.json`. Install adds or
+    refreshes its entry, including the source repo's git remote URL, and uninstall removes it.
+    Per-install manifests stay.
+  - In: `deploy update` re-deploys an install with its recorded options, and `--all` works for
+    `update` and `uninstall`. Update shallow-clones `main` from the recorded remote into a temp
+    dir and deploys from it. Install keeps a copy of the deploy tool next to the registry.
+  - Out: launcher subcommands (item 8), a `list` command, version pinning or rollback, and
+    offline update.
+- **Decisions already made:** the registry lives outside every sandbox, so no uninstall deletes
+  it. Update clones the remote and never relies on the checkout, so git and network access are
+  required. Bulk and destructive operations ask for confirmation (`--yes` and `--dry-run` work
+  as they do today).
+- **Done when:** tests cover registry add, refresh, and remove, `update` from a `file://` remote
+  with the checkout deleted, and `--all` confirmation. `docs/deploy.md` and README document
+  update.
+- **Pointers:** `docs/plan-install-lifecycle.md` (P2), `deploy` (`install_cmd`, `uninstall_cmd`,
+  `build_parser`), `tests/test_deploy.py`.
+
+### 8. Launcher: `update` and `uninstall` subcommands
+
+- **Goal:** `claude-<tag> update` updates this sandbox and Claude Code, and
+  `claude-<tag> uninstall` removes this sandbox. Each asks for confirmation first.
+- **Scope:**
+  - In: the launcher intercepts `update` or `uninstall` as its first argument and runs the
+    deploy tool copy from item 7. `update --all` updates every registered install. `update`
+    also runs `claude update`. All other arguments still pass through to `claude`.
+  - Out: global installs, which have no launcher and use the deploy tool. Uninstalling other
+    installs from a launcher.
+- **Decisions already made:** bare subcommand names, confirmation before either one runs, and
+  `update` covers only this sandbox unless `--all` is given.
+- **Done when:** launcher tests cover both subcommands, refusal without `--yes` or a terminal,
+  and passthrough of all other arguments. `docs/deploy.md` and README are updated.
+- **Pointers:** `docs/plan-install-lifecycle.md` (P3), `deploy` (`launcher_text`),
+  `tests/test_deploy.py` (`claude_stub`, `run_launcher`).
