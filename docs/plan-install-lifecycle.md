@@ -17,8 +17,9 @@ Four packages, each landing as one change set on `main`, in this order.
   The move lands first because P2's stand-alone update runs `<clone>/deploy` from a fresh clone.
   Fixing the in-repo path before P2 means that code is written once, against the final path.
 - **P2, registry and `deploy update` (item 7):**
-  - Install records its entry in `~/.local/state/claude-supervisor/installs.json`, together
-    with the source's git remote. It also copies itself to `~/.local/state/claude-supervisor/deploy`.
+  - Install records its entry in `<prefix>/state/claude-supervisor/installs.json` (default
+    prefix `~/.local`), together with the source's git remote. It also copies itself to
+    `<prefix>/state/claude-supervisor/deploy`. Each prefix has its own registry and tool copy.
   - `update` (one install, or `--all`) shallow-clones `main` from the recorded remote into a
     temp dir. It then hands off to `<clone>/deploy update --from <clone> ...`, so the newest code
     replays each install's recorded options.
@@ -43,7 +44,7 @@ Rejected, one line each:
   the manifest already records them, and a second copy can drift. The registry maps each target
   to its tag and remote.
 - Honor `$XDG_STATE_HOME`: not asked for. It would also need test isolation, because the tests
-  copy `os.environ`. The fixed path matches the decision.
+  copy `os.environ`. `--prefix` already moves the state dir (Decisions 6).
 - `CLAUDE_CODE_SUBAGENT_MODEL` for item 6: it overrides every subagent, haiku and sonnet ones
   included, rather than remapping only `fable` (`docs/architecture.md:77` already warns
   against its `_FORCE` form).
@@ -115,8 +116,8 @@ Rejected, one line each:
 
 ## Interfaces And Data
 
-**Registry** (`~/.local/state/claude-supervisor/installs.json`, written with
-`write_json_atomic`):
+**Registry** (`<prefix>/state/claude-supervisor/installs.json`, default prefix `~/.local`,
+written with `write_json_atomic`; one registry per prefix):
 
 ```json
 {"version": 1, "installs": {"<resolved target>": {"tag": "supervisor",
@@ -131,10 +132,11 @@ Rejected, one line each:
 - The registry is never deleted, and neither is the tool copy.
 
 **Tool copy:** every non-dry-run install copies `Path(__file__)` to
-`~/.local/state/claude-supervisor/deploy` (temp file then `os.replace`, mode 0755). The last
-install wins.
+`<prefix>/state/claude-supervisor/deploy` (temp file then `os.replace`, mode 0755). The last
+install under that prefix wins; other prefixes keep their own copy.
 
-**CLI** (`common()` still adds `--tag`, `--target` and `--global`):
+**CLI** (`common()` adds `--tag`, `--target`, `--global` and `--prefix`; `--prefix` defaults to
+`~/.local`, may combine with `--global`, and replaces the removed `--bin-dir`):
 
 - `deploy update [--tag T [--target DIR] | --global | --all] [--from DIR] [--yes] [--dry-run]`
   - Without `--from`:
@@ -148,8 +150,8 @@ install wins.
   - With `--from DIR`, for each entry, in process:
     1. Run `install_cmd` with `--source DIR/pack` and the recorded options replayed:
        - `--tag` and `--target`, or `--global`;
-       - `--bin-dir` = parent of the manifest's `launcher` (a plain reinstall would otherwise
-         write a second launcher in `~/.local/bin`);
+       - `--prefix` = the manifest's recorded `prefix` (the default when the key is absent), so
+         a plain reinstall does not write a second launcher under `~/.local`;
        - `--no-default-agent` when manifest `settings.managed_agent_key` is false (a plain
          reinstall would retake the key);
        - `--fable` when manifest `fable` is true (until P4).
@@ -161,12 +163,19 @@ install wins.
       checkout, or pass --from".
     - An entry whose target has no manifest is reported and skipped.
     - An unregistered install errors with "not registered; run deploy install once".
+  - The hand-off passes `--prefix <given prefix>` to the clone's `update`. `update` and
+    `uninstall` (single and `--all`) use the registry of the given prefix.
   - Confirmation: `--all` asks once through `confirm()`, listing the targets and remotes. A
     single-install `update` does not ask, as `install` does not.
 - `deploy uninstall [--tag T [--target DIR] | --global | --all] [--yes] [--dry-run] [--force]`
   - `--all` asks once, listing every target ("deletes sessions, history, login" for sandboxes),
     then runs the existing uninstall path for each entry.
   - Entries with no manifest are pruned with a note.
+- Install records `"prefix": "<resolved prefix>"` in the manifest. When the target's existing
+  manifest records another prefix (no key = `~/.local`), `install` and single-target `uninstall`
+  refuse with exit 2: `<target> was installed with --prefix <recorded>; pass --prefix <recorded>`.
+  The check runs before anything is written, dry-run included. Under `uninstall --all` the entry
+  is reported as `ERROR` and skipped. Sandbox dirs stay `~/.config/claude-<tag>` for any prefix.
 - `--all` conflicts with `--tag`, `--target` and `--global`, except under `--launcher`.
 
 **Launcher** (P3, then P4). The marker stays on line 2:
@@ -175,8 +184,10 @@ install wins.
 #!/bin/sh
 # managed by claude-supervisor (tag: T)
 case "$1" in update|uninstall)
-  d='<state>/deploy'; [ -x "$d" ] || { echo "claude-T: $d missing; run deploy install" >&2; exit 1; }
-  s=$1; shift; exec "$d" "$s" --tag 'T' --target '<target>' --launcher "$@";;
+  d='<prefix>/state/claude-supervisor/deploy'
+  [ -x "$d" ] || { echo "claude-T: $d missing; run deploy install" >&2; exit 1; }
+  s=$1; shift
+  exec "$d" "$s" --prefix '<prefix>' --tag 'T' --target '<target>' --launcher "$@";;
 esac
 CLAUDE_CONFIG_DIR='<target>'; export CLAUDE_CONFIG_DIR
 # ... base_url / token lines unchanged ...
@@ -231,9 +242,9 @@ exec claude "$@"
   on `PATH`. `/usr/bin/python3` (3.9.6) has no pytest, so 3.9 is checked with
   `/usr/bin/python3 ./deploy --help` and a dry-run install (below). The launcher tests'
   `PATH=tmp/bin:/usr/bin:/bin` also runs the copy under 3.9 on macOS.
-- **Test isolation:** `run()` sets `HOME` to `tmp_path`, so the registry lands under the fake
-  home. `claude_stub()` (L546) returns only `PATH`, so P3 launcher tests must add
-  `HOME=str(tmp_path)` to that env. Without it, the tool copy resolves the real home and could
+- **Test isolation:** `run()` sets `HOME` to `tmp_path`, so the default prefix (`~/.local`) and
+  its registry land under the fake home. `claude_stub()` (L546) returns only `PATH`, so P3 launcher tests must add
+  `HOME=str(tmp_path)` to that env. Without it, the tool copy resolves the real home prefix and could
   update or uninstall real installs. In-process tests must monkeypatch `HOME` before
   `load_deploy()`. Update tests need `git` on `PATH`; skip them when `shutil.which("git")` is
   None.
@@ -253,8 +264,17 @@ exec claude "$@"
     - Build a bare `file://` repo with branch `main` holding `deploy`, `VERSION` and the `pack`
       fixture. Install from a clone of it, push a pack change, and delete the clone.
     - The state-dir copy's `update --tag t --yes` then installs the change.
-    - It keeps `--bin-dir`, `--no-default-agent`, `--fable` and `base_url`.
+    - It keeps `--prefix`, `--no-default-agent`, `--fable` and `base_url`.
     - No temp dir is left behind.
+  - **Prefix:**
+    - Two prefixes stay independent: each gets its own registry, tool copy and launcher, and
+      `uninstall --all --yes --prefix A` leaves B's install and registry untouched.
+    - Install refuses (exit 2, nothing changed) when the manifest records another prefix.
+    - A legacy manifest with no `prefix` key counts as `~/.local`: a default reinstall works,
+      another `--prefix` refuses.
+    - Update replays the recorded prefix: after `install --prefix <tmp>/px` and `update`, the
+      launcher, registry and tool copy stay under `<tmp>/px` and nothing is written to
+      `~/.local`.
   - **`--all`:**
     - Update and uninstall cover two sandboxes and one global install.
     - Without `--yes`, and with no terminal, they exit 2 and change nothing.
@@ -291,7 +311,6 @@ exec claude "$@"
   - version pinning, rollback, branch selection, offline update and update checks;
   - launcher support for global installs;
   - model or subscription detection;
-  - fixing install's default `--bin-dir`;
   - pty-driven tests of the interactive `y` path;
   - rewriting `docs/archive/`;
   - tagging releases.
@@ -322,8 +341,8 @@ exec claude "$@"
   registry tests, `## Update` in the docs, and ROADMAP item 7.
 - Deps: P1
 - Stages: execute
-- Status: execute
-- Artifacts: ->
+- Status: done
+- Artifacts: commit on main (VERSION 1.12)
 
 ### P3: Launcher update and uninstall (ROADMAP 8)
 - Goal: the launcher dispatches `update` and `uninstall` to the tool copy; done when the P3
@@ -386,6 +405,14 @@ User decisions on the former open questions (OQ1-OQ5):
 4. **Item 6 variable:** `ANTHROPIC_DEFAULT_FABLE_MODEL`, set to the full model ID
    `claude-opus-5-5`, not the `opus` alias.
 5. **Global installs after P4:** a printed note plus documentation is enough.
+6. **`--prefix`** (added to P2's change set; `--bin-dir` is removed, with no shim):
+   - `--prefix P` is a common flag, default `~/.local`. Launchers go to `P/bin/claude-<tag>`;
+     the registry and tool copy go to `P/state/claude-supervisor/`.
+   - Installs under different prefixes are independent: one registry and tool copy per prefix.
+   - Sandbox dirs stay `~/.config/claude-<tag>` (or `--target`). The manifest records the
+     prefix, and install refuses with exit 2 on a mismatch (no key = `~/.local`).
+   - `update` and `uninstall` (and `--all`) use the given prefix's registry. Update replays the
+     recorded prefix, and the hand-off passes `--prefix` to the clone.
 
 ## Todo
 
@@ -394,10 +421,10 @@ User decisions on the former open questions (OQ1-OQ5):
 - [x] P1 U3: README, docs/deploy.md, architecture, CLAUDE.md, ROADMAP paths, SKILL.md:58
 - [ ] P1 glue: grep clean, VERSION +1, pytest, 3.9 checks, review, commit (with this plan and
   ROADMAP 7/8), `./deploy install`
-- [ ] P2 U1: registry helpers, lock, tool copy, remote recording, uninstall entry removal
-- [ ] P2 U1: `update` (clone, hand-off, `--from` replay), `--all` for update and uninstall
-- [ ] P2 U2: registry, update-from-`file://`, `--all`, stale-entry and null-remote tests
-- [ ] P2 U3: `## Update`, `## Uninstall` `--all`, README Install block
+- [x] P2 U1: registry helpers, lock, tool copy, remote recording, uninstall entry removal
+- [x] P2 U1: `update` (clone, hand-off, `--from` replay), `--all` for update and uninstall
+- [x] P2 U2: registry, update-from-`file://`, `--all`, stale-entry and null-remote tests
+- [x] P2 U3: `## Update`, `## Uninstall` `--all`, README Install block
 - [ ] P2 glue: delete ROADMAP item 7, VERSION +1, pytest, 3.9 checks, review, commit, install
 - [ ] P3 U1: launcher `case` dispatch, `--launcher`, `claude update` step, typed-tag confirm
   for uninstall

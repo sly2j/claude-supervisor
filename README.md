@@ -19,11 +19,11 @@ cd ~/Work/claude-supervisor
 ./deploy install     # installs into ~/.config/claude-supervisor
 ```
 
-Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/agents` to see the pack. `--global` installs into `~/.claude` instead; `--tag <t>` makes another sandbox, `claude-<t>`.
+Then run `claude-supervisor` and log in once. It runs as the supervisor; type `/agents` to see the pack. `--global` installs into `~/.claude` instead; `--tag <t>` makes another sandbox, `claude-<t>`; `--prefix <dir>` (default `~/.local`) sets where the launcher and the update registry go.
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
-**Update:** `git pull && ./deploy install`. Files you edited in the install dir are kept, and the script lists them.
+**Update:** `./deploy update` (`--all` for every install; it clones `main` from the recorded remote). Files you edited in the install dir are kept, and the script lists them.
 **Check:** `./deploy status`. **Remove:** `./deploy uninstall --yes`.
 **Token provider:** add `--base-url URL --token-file PATH` to a sandbox install ([docs/deploy.md](docs/deploy.md#token-provider)).
 **Version:** `VERSION` holds the pack version (`1.x`, bumped in every commit on main). `./deploy status` shows the installed version next to the checkout's and marks a `MISMATCH`.
@@ -159,7 +159,7 @@ Not every session needs the supervisor: plain `claude` starts plain Claude Code,
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-deploy              installer: install | status | uninstall | doctor
+deploy              installer: install | update | status | uninstall | doctor
 tests/              deploy behavior tests + pack lint
 docs/               research, architecture, deploy runbook
 docs/archive/       finished plans, their child plans and research

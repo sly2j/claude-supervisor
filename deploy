@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deploy the claude-supervisor pack into a Claude Code config dir (default: sandbox ~/.config/claude-supervisor).
 
-Subcommands: install | status | uninstall | doctor.  Run `deploy <cmd> --help`.
+Subcommands: install | update | status | uninstall | doctor.  Run `deploy <cmd> --help`.
 
 Ownership model: every installed file is recorded in a manifest with the
 hash it had when installed (the "baseline").  On re-install each file is
@@ -135,7 +135,7 @@ def confirm(prompt: str, assume_yes: bool) -> bool:
 def target_tag(args: argparse.Namespace) -> Optional[str]:
     """Sandbox tag, or None for --global."""
     if args.use_global:
-        for name in ("tag", "target", "bin_dir", "base_url", "token", "token_file"):
+        for name in ("tag", "target", "base_url", "token", "token_file"):
             if getattr(args, name, None) is not None:
                 raise DeployError("--global cannot be combined with --%s" % name.replace("_", "-"))
         return None
@@ -162,6 +162,19 @@ def is_launcher(path: Path) -> bool:
             return LAUNCHER_MARKER.encode() in f.read(256)
     except OSError:
         return False
+
+
+def resolve_prefix(args: argparse.Namespace) -> Path:
+    return Path(args.prefix or "~/.local").expanduser().resolve()
+
+
+def check_prefix(args: argparse.Namespace, target: Path, manifest: Optional[dict]) -> None:
+    """Refuse to act on an install whose manifest records a different --prefix (none recorded = ~/.local)."""
+    if manifest is None:
+        return
+    recorded = manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())
+    if recorded != str(resolve_prefix(args)):
+        raise DeployError("%s was installed with --prefix %s; pass --prefix %s" % (target, recorded, recorded))
 
 
 def resolve_source(args: argparse.Namespace) -> Path:
@@ -326,6 +339,16 @@ def git_info(source: Path) -> Tuple[Optional[str], Optional[bool]]:
         return None, None
 
 
+def git_remote(source: Path) -> Optional[str]:
+    """The checkout's `origin` URL, or None when git is missing or there is no origin."""
+    try:
+        out = subprocess.run(["git", "-C", str(source), "remote", "get-url", "origin"],
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (out.stdout.strip() or None) if out.returncode == 0 else None
+
+
 def read_pack_version(source: Path) -> Optional[str]:
     """The checkout's VERSION (the file next to the pack dir), or None when there is none."""
     path = source.parent / "VERSION"
@@ -465,6 +488,56 @@ def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple
         % (current, DEFAULT_AGENT)
 
 
+# --------------------------------------------------------------------------- registry
+
+def state_dir(prefix: Path) -> Path:
+    return prefix / "state" / "claude-supervisor"
+
+
+def load_registry(prefix: Path) -> Dict[str, dict]:
+    """The registered installs, {resolved target: {"tag", "remote"}}; empty when there is no registry."""
+    path = state_dir(prefix) / "installs.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise DeployError("cannot read registry %s: %s" % (path, exc))
+    installs = data.get("installs") if isinstance(data, dict) else None
+    if not isinstance(installs, dict) or data.get("version") != 1 \
+            or not all(isinstance(v, dict) for v in installs.values()):
+        raise DeployError("registry %s is malformed" % path)
+    return installs
+
+
+def save_registry(prefix: Path, installs: Dict[str, dict]) -> None:
+    write_json_atomic(state_dir(prefix) / "installs.json", {"version": 1, "installs": installs})
+
+
+def register_install(prefix: Path, target: Path, tag: Optional[str], remote: Optional[str]) -> None:
+    installs = load_registry(prefix)
+    installs[str(target)] = {"tag": tag, "remote": remote}
+    save_registry(prefix, installs)
+
+
+def unregister_install(prefix: Path, target: Path) -> bool:
+    installs = load_registry(prefix)
+    if installs.pop(str(target), None) is None:
+        return False
+    save_registry(prefix, installs)
+    return True
+
+
+def entry_selection(key: str, entry: dict) -> List[str]:
+    """CLI arguments that select one registered install."""
+    return ["--global"] if entry.get("tag") is None else ["--tag", entry["tag"], "--target", key]
+
+
+def check_all_exclusive(args: argparse.Namespace) -> None:
+    if args.tag is not None or args.target is not None or args.use_global:
+        raise DeployError("--all cannot be combined with --tag, --target or --global")
+
+
 # --------------------------------------------------------------------------- install
 
 def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
@@ -508,7 +581,9 @@ def seed_sandbox(target: Path, dry_run: bool) -> None:
 def install_cmd(args: argparse.Namespace) -> int:
     source, target = resolve_source(args), resolve_target(args)
     tag = target_tag(args)
-    launcher = Path(args.bin_dir or "~/.local/bin").expanduser().resolve() / ("claude-" + tag) if tag else None
+    prefix = resolve_prefix(args)
+    check_prefix(args, target, load_manifest(target))
+    launcher = prefix / "bin" / ("claude-" + tag) if tag else None
     if launcher and os.path.lexists(launcher) and not is_launcher(launcher):
         raise DeployError("%s exists and is not a claude-supervisor launcher" % launcher)
     token = Path(args.token_file).expanduser().read_bytes() if args.token_file else None
@@ -639,6 +714,7 @@ def install_cmd(args: argparse.Namespace) -> int:
             "fable": fable,
             "tag": tag,
             "launcher": str(launcher) if launcher else None,
+            "prefix": str(prefix),
             "base_url": base_url or None,
         }
         if not args.dry_run:
@@ -657,6 +733,8 @@ def install_cmd(args: argparse.Namespace) -> int:
                     atomic_write_bytes(target / "token", token, mode=0o600)
                 text = launcher_text(tag, target, base_url, (target / "token").exists())
                 atomic_write_bytes(launcher, text.encode(), mode=0o755)
+            register_install(prefix, target, tag, git_remote(source))
+            atomic_write_bytes(state_dir(prefix) / "deploy", Path(__file__).read_bytes(), mode=0o755)
 
     print("\nSummary: " + ", ".join("%s=%d" % kv for kv in counts.items()))
     print("Settings: " + settings_msg)
@@ -734,11 +812,42 @@ def status_cmd(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------------- uninstall
 
+def uninstall_all(args: argparse.Namespace) -> int:
+    check_all_exclusive(args)
+    prefix = resolve_prefix(args)
+    installs = load_registry(prefix)
+    if not installs:
+        print("No registered installs.")
+        return 0
+    if not args.dry_run:
+        listing = ", ".join(k + ("" if v.get("tag") is None else " (deletes sessions, history, login)")
+                            for k, v in installs.items())
+        if not confirm("Uninstall every registered install: %s?" % listing, args.yes):
+            eprint("aborted")
+            return 1
+    failed = 0
+    for key, entry in list(installs.items()):
+        argv = ["uninstall", "--yes", "--prefix", str(prefix)] + entry_selection(key, entry) + \
+            (["--dry-run"] if args.dry_run else []) + (["--force"] if args.force else [])
+        try:
+            rc = uninstall_cmd(build_parser().parse_args(argv))
+        except DeployError as exc:
+            print("ERROR %s: %s" % (key, exc))
+            rc = 1
+        failed += rc != 0
+    return 1 if failed else 0
+
+
 def uninstall_cmd(args: argparse.Namespace) -> int:
-    target = resolve_target(args)
+    if args.all:
+        return uninstall_all(args)
+    target, prefix = resolve_target(args), resolve_prefix(args)
     manifest = load_manifest(target)
+    check_prefix(args, target, manifest)
     if manifest is None:
         print("No manifest in %s; nothing to uninstall." % target)
+        if not args.dry_run and unregister_install(prefix, target):
+            print("Removed stale registry entry for %s" % target)
         return 0
     tag = target_tag(args)
     prompt = "Delete %s (sessions, history, login) and its launcher?" if tag else \
@@ -755,6 +864,7 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
         if launcher and is_launcher(Path(launcher)):
             Path(launcher).unlink()
         shutil.rmtree(target)
+        unregister_install(prefix, target)
         print("Removed %s" % gone)
         return 0
     verb = "would " if args.dry_run else ""
@@ -805,6 +915,7 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
                 for name in (MANIFEST_NAME, LEGACY_MANIFEST_NAME):
                     with contextlib.suppress(FileNotFoundError):
                         (target / name).unlink()
+                unregister_install(prefix, target)
     if not args.dry_run:
         for name in (LOCK_NAME, LEGACY_LOCK_NAME):
             with contextlib.suppress(OSError):
@@ -817,6 +928,90 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
     if args.dry_run:
         print("Dry run: nothing was written.")
     return 1 if errors else 0
+
+
+# --------------------------------------------------------------------------- update
+
+def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run: bool) -> int:
+    """Re-run install from `source` for the registry entry, with the manifest's options (never --overwrite-local)."""
+    argv = ["install", "--source", str(source / "pack")]
+    argv += entry_selection(key, entry)
+    argv += ["--prefix", manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())]
+    if not (manifest.get("settings") or {}).get("managed_agent_key"):
+        argv.append("--no-default-agent")
+    if manifest.get("fable") is True:
+        argv.append("--fable")
+    if dry_run:
+        argv.append("--dry-run")
+    print("== update %s ==" % key)
+    try:
+        return install_cmd(build_parser().parse_args(argv))
+    except DeployError as exc:
+        print("ERROR %s: %s" % (key, exc))
+        return 1
+
+
+def update_cmd(args: argparse.Namespace) -> int:
+    prefix = resolve_prefix(args)
+    installs = load_registry(prefix)
+    if args.all:
+        check_all_exclusive(args)
+        if not installs:
+            print("No registered installs.")
+            return 0
+        selected = installs
+    else:
+        target = resolve_target(args)
+        if str(target) not in installs:
+            raise DeployError("%s is not registered; run deploy install once" % target)
+        selected = {str(target): installs[str(target)]}
+    source = Path(args.from_dir).expanduser().resolve() if args.from_dir else None
+    if source is not None and args.all:
+        remote = git_remote(source)
+        selected = {k: v for k, v in selected.items() if v.get("remote") == remote}
+    if args.all and selected and not args.dry_run:
+        listing = ", ".join("%s (%s)" % (k, v.get("remote") or "no remote") for k, v in selected.items())
+        if not confirm("Update every registered install: %s?" % listing, args.yes):
+            eprint("aborted")
+            return 1
+
+    failed = 0
+    groups: Dict[str, List[str]] = {}
+    for key, entry in selected.items():
+        try:
+            manifest = load_manifest(Path(key))
+        except DeployError as exc:
+            print("ERROR %s: %s" % (key, exc))
+            failed += 1
+            continue
+        if manifest is None:
+            print("SKIP %s: no manifest" % key)
+        elif source is not None:
+            failed += replay_install(key, entry, manifest, source, args.dry_run) != 0
+        elif entry.get("remote") is None:
+            print("ERROR %s: no recorded remote; run deploy install from a checkout, or pass --from" % key)
+            failed += 1
+        else:
+            groups.setdefault(entry["remote"], []).append(key)
+
+    for remote, keys in groups.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Path(tmp) / "src"
+            try:
+                cloned = subprocess.run(["git", "clone", "--depth", "1", "--branch", "main", "--quiet",
+                                         remote, str(clone)]).returncode == 0
+            except OSError:
+                cloned = False
+            if not cloned:
+                print("ERROR %s: clone failed" % remote)
+                failed += len(keys)
+                continue
+            selection = ["--all"] if args.all else entry_selection(keys[0], selected[keys[0]])
+            argv = [sys.executable, str(clone / "deploy"), "update", "--from", str(clone), "--prefix", str(prefix)] + \
+                selection + ["--yes"] + (["--dry-run"] if args.dry_run else [])
+            if subprocess.run(argv).returncode != 0:
+                failed += len(keys)
+    return 1 if failed else 0
 
 
 # --------------------------------------------------------------------------- doctor
@@ -929,6 +1124,9 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--target", metavar="DIR", help="sandbox dir (default: ~/.config/claude-TAG)")
         sp.add_argument("--global", dest="use_global", action="store_true",
                         help="use ~/.claude (no seeding, no launcher)")
+        sp.add_argument("--prefix", metavar="DIR",
+                        help="launchers in DIR/bin, registry and tool copy in DIR/state/claude-supervisor "
+                             "(default: ~/.local)")
         if source:
             sp.add_argument("--source", metavar="DIR", help="pack dir (default: <repo>/pack)")
 
@@ -946,7 +1144,6 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--no-default-agent", action="store_true", help="do not set settings.json agent")
     g.add_argument("--force-default-agent", action="store_true",
                    help="replace an existing different settings.json agent value")
-    sp.add_argument("--bin-dir", metavar="DIR", help="launcher dir (default: ~/.local/bin)")
     sp.add_argument("--base-url", metavar="URL", help="sandbox: export ANTHROPIC_BASE_URL ('' clears)")
     tok = sp.add_mutually_exclusive_group()
     tok.add_argument("--token-file", metavar="PATH", help="sandbox: copy to <dir>/token for ANTHROPIC_AUTH_TOKEN")
@@ -965,7 +1162,19 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--dry-run", action="store_true", help="show what would be removed; write nothing")
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
     sp.add_argument("--force", action="store_true", help="also remove locally modified managed files")
+    sp.add_argument("--all", action="store_true", help="uninstall every registered install")
     sp.set_defaults(func=uninstall_cmd)
+
+    sp = sub.add_parser("update", help="update registered installs from the git remote",
+                        description="Shallow-clone main from the remote recorded at install time and re-run "
+                                    "install from that clone with each install's recorded options.")
+    common(sp, source=False)
+    sp.add_argument("--all", action="store_true", help="update every registered install")
+    sp.add_argument("--from", dest="from_dir", metavar="DIR",
+                    help="repo checkout to install from instead of cloning the recorded remote")
+    sp.add_argument("--yes", "-y", action="store_true", help="do not prompt (--all asks once)")
+    sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
+    sp.set_defaults(func=update_cmd)
 
     sp = sub.add_parser("doctor", help="check the environment and the install",
                         description="Print PASS/WARN/FAIL checks. Exits 1 if any check FAILs.")

@@ -8,7 +8,7 @@ This runbook is for a human or for Claude asked to "deploy claude-supervisor". I
 # first time:
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 REPO=~/Work/claude-supervisor
-cd "$REPO" && git pull               # when updating
+cd "$REPO" && git pull               # when updating from the checkout (see Update)
 
 "$REPO/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/deploy" install --dry-run
@@ -36,7 +36,7 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
 - Records the checkout's `VERSION` (the file next to `pack/`) as `pack_version` in the manifest and prints `Version: 1.x`, with `(was 1.y)` on an update. `status` prints `Version: installed=1.x, source=1.y` and appends `(MISMATCH: run deploy install)` when they differ. Manifests from before versioning show `installed=not recorded` until the next install.
 - On a sandbox's first install, copies from `~/.claude`: `settings.json` (without `agent`), `CLAUDE.md`, `commands/`, `output-styles/`, `keybindings.json`, and your own files in `agents/` and `skills/` (not `skills/.trash` or `skills/synced`). Plugins, logins, history, and sessions stay behind.
-- Writes the launcher `~/.local/bin/claude-<tag>` (`--bin-dir DIR` to change), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the sandbox. Install refuses a tag whose launcher path exists and was not written by the deploy.
+- Writes the launcher `<prefix>/bin/claude-<tag>` (`--prefix P`, default `~/.local`), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the sandbox. The sandbox dir does not depend on the prefix. The manifest records the prefix, and `install` and `uninstall` refuse a different `--prefix` for an existing install (exit code 2, with the prefix to pass). Install also refuses a tag whose launcher path exists and was not written by the deploy.
 
 ### Token Provider
 
@@ -45,6 +45,22 @@ Start it with `claude-supervisor` and log in once; each sandbox has its own logi
 ```
 
 Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
+
+## Update
+
+Every install records itself in a registry, `<prefix>/state/claude-supervisor/installs.json`, and writes a copy of the deploy tool to `<prefix>/state/claude-supervisor/deploy` (by default under `~/.local/state/claude-supervisor/`). Neither is ever deleted. Each prefix has its own registry and tool copy, and installs under different prefixes are independent: `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give. The commands below use the default prefix; add `--prefix P` for another.
+
+```bash
+~/.local/state/claude-supervisor/deploy update                # the default sandbox; or "$REPO/deploy" update
+~/.local/state/claude-supervisor/deploy update --tag work     # another sandbox (--target DIR, or --global)
+~/.local/state/claude-supervisor/deploy update --all --yes    # every registered install
+```
+
+`update` shallow-clones `main` from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, `--fable`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to `main`. `--all` asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes.
+
+Installs made before this version are not registered. Run `"$REPO/deploy" install` once from the checkout. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
+
+After an update, `status` needs `--source "$REPO/pack"` to compare versions, because the manifest names the deleted clone.
 
 ## Fable Or Opus
 
@@ -71,7 +87,9 @@ Anthropic's document skills are recommended for docx, pdf, pptx, and xlsx work, 
 "$REPO/deploy" uninstall --yes
 ```
 
-For a sandbox, uninstall deletes its dir, including sessions, history, login, and token, and its launcher. With `--global` it removes only the pack's files.
+For a sandbox, uninstall deletes its dir, including sessions, history, login, and token, and its launcher. With `--global` it removes only the pack's files. Either way it removes the install's registry entry.
+
+`uninstall --all` removes every install registered under the given `--prefix` after one confirmation that lists them. Entries whose target has no manifest are pruned from the registry.
 
 Uninstall removes the unmodified managed files and keeps the ones you edited; `--force` removes those as well. It restores your previous `agent` setting.
 
@@ -87,7 +105,7 @@ Plain `claude` then starts plain Claude Code.
 
 ## Notes For Claude Running This
 
-- Run the commands through Bash exactly as shown. Without a terminal, `uninstall` and `install --overwrite-local` need `--yes`.
+- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all` and `uninstall --all` need `--yes`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), and 2 means a usage error, a failed source validation, or a held lock.

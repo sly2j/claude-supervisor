@@ -6,9 +6,11 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -286,8 +288,9 @@ def test_status_reports_states(pack, target):
 def test_help():
     r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
     assert r.returncode == 0 and "--overwrite-local" in r.stdout and "--fable" in r.stdout
-    for flag in ("--tag", "--global", "--bin-dir", "--base-url", "--token", "--token-file"):
+    for flag in ("--tag", "--global", "--prefix", "--base-url", "--token", "--token-file"):
         assert flag in r.stdout, flag
+    assert "--bin-dir" not in r.stdout
 
 
 def test_symlinked_settings_survive_install(pack, target, tmp_path):
@@ -688,7 +691,7 @@ def test_sandbox_refusals(pack, target, global_target, tmp_path):
 
     check(run(pack, target, "install", target_args=["--tag", "a/b"]), "invalid tag")
     check(run(pack, target, "install", target_args=["--tag", ""]), "invalid tag")
-    for flag, value in (("--tag", "t"), ("--target", "d"), ("--bin-dir", "d"), ("--base-url", "u"),
+    for flag, value in (("--tag", "t"), ("--target", "d"), ("--base-url", "u"),
                         ("--token", "x"), ("--token-file", "f")):
         check(run(pack, global_target, "install", flag, value),
               "--global cannot be combined with " + flag)
@@ -708,15 +711,15 @@ def test_sandbox_refusals(pack, target, global_target, tmp_path):
           "is not a claude-supervisor launcher")
 
 
-def test_bin_dir_recorded_for_uninstall(pack, target, tmp_path):
-    xbin = tmp_path / "xbin"
-    r = run(pack, target, "install", target_args=["--tag", "t", "--bin-dir", str(xbin)])
+def test_prefix_launcher_recorded_for_uninstall(pack, target, tmp_path):
+    px = tmp_path / "px"
+    r = run(pack, target, "install", target_args=["--tag", "t", "--prefix", str(px)])
     assert r.returncode == 0, r.stdout + r.stderr
-    assert (xbin / "claude-t").is_file()
-    assert not list((tmp_path / ".local" / "bin").glob("*"))
-    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
+    assert (px / "bin" / "claude-t").is_file()
+    assert not (tmp_path / ".local").exists()
+    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t", "--prefix", str(px)])
     assert r.returncode == 0, r.stdout + r.stderr
-    assert not (xbin / "claude-t").exists()
+    assert not (px / "bin" / "claude-t").exists()
 
 
 def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
@@ -726,3 +729,304 @@ def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
     r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
     assert keep.read_text() == "x"
+
+
+# --------------------------------------------------------------------------- registry and update
+
+def state_dir(tmp_path: Path, prefix: Path = None) -> Path:
+    return (prefix or tmp_path / ".local") / "state" / "claude-supervisor"
+
+
+def registry(tmp_path: Path, prefix: Path = None) -> dict:
+    return json.loads((state_dir(tmp_path, prefix) / "installs.json").read_text())["installs"]
+
+
+def test_install_records_registry_and_tool_copy(pack, target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None}}
+    copy = state_dir(tmp_path) / "deploy"
+    assert copy.read_bytes() == SCRIPT.read_bytes()
+    assert os.access(copy, os.X_OK)
+
+    # a reinstall refreshes both
+    reg = state_dir(tmp_path) / "installs.json"
+    reg.write_text(json.dumps({"version": 1, "installs": {str(sbx): {"tag": "t", "remote": "stale"}}}))
+    copy.write_bytes(b"old")
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None}}
+    assert copy.read_bytes() == SCRIPT.read_bytes() and os.access(copy, os.X_OK)
+
+
+def test_uninstall_removes_registry_entries(pack, target, global_target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert run(pack, global_target, "install").returncode == 0
+    assert registry(tmp_path) == {str(sbx): {"tag": "t", "remote": None},
+                                  str(global_target.resolve()): {"tag": None, "remote": None}}
+    assert run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"]).returncode == 0
+    assert registry(tmp_path) == {str(global_target.resolve()): {"tag": None, "remote": None}}
+    assert run(pack, global_target, "uninstall", "--yes").returncode == 0
+    assert registry(tmp_path) == {}
+
+
+@pytest.mark.parametrize("use_global", [False, True])
+def test_dry_run_install_skips_registry_and_copy(pack, target, global_target, tmp_path, use_global):
+    state = tmp_path / ".local" / "state"
+    tgt, args = (global_target, None) if use_global else (target, ["--tag", "t"])
+    r = run(pack, tgt, "install", "--dry-run", target_args=args)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert snapshot(state) == {} and not state.exists()
+    assert run(pack, tgt, "install", target_args=args).returncode == 0
+    before = snapshot(state)
+    assert set(before) == {"claude-supervisor/installs.json", "claude-supervisor/deploy"}
+    (pack / "agents" / "helper.md").write_text(agent_md("helper", "v2"))
+    assert run(pack, tgt, "install", "--dry-run", target_args=args).returncode == 0
+    assert snapshot(state) == before
+
+
+def test_update_and_uninstall_selection_errors(pack, target, tmp_path):
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    r = run(pack, target, "update", "--yes", target_args=["--tag", "t"])
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert ("no recorded remote; run deploy install from a checkout, or pass --from"
+            in r.stdout + r.stderr)
+    r = run(pack, target, "update", "--yes", target_args=["--all"])
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "no recorded remote" in r.stdout + r.stderr
+
+    r = run(pack, target, "update", "--yes", target_args=["--tag", "never"])
+    assert r.returncode == 2
+    assert "not registered; run deploy install once" in r.stderr
+
+    for cmd in ("update", "uninstall"):
+        for extra in (["--tag", "t"], ["--target", str(target)], ["--global"]):
+            r = run(pack, target, cmd, "--yes", target_args=["--all"] + extra)
+            assert r.returncode == 2, (cmd, extra, r.stdout + r.stderr)
+            assert "--all cannot be combined with --tag, --target or --global" in r.stderr
+    assert list(registry(tmp_path)) == [str(sandbox_paths(tmp_path, "t")[0])]
+
+
+def test_prefixes_are_independent(pack, target, tmp_path):
+    pa, pb = tmp_path / "pa", tmp_path / "pb"
+    sbx_a, _ = sandbox_paths(tmp_path, "a")
+    sbx_b, _ = sandbox_paths(tmp_path, "b")
+    for tag, px in (("a", pa), ("b", pb)):
+        r = run(pack, target, "install", target_args=["--tag", tag, "--prefix", str(px)])
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert (px / "bin" / ("claude-" + tag)).is_file()
+        assert (state_dir(tmp_path, px) / "deploy").read_bytes() == SCRIPT.read_bytes()
+        assert manifest(sandbox_paths(tmp_path, tag)[0])["prefix"] == str(px.resolve())
+    assert registry(tmp_path, pa) == {str(sbx_a): {"tag": "a", "remote": None}}
+    assert registry(tmp_path, pb) == {str(sbx_b): {"tag": "b", "remote": None}}
+    assert not (tmp_path / ".local").exists()
+
+    r = run(pack, target, "update", "--yes", target_args=["--all", "--prefix", str(pa)])
+    assert r.returncode == 1 and str(sbx_a) in r.stdout + r.stderr
+    assert str(sbx_b) not in r.stdout + r.stderr
+
+    before_b = snapshot(pb)
+    r = run(pack, target, "uninstall", "--yes", target_args=["--all", "--prefix", str(pa)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not sbx_a.exists() and not (pa / "bin" / "claude-a").exists()
+    assert registry(tmp_path, pa) == {}
+    assert (sbx_b / MANIFEST).is_file() and (pb / "bin" / "claude-b").is_file()
+    assert registry(tmp_path, pb) == {str(sbx_b): {"tag": "b", "remote": None}}
+    assert snapshot(pb) == before_b
+
+
+def test_prefix_mismatch_refuses(pack, target, tmp_path):
+    pa, pb = tmp_path / "pa", tmp_path / "pb"
+    args = ["--tag", "t", "--prefix", str(pa)]
+    assert run(pack, target, "install", target_args=args).returncode == 0
+    before = snapshot(tmp_path)
+    for cmd in (["install"], ["install", "--dry-run"], ["uninstall", "--yes"]):
+        r = run(pack, target, *cmd, target_args=["--tag", "t", "--prefix", str(pb)])
+        assert r.returncode == 2, (cmd, r.stdout + r.stderr)
+        assert "was installed with --prefix" in r.stderr and str(pa.resolve()) in r.stderr
+        assert snapshot(tmp_path) == before and not pb.exists()
+    # the default prefix is another prefix too
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 2 and "was installed with --prefix" in r.stderr
+    assert snapshot(tmp_path) == before
+    assert run(pack, target, "install", target_args=args).returncode == 0
+
+
+def test_manifest_without_prefix_counts_as_default(pack, target, tmp_path):
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    default = str((tmp_path / ".local").resolve())
+
+    def strip_prefix():
+        m = manifest(sbx)
+        del m["prefix"]
+        (sbx / MANIFEST).write_text(json.dumps(m))
+
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert manifest(sbx)["prefix"] == default
+    strip_prefix()
+    r = run(pack, target, "install", target_args=["--tag", "t"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert manifest(sbx)["prefix"] == default
+
+    strip_prefix()
+    before = snapshot(tmp_path)
+    r = run(pack, target, "install", target_args=["--tag", "t", "--prefix", str(tmp_path / "px")])
+    assert r.returncode == 2 and "was installed with --prefix" in r.stderr
+    assert snapshot(tmp_path) == before
+
+
+# update from a file:// remote
+
+@pytest.fixture
+def remote(tmp_path: Path) -> SimpleNamespace:
+    """A bare repo (branch main: deploy, VERSION, a small pack) plus an install clone of it."""
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        pytest.skip("git not available")
+    tmpdir = tmp_path / "tmpdir"
+    tmpdir.mkdir()
+    env = {"HOME": str(tmp_path), "PATH": "%s:/usr/bin:/bin" % Path(git_bin).parent,
+           "TMPDIR": str(tmpdir), "GIT_CONFIG_NOSYSTEM": "1"}
+    bare, work, clone = tmp_path / "remote.git", tmp_path / "work", tmp_path / "clone"
+    (work / "pack" / "agents").mkdir(parents=True)
+    (work / "pack" / "skills" / "demo").mkdir(parents=True)
+    (work / "pack" / "agents" / "supervisor.md").write_text(agent_md("supervisor"))
+    (work / "pack" / "agents" / "helper.md").write_text(agent_md("helper", "v1"))
+    (work / "pack" / "skills" / "demo" / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: Demo skill.\n---\n\nUse it.\n")
+    (work / "deploy").write_bytes(SCRIPT.read_bytes())
+    (work / "VERSION").write_text("1.0\n")
+    ns = SimpleNamespace(url="file://%s" % bare, bare=bare, work=work, clone=clone, env=env,
+                         tmpdir=tmpdir, state=state_dir(tmp_path))
+
+    def git(cwd: Path, *args: str) -> None:
+        r = subprocess.run([git_bin, "-c", "user.name=t", "-c", "user.email=t@t"] + list(args),
+                           cwd=str(cwd), env=env, capture_output=True, text=True, timeout=60,
+                           stdin=subprocess.DEVNULL)
+        assert r.returncode == 0, "git %s: %s" % (args, r.stderr)
+
+    ns.git = git
+    git(tmp_path, "init", "--bare", "-q", str(bare))
+    git(work, "init", "-q")
+    git(work, "remote", "add", "origin", ns.url)
+    git(work, "add", "-A")
+    git(work, "commit", "-q", "-m", "init")
+    git(work, "push", "-q", "origin", "HEAD:main")
+    git(tmp_path, "clone", "-q", "--branch", "main", ns.url, str(clone))
+    return ns
+
+
+def deploy_run(remote: SimpleNamespace, script: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(script)] + list(args), capture_output=True, text=True,
+                          env=remote.env, timeout=120, stdin=subprocess.DEVNULL)
+
+
+def install_from_clone(remote: SimpleNamespace, *args: str) -> None:
+    r = deploy_run(remote, remote.clone / "deploy", "install", *args)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def update(remote: SimpleNamespace, *args: str) -> subprocess.CompletedProcess:
+    return deploy_run(remote, remote.state / "deploy", "update", *args)
+
+
+def push_change(remote: SimpleNamespace, body: str) -> None:
+    """Push a pack change from the work tree, then delete the install clone."""
+    (remote.work / "pack" / "agents" / "helper.md").write_text(agent_md("helper", body))
+    remote.git(remote.work, "add", "-A")
+    remote.git(remote.work, "commit", "-q", "-m", body)
+    remote.git(remote.work, "push", "-q", "origin", "HEAD:main")
+    shutil.rmtree(remote.clone)
+
+
+def helper_text(target: Path) -> str:
+    return (target / "agents" / "helper.md").read_text()
+
+
+def test_update_from_remote_replays_options(remote, tmp_path):
+    px = tmp_path / "px"
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    launcher = px / "bin" / "claude-t"
+    install_from_clone(remote, "--tag", "t", "--prefix", str(px), "--no-default-agent", "--fable",
+                       "--base-url", "https://llm.example")
+    assert registry(tmp_path, px) == {str(sbx): {"tag": "t", "remote": remote.url}}
+    assert "v1" in helper_text(sbx)
+    push_change(remote, "v2 pushed")
+
+    r = deploy_run(remote, state_dir(tmp_path, px) / "deploy", "update", "--prefix", str(px),
+                   "--tag", "t", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "v2 pushed" in helper_text(sbx)
+    assert launcher.is_file()
+    assert not (tmp_path / ".local").exists()
+    assert not (sbx / "settings.json").exists() or "agent" not in settings(sbx)
+    m = manifest(sbx)
+    assert m["fable"] is True and m["base_url"] == "https://llm.example"
+    assert m["settings"]["managed_agent_key"] is False
+    assert m["launcher"] == str(launcher) and m["prefix"] == str(px.resolve())
+    assert "ANTHROPIC_BASE_URL='https://llm.example'" in launcher.read_text()
+    assert list(remote.tmpdir.iterdir()) == []
+    assert registry(tmp_path, px) == {str(sbx): {"tag": "t", "remote": remote.url}}
+
+
+@pytest.fixture
+def three(remote, tmp_path) -> list:
+    """Two sandboxes and a global install, all from the same remote."""
+    for args in (["--tag", "t"], ["--tag", "u"], ["--global"]):
+        install_from_clone(remote, *args)
+    targets = [sandbox_paths(tmp_path, "t")[0], sandbox_paths(tmp_path, "u")[0],
+               (tmp_path / ".claude").resolve()]
+    assert set(registry(tmp_path)) == set(map(str, targets))
+    assert {e["remote"] for e in registry(tmp_path).values()} == {remote.url}
+    return targets
+
+
+def test_update_all(remote, three):
+    push_change(remote, "v3 all")
+    r = update(remote, "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for t in three:
+        assert "v3 all" in helper_text(t), t
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+def test_uninstall_all(remote, three, tmp_path):
+    r = deploy_run(remote, remote.state / "deploy", "uninstall", "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    for t in three:
+        assert not (t / MANIFEST).exists() and not (t / "agents" / "helper.md").exists(), t
+    assert not three[0].exists() and not three[1].exists()
+    assert registry(tmp_path) == {}
+
+
+@pytest.mark.parametrize("cmd", ["update", "uninstall"])
+def test_all_without_yes_and_no_tty_refuses(remote, three, tmp_path, cmd):
+    push_change(remote, "v4 unseen")
+    roots = [tmp_path / ".config", tmp_path / ".claude", tmp_path / ".local"]
+    before = [snapshot(p) for p in roots]
+    r = deploy_run(remote, remote.state / "deploy", cmd, "--all")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "--yes" in r.stderr
+    assert [snapshot(p) for p in roots] == before
+    assert len(registry(tmp_path)) == 3
+
+
+def test_stale_entry_skipped_by_update_and_pruned_by_uninstall(remote, three, tmp_path):
+    t, u, _ = three
+    shutil.rmtree(u)  # registered, but no manifest any more
+    push_change(remote, "v5 stale")
+
+    r = update(remote, "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "SKIP %s: no manifest" % u in r.stdout
+    assert "v5 stale" in helper_text(t) and "v5 stale" in helper_text(three[2])
+    assert not u.exists()
+    assert str(u) in registry(tmp_path)
+
+    r = deploy_run(remote, remote.state / "deploy", "uninstall", "--all", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "Removed stale registry entry for %s" % u in r.stdout
+    assert registry(tmp_path) == {}
+    assert not t.exists() and not u.exists()

@@ -81,37 +81,16 @@
 - **Pointers:** `deploy` (`FABLE_TOKEN`, `deployed_bytes`, `launcher_text`),
   `tests/test_deploy.py`, `tests/test_pack_lint.py`.
 
-### 7. Install registry, `deploy update`, and `--all`
-
-- **Goal:** one machine-wide registry lists every install, so the deploy tool can update or
-  uninstall one or all installs without the source checkout.
-- **Scope:**
-  - In: a registry at `~/.local/state/claude-supervisor/installs.json`. Install adds or
-    refreshes its entry, including the source repo's git remote URL, and uninstall removes it.
-    Per-install manifests stay.
-  - In: `deploy update` re-deploys an install with its recorded options, and `--all` works for
-    `update` and `uninstall`. Update shallow-clones `main` from the recorded remote into a temp
-    dir and deploys from it. Install keeps a copy of the deploy tool next to the registry.
-  - Out: launcher subcommands (item 8), a `list` command, version pinning or rollback, and
-    offline update.
-- **Decisions already made:** the registry lives outside every sandbox, so no uninstall deletes
-  it. Update clones the remote and never relies on the checkout, so git and network access are
-  required. Bulk and destructive operations ask for confirmation (`--yes` and `--dry-run` work
-  as they do today).
-- **Done when:** tests cover registry add, refresh, and remove, `update` from a `file://` remote
-  with the checkout deleted, and `--all` confirmation. `docs/deploy.md` and README document
-  update.
-- **Pointers:** `docs/plan-install-lifecycle.md` (P2), `deploy` (`install_cmd`, `uninstall_cmd`,
-  `build_parser`), `tests/test_deploy.py`.
-
 ### 8. Launcher: `update` and `uninstall` subcommands
 
 - **Goal:** `claude-<tag> update` updates this sandbox and Claude Code, and
   `claude-<tag> uninstall` removes this sandbox. Each asks for confirmation first.
 - **Scope:**
   - In: the launcher intercepts `update` or `uninstall` as its first argument and runs the
-    deploy tool copy from item 7. `update --all` updates every registered install. `update`
-    also runs `claude update`. All other arguments still pass through to `claude`.
+    deploy tool copy under the install's prefix (default
+    `~/.local/state/claude-supervisor/deploy`). `update --all` updates every registered
+    install. `update` also runs `claude update`. All other arguments still pass through to
+    `claude`.
   - Out: global installs, which have no launcher and use the deploy tool. Uninstalling other
     installs from a launcher.
 - **Decisions already made:** bare subcommand names, confirmation before either one runs, and
