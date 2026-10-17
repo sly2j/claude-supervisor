@@ -12,7 +12,6 @@ writer maps into its own format.
 
 - Extract content only. Do not choose templates, presentation style, file destinations, or final
   prose. Do not edit files or insert notes.
-- Meeting transcripts: use `meeting-summary`. Reference documents: use `document-extraction`.
 
 ## Rules
 
@@ -22,9 +21,8 @@ writer maps into its own format.
 - Deduplicate points repeated across quoted replies.
 - Identify who initiated, who responded, what was requested, and what remains unresolved.
 - Group by topic when the thread covers several subjects.
-- Capture actions with owner, task, and timing when stated.
 - Include RAID items (risk, action, issue, assumption, dependency, decision) only when explicitly
-  present, each in exactly one category. Do not force RAID onto informational or social mail.
+  present, each in exactly one category.
 - Omit pleasantries, signatures, disclaimers, and forwarding boilerplate.
 
 ## Fields
@@ -44,16 +42,13 @@ writer maps into its own format.
 ## Edge cases
 
 - Too sparse: say what is missing.
-- Ambiguous identity, ownership, or timing: keep the ambiguity visible.
 - Messages that conflict: extract both positions and note the conflict.
 
 ## Output
 
-A compact two-layer artifact, factual and free of presentation markup:
-
-- **Thread level**: metadata, direction summary, global ambiguities.
-- **Per topic group** (in order): label, notes, actions, commitments, decisions, deadlines,
-  unresolved questions, RAID (only when warranted), local ambiguities.
+A compact two-layer artifact, factual and free of presentation markup: thread level (metadata,
+direction summary, global ambiguities), then each topic group in order with the per-topic fields
+above.
 
 Before returning, check that every item traces to the thread or is labeled uncertain, that
 reply-chain duplicates were merged, and that topic notes are not a message-by-message log.

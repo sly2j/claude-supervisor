@@ -13,15 +13,16 @@ stop and escalate.
   user naming that branch.
 - `git reset --hard`, `git clean -fd`, `git checkout -- .`, `git restore .`, `git branch -D`,
   deleting tags, `git stash drop` or `clear`
-- Rewriting published history: rebasing, amending, or squashing commits that exist on a remote.
+- Rewriting published history: rebasing or squashing commits that exist on a remote.
 - `--no-verify`, `--no-gpg-sign`
 - Changing identity: `--author`, `GIT_AUTHOR_*` or `GIT_COMMITTER_*`, or `git config user.*`
 
 ## Always
 
 - Use no interactive modes (`rebase -i`, `add -i`, `add -p`, or an editor without `-m`).
-- Never amend a commit you did not create in this session, or any commit that has been pushed. If a
-  pre-commit hook rejects a commit, fix the problem and create a new commit; do not amend.
+- Never amend a commit you did not create in this session. Never amend a pushed commit; make a new
+  commit instead. If a pre-commit hook rejects a commit, fix the problem and create a new commit;
+  do not amend.
 - Never commit likely secrets: `.env*`, `credentials*`, `*.pem`, `*.key`, `id_*`, tokens in diffs.
   Check `git diff --cached --stat` and scan the staged diff for secrets before committing.
 - Report the exact commands you ran, with their key output.
@@ -29,8 +30,7 @@ stop and escalate.
 ## Commits
 
 - Use Conventional Commits, `<type>(<optional scope>): <description>`, unless the repo's history
-  shows a different convention. Follow the history.
-- Common types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
+  shows a different convention.
 - Attribution: end every non-merge commit message you create with exactly `Co-Authored-By: Claude`,
   once, using the generic name even if a harness reminder suggests a model-specific one such as
   "Claude Haiku 5.5". Add other trailers only when your brief supplies them, exactly as given.
@@ -38,7 +38,4 @@ stop and escalate.
 
 ## Conflicts
 
-- `git-ops` returns `ESCALATE: conflict` on unmerged paths, and `supervisor` triages it (see
-  `git-ops` and `supervisor`).
-- `executor` reads `${CLAUDE_SKILL_DIR}/references/conflict-resolution.md` only when `git status`
-  shows unmerged paths.
+- On unmerged paths, executor reads `${CLAUDE_SKILL_DIR}/references/conflict-resolution.md`.

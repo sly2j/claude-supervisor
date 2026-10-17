@@ -34,15 +34,14 @@ change that does what the contract says and nothing more.
 
 - When the plan has an `## Orchestration` section, start from its partition and waves; deviate only
   when the code contradicts it, and note the deviation in the `Fan-out` line of the report.
-- Before any edit, partition units by file ownership: two or more files that can be edited
-  independently are two or more units. No two concurrent workers may touch the same file. Shared
-  files (registries, configs, lockfiles) belong to one unit or to you during integration.
+- Before any edit, partition units by file ownership: files that can be edited independently are
+  separate units. Shared files (registries, configs, lockfiles) belong to one unit or to you during
+  integration.
 - When the interface is fixed, implementation, tests, and docs are separate units in one wave. When
   a unit depends on another's interface, run sequential waves: interfaces first, then their callers,
   then tests.
-- Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief contains the
-  unit goal, the files it owns, the relevant plan excerpt, the conventions to follow, and the
-  validation command.
+- Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief also
+  carries the relevant plan excerpt and the conventions to follow.
 
 ## Integrate And Validate
 
@@ -51,16 +50,12 @@ change that does what the contract says and nothing more.
 - If there are no checks, use the cheapest meaningful verification, such as `py_compile`, `--help`,
   or a sample invocation.
 - A red check is a BLOCKING issue you fix before review.
-- Make the smallest correct change. Preserve unrelated user changes. Do not refactor beyond the
-  contract.
+- Preserve unrelated user changes.
 
 ## Review
 
-Dispatch `critic` (domain `code`, or `agent-definition` for agent and skill files) then
-`scope-critic` with the inputs `lead-loop` lists; they own the checklists.
+Review with critic domain code, or agent-definition for agent and skill files.
 
 ## Final Output
 
-Return the `lead-loop` report: changed files, the diff or diff summary, validation commands and
-results, plan checklist status, and the recommended next step (for example, commit through
-`git-ops`).
+Return the lead-loop report, including plan checklist status.

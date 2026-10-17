@@ -7,8 +7,7 @@ description: Procedure for creating, repairing, rebuilding, exporting, and valid
 
 ## Identify First
 
-- Find the target environment and the goal (repair, create, rebuild, export, or validate) before
-  changing anything.
+- Find the target environment and the goal before changing anything.
 - Use the tool the project already uses:
   - `environment.yml` or an existing conda env: use conda
   - `uv.lock` or `[tool.uv]`: use uv

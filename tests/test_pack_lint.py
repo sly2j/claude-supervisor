@@ -18,6 +18,8 @@ MODELS = {"fable", "opus", "sonnet", "haiku", "inherit"}
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 NO_AGENT_TOOL = {"critic", "scope-critic", "quick-edit", "git-ops", "scout"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
+BODY_WORD_CAPS = {"Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Quick": 350}
+SKILL_WORD_CAP = 1300
 LEAD_WORKERS = {
     "executor": ["executor-worker"],
     "researcher": ["researcher-worker"],
@@ -50,18 +52,33 @@ def tool_names(value) -> list:
     return [t.strip() for t in text.split(",") if t.strip()]
 
 
-def tier_table() -> dict:
-    """Map agent name -> (model, effort) from the Tiers table in agent-authoring/SKILL.md."""
+def _tier_rows() -> dict:
+    """Map agent name -> (tier, model, effort) from the Tiers table in agent-authoring/SKILL.md."""
     text = (PACK / "skills" / "agent-authoring" / "SKILL.md").read_text(encoding="utf-8")
     section = text.split("## Tiers", 1)[1].split("\n## ", 1)[0]
     rows = [l for l in section.splitlines() if l.startswith("|")][2:]  # skip header and separator
     tiers = {}
     for row in rows:
-        _tier, agents, model_effort, _tools = [c.strip() for c in row.strip("|").split("|")]
+        tier, agents, model_effort, _tools = [c.strip() for c in row.strip("|").split("|")]
         model, effort = [x.strip() for x in model_effort.split("/")]
         for name in agents.split(","):
-            tiers[name.strip()] = (model, effort)
+            tiers[name.strip()] = (tier, model, effort)
     return tiers
+
+
+def tier_table() -> dict:
+    """Map agent name -> (model, effort) from the Tiers table in agent-authoring/SKILL.md."""
+    return {name: (model, effort) for name, (_tier, model, effort) in _tier_rows().items()}
+
+
+def body_words(path: Path) -> int:
+    """Word count of the text after the closing --- of the frontmatter."""
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    if lines and lines[0] == "---":
+        close = next((i for i, l in enumerate(lines[1:], 1) if l == "---"), 0)
+        text = "\n".join(lines[close + 1:])
+    return len(text.split())
 
 
 def test_pack_has_content():
@@ -88,6 +105,15 @@ def test_agent_matches_tier_table(path):
     assert (fm.get("model"), fm.get("effort")) == tiers[path.stem], \
         "%s: frontmatter %s / %s != Tiers table %s / %s" % (
             (path.stem, fm.get("model"), fm.get("effort")) + tiers[path.stem])
+
+
+@pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
+def test_agent_body_word_cap(path):
+    tier = _tier_rows().get(path.stem, (None,))[0]
+    assert tier in BODY_WORD_CAPS, "%s: tier %r has no body word cap" % (path.stem, tier)
+    n = body_words(path)
+    assert n <= BODY_WORD_CAPS[tier], "%s: body has %d words, %s tier cap is %d" % (
+        path.stem, n, tier, BODY_WORD_CAPS[tier])
 
 
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
@@ -135,7 +161,9 @@ def test_skill(skill):
     assert fm.get("name") == skill.name
     assert str(fm.get("description") or "").strip()
     n = len(skill_md.read_text(encoding="utf-8").splitlines())
-    assert n <= 300, "SKILL.md has %d lines (agent-authoring: keep each skill under about 300)" % n
+    assert n <= 300, "SKILL.md has %d lines (agent-authoring: keep each skill under 300)" % n
+    words = body_words(skill_md)
+    assert words <= SKILL_WORD_CAP, "SKILL.md body has %d words, cap is %d" % (words, SKILL_WORD_CAP)
 
 
 def test_no_opencode_leftovers():

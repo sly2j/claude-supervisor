@@ -14,8 +14,8 @@
 - Plans live in `docs/plan-<topic>.md`; finished plans move to `docs/archive/` with `git mv`.
   Long tasks may use work packages (`## Work Packages` in the plan; see README).
 - Owner's style rule is simplicity: add rules to agent files only for observed failures, no
-  anticipated-failure clauses, keep line counts and line lengths down. The body of
-  `pack/agents/supervisor.md` (after frontmatter) is 109 lines; do not grow it.
+  anticipated-failure clauses, keep word counts and line lengths down. Body word caps per tier
+  are linted in `tests/test_pack_lint.py`; do not raise a cap without the owner's approval.
 - Items are orthogonal. Pick one item per change set; remove it from this file in the same
   commit when it lands.
 

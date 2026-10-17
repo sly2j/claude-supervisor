@@ -12,7 +12,6 @@ downstream writer (usually the `writer` lead or a `writer-worker`) maps into its
 
 - Extract content only. Do not choose templates, presentation style, file destinations, or final
   prose. Do not edit files or insert notes.
-- Meeting transcripts: use `meeting-summary`. Email threads: use `email-extraction`.
 
 ## Rules
 
@@ -44,17 +43,14 @@ downstream writer (usually the `writer` lead or a `writer-worker`) maps into its
 ## Edge cases
 
 - Too sparse or unclear: say what is missing.
-- Unclear authorship or provenance: keep the ambiguity visible.
 - Sections that conflict: extract both positions and note the conflict.
 - No discernible structure: use the smallest credible topic grouping and say so.
 
 ## Output
 
-A compact two-layer artifact, factual and free of presentation markup:
-
-- **Document level**: metadata, overall significance, cross-cutting themes, global ambiguities.
-- **Per section group** (in order): label, key claims/findings, evidence/methodology,
-  implications, limitations, open questions, RAID (only when warranted), local ambiguities.
+A compact two-layer artifact, factual and free of presentation markup: document level (metadata,
+overall significance, cross-cutting themes, global ambiguities), then each section group in order
+with the per-section fields above.
 
 Before returning, check that every item traces to the document or is labeled inferred/uncertain,
 and that section notes are substantive rather than exhaustive.

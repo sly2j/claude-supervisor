@@ -1,10 +1,7 @@
 # Writing Rules - <Project Name>
 
-<!-- Per-project rules read by the writer lead, writer-worker, and critic.
-     See the writing-rules-persistence skill for the schema and precedence model.
-     Keep the three top-level sections (Standing Rules, Session Decision Log,
-     Pending Verification) exactly once each. Replace the placeholder bullets
-     with project-specific entries and delete subsections that do not apply. -->
+<!-- Per-project rules. Schema and precedence: see the writing-rules-persistence skill.
+     Keep each top-level section exactly once. -->
 
 ## Standing Rules
 
@@ -38,11 +35,8 @@
 
 ## Session Decision Log
 
-<!-- Decisions scoped to one named draft; they do not generalize.
-     Header format: ### YYYY-MM-DD - <draft identifier>
-     The draft identifier must match the writer lead's current draft identifier
-     exactly (byte for byte, including any leading ./). Near-misses are reported
-     to the user but never activated. -->
+<!-- Decisions scoped to one draft; the header identifier must match the current draft
+     identifier exactly. -->
 
 ### YYYY-MM-DD - <draft identifier, e.g., body.tex Section 3>
 
@@ -52,7 +46,6 @@
 ## Pending Verification
 
 <!-- Patterns observed once and flagged for follow-up; not binding.
-     The critic does not suppress findings because of these entries.
      Promote to Standing Rules or remove once the user decides. -->
 
 - <!-- e.g., "'Strong Interaction' capitalization - verify against journal style." -->

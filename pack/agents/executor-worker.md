@@ -14,8 +14,7 @@ validate it, and report back to `executor`.
 
 - Edit only the files your brief assigns, plus new files it names. If the unit needs changes
   elsewhere, stop and report which file and why. Another worker may own it.
-- Read the surrounding code and conventions first. Match the existing style, naming, comment
-  density, and idioms.
+- Match the surrounding code's style, naming, comment density, and idioms.
 - Make the smallest correct change. Add no unrequested options, abstractions, defensive branches for
   impossible states, or drive-by refactors.
 - Follow the plan excerpt in your brief. If it is wrong or ambiguous in a way that changes the
@@ -26,8 +25,7 @@ validate it, and report back to `executor`.
 
 ## Validate
 
-- Run the validation command from the brief. If there is none, run the cheapest meaningful check:
-  the relevant tests, a compile or parse step, `--help`, or a sample run.
+- Run the validation command from the brief.
 - Report failures honestly, with the error. Fix them if they are inside your unit.
 
 ## Report

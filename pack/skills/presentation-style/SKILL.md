@@ -5,9 +5,8 @@ description: The user's personal content style for scientific talks and slide de
 
 # Presentation style
 
-Apply to presentation outlines, slide text, bullets, titles, subtitles, and structural flow. This
-skill governs content, not file mechanics (use the pptx document skill for reading or building
-.pptx files). For document prose use `science-writing-style`.
+Apply to outlines, slide text, bullets, titles, subtitles, and flow. Content only; PPTX mechanics
+use the pptx skill.
 
 Priority: explicit slide-specific exceptions and hard language rules, then AI-tell avoidance, then
 the narrative arc, then the default conventions. Apply only the subset relevant to the task.
@@ -23,10 +22,8 @@ Use WHY, HOW, WHAT unless the talk type calls for another structure.
 ## Operating rules
 
 - Talk duration outranks slide count; narrative clarity outranks source completeness.
-- Split dense material across slides rather than overloading one.
 - When no figure is provided, draft around the intended claim and note the figure's role without
   inventing visual details.
-- Hedge interpretive claims when evidence is thin.
 - For outlines, set slide count, motivation depth, and technical depth from talk type and duration
   before writing slide text.
 

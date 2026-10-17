@@ -5,13 +5,9 @@ description: Schema, precedence model, and override semantics for a project's do
 
 # Writing-rules persistence
 
-Canonical reference for `docs/writing-rules.md` in the project root. Used by the `writer` lead,
-`writer-worker`, and `critic` (when reviewing prose). This skill defines persistence semantics
-only; the style rules themselves live in `science-writing-style` or `presentation-style`.
-
-Everyone reads the shared material (file schema and precedence stack). `writer-worker` and `critic`
-also follow the worker procedures. Lead-only procedures live in
-`${CLAUDE_SKILL_DIR}/references/lead-procedures.md`.
+Persistence semantics for `docs/writing-rules.md` in the project root, used by `writer`,
+`writer-worker`, and `critic` (when reviewing prose). Style rules live in `science-writing-style`
+and `presentation-style`.
 
 ## File schema
 

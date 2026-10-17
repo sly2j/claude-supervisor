@@ -8,7 +8,6 @@ context: fork
 # Meeting summary
 
 Produce portable minutes from a transcript or notes. Work in two passes: extract, then write.
-Return only the finished minutes.
 
 Input: `$ARGUMENTS` - a transcript or notes path (or pasted text), optionally followed by context
 notes on what the user considers important. Read the whole source before writing.
@@ -41,12 +40,11 @@ Extraction rules:
   carried no decision, action, risk, or noteworthy insight.
 - Capture every concrete follow-up.
 - If statements conflict, keep both sides and note the conflict. Record ambiguity; do not guess.
-- Do not invent specifics (owners, dates, numbers) the source does not state.
 
 ## Pass 2: write the minutes
 
-Compress toward bottom lines, decisions, actions, and next steps. Drop process trace and routine
-updates with no outcome. Weight topics the user's context notes flag as important.
+Compress toward bottom lines, decisions, actions, and next steps. Weight topics the user's
+context notes flag as important.
 
 ### Format
 
@@ -109,14 +107,8 @@ Sections, in this order:
 ## Edge cases
 
 - Source too short or ambiguous for meaningful minutes: say what is missing and ask; do not pad.
-- Attendees unclear: list only names you are reasonably sure of and state the uncertainty.
 - Topic boundaries unclear: use the smallest credible topic structure and note it.
 
-## Final check
-
-- Topic-oriented and bullet-based; agenda format and 3-topic threshold respected.
-- Open Actions present only at 3+ open actions, grouped by owner, `TBD` for unowned items.
-- Each RAID item appears once, in one category, under its topic.
-- No empty headings, no preamble, no meta-commentary. Output starts at `## Meeting Summary`.
+**Final check:** output starts at `## Meeting Summary`, with no preamble or meta-commentary.
 
 If the user asked for a file, write the minutes there; otherwise return them in the reply.

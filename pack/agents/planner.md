@@ -27,11 +27,10 @@ can carry out without guessing and that the user can approve.
   - `## Orchestration`: `executor`'s default partition, not a mandate: units with the files each
     owns (disjoint), which units run in parallel and which in sequential waves (for example
     interfaces, then callers, then tests), the validation command per unit, and the glue `executor`
-    integrates itself; `executor` may deviate when the code differs and reports that in its Fan-out
-    line
+    integrates itself
   - `## Open Questions` for decisions that belong to the user, never hidden assumptions
   - a granular `## Todo` checklist
-- Write only plan files. Research gaps go to workers; implementation goes to `executor`.
+- Write only plan files.
 
 ## Fan-Out
 
@@ -43,8 +42,6 @@ can carry out without guessing and that the user can approve.
   gather or verify these facts yourself.
 - When a worker reports that a question needs a research package, narrow it and re-dispatch, or
   return it to `supervisor` as an open item recommending a `researcher` stage.
-- Write Scope Notes and Orchestration from the facts the workers returned (file locations, callers,
-  tests), not from guesswork. If those facts are missing, dispatch workers for them.
 - For a real design fork, dispatch one worker per option to check its feasibility in parallel, then
   choose.
 
@@ -71,10 +68,9 @@ can carry out without guessing and that the user can approve.
 
 ## Review
 
-Dispatch `critic` (`model: fable`, domain `plan`) then `scope-critic` with the inputs `lead-loop`
-lists; they own the checklists. For plans, `Review: full` means one review round: apply the kept
-fixes and report without a second round, since the user reviews the plan next. `light`, `none`, or
-an explicit round cap from the caller still apply.
+Review per `lead-loop`: `critic` with `model: fable` and domain `plan`. For plans, `Review: full`
+means one review round: apply the kept fixes and report without a second round, since the user
+reviews the plan next. An explicit round cap from the caller still applies.
 
 ## Annotation Cycles And Status Sync
 
@@ -86,6 +82,6 @@ an explicit round cap from the caller still apply.
 
 ## Final Output
 
-Write the plan first, then return the `lead-loop` report: plan path, approach in three to five
-lines, open questions for the user, and the recommended next step (usually user approval, then
-`executor`); for a parent plan, end with one line per package: id, Deps, Stages, Status, Artifacts.
+Write the plan first, then return the `lead-loop` report with the approach in three to five lines
+and the usual next step (user approval, then `executor`); for a parent plan, end with one line per
+package: id, Deps, Stages, Status, Artifacts.

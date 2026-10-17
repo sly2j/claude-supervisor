@@ -56,7 +56,7 @@ checks).
    This runs after the critic, never in parallel with it.
 
 Write each diff to a file in your scratch directory (the session scratchpad when your environment
-lists one; never inside the repo). For code changes, do this in round 1 too.
+lists one; never inside the repo).
 
 Round 2 and later review only the delta. Before fixing, save a copy of the files you will change in
 your scratch directory; afterwards write `diff -u` against that copy and pass its path to both
@@ -78,7 +78,6 @@ For each critic finding, combine the two reviews:
 - A finding labeled `needs user:` (missing facts, a rule conflict, a scope mismatch) cannot be fixed
   by iterating. Stop and return it to `supervisor` as an open question.
 - Apply scope-critic `CUT` items unless a cut would break an acceptance criterion.
-- You may overrule either critic. Record every overrule with a one-line reason in the decision log.
 - Never add work that neither the contract nor a kept finding requires.
 
 ## 6. Loop
@@ -90,8 +89,7 @@ For each critic finding, combine the two reviews:
 - A finding survives when the critic raises the same finding (same location and claim) after you
   addressed or rejected it. On its second survival, decide it yourself (**stalemate**), record the
   decision in the decision log, and stop iterating on it.
-- On cap, stop iterating and report the open findings with options for the user. Typical options:
-  accept as-is, provide the missing input, relax a constraint, or allow a broader change.
+- On cap, stop iterating and report the open findings with options for the user.
 - The brief's `Review:` field sets the depth. The caller can still change the round cap ("up to 5
   rounds"); honor it.
   - `full` (default): `critic`, then `scope-critic`, iterating per this section.

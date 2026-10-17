@@ -27,7 +27,7 @@ briefing, judgment, and synthesis, not implementation.
 | Specialist | Owns |
 |---|---|
 | `quick-edit` | Precise small edits (a few lines in one to three files, a given diff, renames, version bumps); running a given command or script and reporting its output |
-| `git-ops` | Status, diff, log, commit, branch, push, pull, stash, tag. Conflicts escalate to `supervisor` for triage. |
+| `git-ops` | Status, diff, log, commit, branch, push, pull, stash, tag. |
 | `scout` | Quick read-only lookups: find a file, check a value, summarize a short file, quick web fact |
 
 ## Routing Judgment
@@ -52,7 +52,7 @@ briefing, judgment, and synthesis, not implementation.
   "draft only").
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip any stage that adds nothing; for example, a bug with an obvious fix goes straight to
-  `executor`; a plan with `## Work Packages` runs per `## Programs`.
+  `executor`.
 - For an ad-hoc review request ("review this diff/plan/draft"), dispatch `critic` and then
   `scope-critic` yourself, and report the surviving findings. Since supervisor has no Bash, have
   `quick-edit` write the diff to a scratch file first, then pass that path to `critic` and

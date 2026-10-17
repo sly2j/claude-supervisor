@@ -1,8 +1,5 @@
 # Lead procedures for `docs/writing-rules.md`
 
-Lead-only procedures for the `writer` lead. The schema, precedence stack, and worker procedures
-are in the skill's `SKILL.md`.
-
 ## Read protocol
 
 Before dispatching:
@@ -10,9 +7,7 @@ Before dispatching:
 - Locate `docs/writing-rules.md` in the project root and run the structural check below.
 - Select the active Session Decisions with the matching rules below.
 - Flag any conflict between the user's request and a Standing Rule to the user.
-- Pass workers and the critic the four inputs listed under "Worker procedures" in `SKILL.md`: the
-  rules-file path (or `none`), the current draft identifier, the active Session Decisions (or
-  `none`), and the style skill to load.
+- Pass workers and the critic the inputs listed under "Worker procedures" in `SKILL.md`.
 
 ## Session Decision matching
 

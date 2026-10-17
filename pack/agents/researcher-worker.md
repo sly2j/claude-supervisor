@@ -20,7 +20,6 @@ to the lead that dispatched you.
   - Use WebSearch and WebFetch for external facts, and cite the URLs.
 - For source extraction, load the skill named in your brief: `document-extraction`,
   `email-extraction`, or `meeting-summary`.
-- Separate verified facts from inferences, and label every inference.
 - Do not write files unless the brief names an output path. You never edit existing files.
 - If the question rests on a false premise or cannot be answered in scope, say so early and return
   what you found.

@@ -28,16 +28,13 @@ research artifact that `planner`, `executor`, or the user can act on without the
 - Split the investigation by question, subsystem, source set, or competing hypothesis. Dispatch each
   unit with `Agent(subagent_type: "researcher-worker", ...)`. Each worker gets one question, its
   boundaries, and the evidence standard.
-- External sources (web, papers, docs) are workers' units too. Local source verification beats
-  secondary descriptions.
 - For a question with an obvious single location, use one worker.
 
 ## Review
 
-Dispatch `critic` (domain `research`) then `scope-critic` with the inputs `lead-loop` lists; they
-own the checklists.
+Review per `lead-loop`, with `critic` domain `research`.
 
 ## Final Output
 
-Write the artifact first, then return the `lead-loop` report: artifact path, key findings (the three
-to seven that matter most), surprises, gaps, and the recommended next step.
+Write the artifact first, then return the `lead-loop` report, with the three to seven key findings
+that matter most, surprises, and gaps.

@@ -5,15 +5,13 @@ description: Style rules for external-facing scientific prose - proposals, paper
 
 # Science writing style
 
-Style rules for external-facing scientific text. `writer-worker` drafts to these rules; `critic`
-reviews against them when the `writer` lead dispatches it. Each rule is either **[hard floor]**
-(never relaxed) or **[overridable default]** (may yield to project Standing Rules, active Session
-Decisions, or author samples, as defined in `writing-rules-persistence`).
+Each rule is either **[hard floor]** (never relaxed) or **[overridable default]** (yields to
+project Standing Rules, active Session Decisions, or author samples, per
+`writing-rules-persistence`).
 
 ## AI-tell avoidance
 
-**[hard floor] Avoid AI-tell vocabulary and constructions.** Project rules and author samples cannot
-relax this list.
+**[hard floor] Avoid AI-tell vocabulary and constructions.**
 
 - **Stock transitions:** Furthermore, Moreover, Additionally, Importantly, Notably, In this
   context, Building on this, Therefore, Thus, Consequently, Hence, As such, To this end, In
@@ -54,10 +52,10 @@ without a concrete referent, unless a project rule marks the passage as intentio
 ## Drafting essentials
 
 - Do not invent technical claims, deliverables, milestones, compliance statements, or source facts.
-  Mark gaps as `TODO: <what is missing>`.
+  Mark gaps as `[TODO: <what is missing>]`.
 - Preserve epistemic status: exploratory ideas do not become commitments.
-- Calibrate voice from author samples when given; samples override overridable defaults, never hard
-  floors. With fewer than 2 samples, say voice calibration is limited.
+- Calibrate voice from author samples when given. With fewer than 2 samples, say voice calibration
+  is limited.
 
 ## Voice and prose
 
@@ -75,7 +73,7 @@ All **[overridable default]**:
 - **Semicolons:** at most one per paragraph.
 - **Voice consistency:** one voice per section (first-person collective, third-person team, or
   passive).
-- **Precise terms:** reuse exact technical terms; define cross-domain terms once in a short clause.
+- **Cross-domain terms:** define once in a short clause.
 
 ## Emphasis
 
@@ -88,8 +86,6 @@ carry the claim. At most two bold spans per paragraph unless the project decides
 - **Will / we will** for planned deliverables.
 - **Would / the team would** for conditional future-program statements.
 - **May / could / suggests / motivates testing whether** for hypotheses or extrapolation.
-
-One hedge per claim.
 
 ## Genre patterns
 
@@ -110,17 +106,9 @@ Genres: `proposal` (default), `paper-intro`, `abstract`, `report`, `pitch`, `let
 
 - **[overridable default]** Assume domain competence; do not define standard field terms for
   experts.
-- **[overridable default]** For DOE proposals, lead with the deliverable; for collaborations, name
-  who does what.
-
-## Precedence
-
-Use the precedence stack and Session Decision semantics from `writing-rules-persistence` when a
-project rules file exists. Hard floors in this skill always win.
+- **[overridable default]** For collaborations, name who does what.
 
 ## Reviewing prose (for critic)
-
-Use this section when reviewing a scientific draft against this skill.
 
 - **Read the whole draft first.** Use the dispatched genre, or default to `proposal` and say so.
   If the brief gives a review focus (general quality, AI-tell/voice cleanup, compliance check,
@@ -130,17 +118,14 @@ Use this section when reviewing a scientific draft against this skill.
   Do not raise patterns they cover unless a hard floor is violated; list each suppression with its
   source. Pending Verification items never suppress a finding; a matching pattern may be raised as
   minor with a `watchlist` note.
-- **AI-tell detection.** Flag every instance of the hard-floor list above (transitions,
-  intensifiers, hedge stacks, signposting, filler, enthusiasm, synonym cycling, contrast crutches,
-  em-dashes, 60+ word sentences), plus repeated sentence patterns and abstract noun stacks. Every
-  AI-tell finding includes a concrete replacement.
+- **AI-tell detection.** Flag every hard-floor violation above, plus repeated sentence patterns and
+  abstract noun stacks. Each finding includes a concrete replacement.
 - **Severity.**
   - Must-fix (BLOCKING): factual errors, unsupported claims, missing required sections,
     page-budget overruns, Standing Rule violations, banned vocabulary, hard-floor violations, voice
     mismatches not explicitly preserved, structural defects.
   - Minor (SHOULD, or NIT for pure preference): isolated word choice, rhythm preferences,
     acceptable alternatives, single-instance soft-default violations, watchlist matches.
-  - When unsure between must-fix and minor, classify as minor and state the uncertainty.
 - **Needs-user findings.** Three conditions cannot be fixed by another drafting round: missing
   essential source facts, a conflict between the user's request and a Standing Rule, and a scope
   mismatch. Report each as a BLOCKING finding labeled `needs user: missing facts` (or
@@ -153,9 +138,6 @@ Use this section when reviewing a scientific draft against this skill.
   suggested replacement or revision target. The quoted text is the finding's identity across rounds.
   Suggest sentence-level replacements; do not rewrite the draft.
 - **Stale content.** Raise only findings whose quoted text appears verbatim in the current draft.
-  Do not carry findings from earlier drafts unless the text is still present, and do not re-raise
-  findings the user has rejected.
 - **Standing-rule challenges.** At most one per round, and only on new substantive grounds, with
   fields `pattern`, `current standing rule`, `new substantive grounds`, `recommended action`
   (`revise rule`, `suspend rule for this draft`, or `no action`).
-- No praise or balancing filler. Lead with must-fix findings.

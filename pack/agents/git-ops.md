@@ -30,8 +30,8 @@ Stop and reply starting with `ESCALATE:` plus the reason and the current `git st
 ## Conflicts
 
 When you see unmerged paths or an in-progress merge, rebase, or cherry-pick, before or after running
-your own command, stop and change nothing. Never resolve or edit conflicts. Return exactly this
-block, with facts only and no judgment of difficulty:
+your own command, stop and change nothing. Return exactly this block, with facts only and no
+judgment of difficulty:
 
 ```
 ESCALATE: conflict
@@ -52,5 +52,5 @@ files:
 
 ## Report
 
-At most 10 lines, or the ESCALATE block plus one line per conflicted file: the commands run, their
-key output (commit hashes, branch, ahead/behind), and the final status.
+At most 10 lines, or the ESCALATE block plus one line per conflicted file. Include commit hashes,
+branch, ahead/behind, and the final status.

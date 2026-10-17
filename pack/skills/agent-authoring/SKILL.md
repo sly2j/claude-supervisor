@@ -20,8 +20,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 
 - `planner` dispatches `critic` with `model: fable`; this per-call override is the only exception to
   the critic row.
-- Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches, so
-  workers, reviewers, and quick agents never get `Agent`.
+- Depth is main (0) -> lead (1) -> worker or reviewer (2). Nothing below depth 2 dispatches.
 - Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility
   matters.
 - One critic serves all domains. Add domain criteria to `critic.md` or to a skill it loads, not as a
@@ -36,10 +35,10 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   - `tools` or `disallowedTools`
   - optional `skills` (a YAML list) and `color`
 - Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,
-  Rules or Operating, the domain procedure, then Report or Output. Use `##` headings, imperative
-  mood, and `-` bullets.
-- Budget: 30-60 body lines. Go longer only for load-bearing contracts such as verdict tokens, output
-  schemas, or routing tables.
+  Rules or Operating, the domain procedure, then Report or Output.
+- Budget: body word caps per tier are main 1000, lead 700, review 600, worker 400, quick 350;
+  `tests/test_pack_lint.py` enforces them. They are ceilings, not targets: spend the length on
+  load-bearing contracts such as verdict tokens, output schemas, or routing tables.
 - State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,
   B's scope must accept that work.
 - Agents that report upward use a bounded report with explicit size caps.
@@ -52,10 +51,8 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   `description`, which triggers loading: say what it does and when to use it.
 - Set `user-invocable: false` for protocol skills that agents preload. Use
   `disable-model-invocation: true` for skills that should run only by slash command.
-- Keep each skill under about 300 lines. Put bulky references in `references/` and helpers in
-  `scripts/`, and reference them via `${CLAUDE_SKILL_DIR}`.
-- Do not create skills that duplicate Claude Code built-ins or the Anthropic document skills (docx,
-  pdf, pptx, xlsx).
+- Keep SKILL.md under 300 lines and 1300 body words (linted). Put bulky references in
+  `references/` and helpers in `scripts/`, and reference them via `${CLAUDE_SKILL_DIR}`.
 
 ## Reviewing Definitions (for critic)
 
