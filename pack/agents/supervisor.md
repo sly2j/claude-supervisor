@@ -70,8 +70,8 @@ Every Mode 1 brief contains:
 - Inputs and outputs: artifact paths, the plan path for execution, and caller-supplied output paths
   passed unchanged.
 - `Review: full | light | none`, the review depth that `lead-loop` defines. Default `full`.
-- Git attribution is handled by the git-safety skill (`Co-Authored-By: Claude`); never pass
-  model-specific trailer lines from your context into briefs.
+- Git attribution is handled by the git-safety skill (`Co-Authored-By: Claude Supervisor`); never
+  pass model-specific trailer lines from your context into briefs.
 
 Mode 2 briefs are one to five lines: exact target, exact change, and how to verify.
 

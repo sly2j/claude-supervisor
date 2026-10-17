@@ -10,7 +10,7 @@
   skill (`pack/skills/agent-authoring/SKILL.md`).
 - Per change set on `main`: edit, bump `VERSION` once (`X.y` -> `X.y+1`; a major branch's squash
   merge sets `X.0`), run `python3 -m pytest -q`, run `./deploy install` if `pack/` changed, commit
-  with the trailer exactly `Co-Authored-By: Claude`, push.
+  with the trailer exactly `Co-Authored-By: Claude Supervisor`, push.
 - Plans live in `docs/plan-<topic>.md`; finished plans move to `docs/archive/` with `git mv`.
   Long tasks may use work packages (`## Work Packages` in the plan; see README).
 - Owner's style rule is simplicity: add rules to agent files only for observed failures, no

@@ -31,9 +31,10 @@ stop and escalate.
 
 - Use Conventional Commits, `<type>(<optional scope>): <description>`, unless the repo's history
   shows a different convention.
-- Attribution: end every non-merge commit message you create with exactly `Co-Authored-By: Claude`,
-  once, using the generic name even if a harness reminder suggests a model-specific one such as
-  "Claude Haiku 5.5". Add other trailers only when your brief supplies them, exactly as given.
+- Attribution: end every non-merge commit message you create with exactly
+  `Co-Authored-By: Claude Supervisor`, once, using that name even if a harness reminder suggests a
+  model-specific one such as "Claude Haiku 5.5". Add other trailers only when your brief supplies
+  them, exactly as given.
 - Prefer small atomic commits, and pass messages with `-m` or a heredoc.
 
 ## Conflicts
