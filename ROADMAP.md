@@ -46,34 +46,39 @@
     (the dev worktree flow in `docs/deploy.md`) so the stable sandbox is untouched. It may change
     designs that are not ready for general users.
   - D1: long-term project memory lives in `.supervisor/` in the repo and is committed.
+  - D2: `.supervisor/` is the one root, with `working/` (short-term: active research, plans,
+    program state), `memory/` (long-term, one file per entry) and `archive/` (spent working
+    files, not read by default).
   - D3: research and plans move out of `docs/` at Stage 4, for new programs plus a one-time
     migration of existing `docs/` and `docs/archive/` (the research recommended new programs only).
-  - D4: the scribe is a new agent on Sonnet.
+  - D4: a new agent, `curator`, on Sonnet, curates and maintains memory (duties in Stage 3); the
+    `clerk` records, and `scout` and the leads retrieve. The curator does no retrieval.
+  - D5: the post-wave `clerk` records mid-program decisions; no separate agent.
+  - D7: memory holds decisions from Stage 1 and facts from Stage 3; the curator proposes
+    lessons, written only after the user approves them.
+  - D8: writing rules move into memory. Standing Rules become `kind: convention` entries with
+    `domain: writing`; per-draft Session Decisions and Pending Verification live with the draft in
+    `working/` and are archived with it; `docs/writing-rules.md` goes away. Claude Code auto
+    memory keeps the user's personal cross-project preferences.
   - D9: Stages 1-3 together land as v2.0; Stages 4-5 follow as 2.x (the research recommended
     Stages 1-2 as v2.0).
+  - D11: one file per entry, replacing the single-file `docs/decisions.md`. Kinds are `decision`,
+    `fact`, `lesson`, `goal` and `convention` (the planner may refine the list); each entry has a
+    `domain:` (e.g. `code`, `writing`, `science`). A goal stays active until met or dropped. The
+    curator maintains a generated, never hand-edited `memory/INDEX.md`. Program logs go in each
+    plan's `## Log`, replacing the separate logbook index.
+  - Agent names are roles: Stage 1 renames `quick-edit` to `clerk`; `git-ops` keeps its name.
 - **Left to planner:**
   - Open decisions; each line gives the research's recommendation (D12: the owner's) as the
     default:
-    - D2, working-set directory name (default; confirm at planning): `.supervisor/`; revisit at
-      Stage 4 if hidden plans hurt review.
-    - D5, who writes mid-program decision entries (default; confirm at planning): the post-wave
-      `quick-edit`, at every stage.
     - D6, expiry (default; confirm at planning): flag entries when an `affects:` path changes;
       time-based archiving of `fact` entries only if staleness is observed.
-    - D7, what memory holds (default; confirm at planning): decisions from Stage 1, facts from
-      Stage 3, lessons only as proposals to the user.
-    - D8, relation to auto memory and writing rules (default; confirm at planning): separate
-      scopes; Claude Code auto memory keeps personal preferences, `docs/writing-rules.md` is
-      untouched.
     - D10, hooks (default; confirm at planning): only after an observed retrieval failure.
-    - D11, format (default; confirm at planning): one file per decision entry, replacing the
-      single-file `docs/decisions.md`; the run log as `## Log` in the plan, replacing the separate
-      logbook index.
     - D12, long-term work areas versus one-off jobs (default; confirm at planning): see Stage 1.
   - Constraint: the supervisor has 42 words of body headroom across Stages 1-3, the planner 87
-    (Stage 2 adds plan sections). Stage 3's supervisor text (scribe routing, remember/forget, the
-    "recorded N" line) needs either swapping the archive `quick-edit` text
-    (`pack/agents/supervisor.md:90-91`) for the scribe dispatch, or the owner's approval of a
+    (Stage 2 adds plan sections). Stage 3's supervisor text (curator routing, remember/forget,
+    the "recorded N" line, the active-goals read) needs either swapping the archive `clerk` text
+    (`pack/agents/supervisor.md:90-91`) for the curator dispatch, or the owner's approval of a
     higher Main cap.
 - **Done when:** v2.0 when Stages 1-3 meet their done-when on the dev branch and the branch is
   rebased on `main` and squash-merged with `VERSION` set to `2.0`, removing Stages 1-3; Stages 4
@@ -81,19 +86,24 @@
 - **Pointers:** `docs/research-memory.md` (sections 8-11: architecture, staged proposal, D1-D11,
   risks); `docs/archive/plan-install-lifecycle.md` (`## Decisions` L394-415, `## Todo` L417+);
   `README.md` (Larger Work L83-149, work packages L87-99); `docs/architecture.md:43-60`;
-  `pack/agents/planner.md:24-32,75-81`; `pack/agents/supervisor.md:66-69,78-91` (archive text
-  L90-91); `pack/agents/executor.md:28-30,61`.
+  `pack/agents/planner.md:24-32,75-81`; `pack/agents/supervisor.md:66-69,78-91` (archive
+  `quick-edit` text L90-91, `clerk` after Stage 1); `pack/agents/executor.md:28-30,61`;
+  `pack/skills/writing-rules-persistence/`; `deploy:767-780` (removal of dropped files).
 
 #### Stage 1: Decision records
 
 - **Goal:** no user decision, or lead decision that binds later stages, is lost between sessions
   or packages.
 - **Scope:**
-  - A new `project-memory` skill: entry schema, naming, the supersede rule, validate-before-use.
-  - The long-term store in `.supervisor/`; each entry carries `affects:`, `verified:` and
+  - Rename `quick-edit` to `clerk`: the agent file and every reference in `pack/`,
+    `docs/architecture.md`, README, the tests, and `docs/deploy.md` if needed. `deploy` already
+    removes the old managed file on upgrade unless it was edited locally (`deploy:767-780`).
+  - A new `project-memory` skill: entry schema (D11 kinds, `domain:`), naming, the supersede
+    rule, validate-before-use.
+  - The long-term store in `.supervisor/memory/`; each entry carries `affects:`, `verified:` and
     `source:`, and `affects:` accepts any repo path, not only code (item 2 reuses it).
-  - The supervisor has the post-wave `quick-edit` write an entry when a user answer or lead
-    decision binds later stages (about one supervisor line).
+  - The supervisor has the post-wave `clerk` write an entry when a user answer or lead decision
+    binds later stages (about one supervisor line).
   - `lead-loop` contract step: grep the store if it exists and pass relevant entries to workers
     in briefs; workers never search memory.
   - D12, long-term work areas versus one-off jobs (default; confirm at planning):
@@ -110,33 +120,43 @@
       git.
 - **Done when:** on the dev tag, a program's mid-program decision is recorded as an entry; a new
   session's planner cites it unprompted; the suite passes with no cap raised.
-- **Dependencies:** D1, D5, D11, D12.
+- **Dependencies:** D1, D2, D5, D11, D12.
 
 #### Stage 2: Program state that explains itself
 
 - **Goal:** a resumed session can say what ran, what was deferred, and why.
 - **Scope:**
   - `## Assumptions` and `## Log` sections in plans (`planner.md` required sections).
-  - The post-wave `quick-edit` appends one log line per top-level dispatch, deferrals included
-    (such as the unticked glue items).
+  - The post-wave `clerk` appends one log line per top-level dispatch, deferrals included (such
+    as the unticked glue items).
   - The supervisor's resume `scout` call returns the log tail.
 - **Done when:** on a replay of an install-lifecycle-style program, `scout` answers "why is L422
   unticked" from the plan alone.
 - **Dependencies:** none; uses Stage 1 entries if present.
 
-#### Stage 3: Scribe close-out
+#### Stage 3: Curator close-out
 
 - **Goal:** finished programs leave distilled knowledge behind, and nothing stale in view.
 - **Scope:**
-  - A new `scribe` agent: distill, neighbor check, supersede, re-verify sweep, archive,
-    remember/forget. It replaces the archive `quick-edit` step, and also runs on request and
-    after a single-stage run that produced a user decision.
-  - `fact` entries start here.
+  - A new `curator` agent. At close-out it merges duplicates, settles contradictions by
+    superseding, re-verifies facts, decides keep or discard, distills spent research and plans,
+    and archives; it also runs migrations and handles "remember X" / "forget X". It replaces
+    the archive `clerk` step, and also runs on request and after a single-stage run that
+    produced a user decision.
+  - `fact`, `goal` and `convention` entries start here; the curator proposes lessons (D7) and
+    maintains `memory/INDEX.md` (D11).
+  - The supervisor reads active goals when it starts on a project.
+  - Writing rules move into memory (D8): `writing-rules-persistence` is reworked or folded into
+    `project-memory` (the planner's call), per-draft state goes to `.supervisor/working/`,
+    created here, and the curator migrates an existing `docs/writing-rules.md` (this repo has
+    none).
   - Tier table and `docs/architecture.md` inventory updates.
 - **Done when:** closing a dev-tag program yields a few entries, each with `source:` and
   `affects:`, plus an archived plan; a seeded contradictory entry ends up superseded; an entry
-  whose `affects:` file changed is re-verified or superseded.
-- **Dependencies:** Stage 1 (store); D4, D6, D7; the supervisor headroom constraint above.
+  whose `affects:` file changed is re-verified or superseded; a seeded `docs/writing-rules.md`
+  migrates to `convention` entries that a writer run then applies.
+- **Dependencies:** Stage 1 (store); D4, D6, D7, D8, D11; the supervisor headroom constraint
+  above.
 
 **v2.0 boundary:** Stages 1-3 above land together as v2.0; Stages 4-5 below are 2.x change sets.
 
@@ -144,14 +164,14 @@
 
 - **Goal:** agent working state is separate from the project's human documentation.
 - **Scope:**
-  - New programs write research, plans and logs under the working-set directory; the scribe
-    archives them to the memory archive.
+  - New programs write research, plans and logs under `.supervisor/working/`; the curator
+    archives spent ones to `.supervisor/archive/`.
   - Path updates in `researcher`, `planner`, `supervisor`, `executor`, README and
     `docs/architecture.md`.
-  - One-time migration: the scribe sweeps this repo's `docs/` research and plans and
-    `docs/archive/`, distills the decisions and facts still in force into long-term memory, and
-    moves the rest into the new archive, so old plans do not linger as stale memory. It ships as
-    a reusable procedure that other projects using the pack can run.
+  - One-time migration: the curator sweeps this repo's `docs/` research and plans and
+    `docs/archive/`, distills the decisions and facts still in force into `.supervisor/memory/`,
+    and moves the rest into `.supervisor/archive/`, so old plans do not linger as stale memory.
+    It ships as a reusable procedure that other projects using the pack can run.
 - **Done when:** a full program writes nothing to `docs/` except documents the user asked for;
   after the migration this repo's `docs/` holds only human documentation; the procedure runs in
   another project; the suite passes.
