@@ -21,7 +21,66 @@
 
 ## Items
 
-### 1. Persistence and long-term memory (2.x)
+Ordering (2026-10-21): priority first, effort second, so a large high-priority item outranks
+small lower-priority ones; an item that another needs comes before it.
+
+### 1. Launcher help instead of blind forwarding
+
+`claude-<tag> -h` / `--help` (and unknown launcher-level flags) currently forward straight to
+`claude`, so there is no way to list what the launcher offers. Show the launcher's own help page
+first: its subcommands (`install`, `update`, `status`, `uninstall`, …), the tag and target it runs
+with, and a closing line stating that any other arguments are forwarded unchanged to `claude` (with
+`claude --help` as the pointer).
+Priority: high — do early. Effort: S.
+
+### 2. README clarity and provider neutrality
+
+Make README less Claude-specific; reword the model-tier mentions so "Opus/Fable" reads as a
+capability level ("Opus/Fable-level", e.g. for `planner`) rather than a specific product, and
+remove confusion between the two names. Small, do early.
+Priority: high — do early. Effort: S.
+
+### 3. Branch and worktree versioning
+
+- **Gap:** feature branches never touch `VERSION`, so a worktree install reports the `main`
+  version it branched from. After a rebase onto a newer `main` that number reads as stale or as a
+  mismatch, the version string does not tell a branch install from a `main` install of the same
+  `X.y`, and `deploy update` can silently replace a branch install that is ahead with an older
+  build (item 4).
+- **Owner's suggestion:** `<main>-<branch>`, e.g. `1.23-worktree-zz`, with the main part updated
+  at each rebase.
+- **Recommended scheme:** keep `VERSION` as the `main` version only, and let `deploy` derive the
+  installed version from git at install and status time:
+  `<VERSION at merge-base with main>+<branch>.<commits-ahead>.g<short-sha>`, e.g.
+  `2.0+memory-v2.7.g8b1d7de`. This is the PEP 440 local-version / SemVer build-metadata style and
+  carries what `git describe` gives (base, commits ahead, short SHA) plus the branch. Nothing is
+  edited on rebase, because the main part is read from `VERSION` at the merge-base. `deploy
+  status` and the downgrade guard (item 4) compare the main version first, then commits-ahead;
+  `main` installs stay plain `X.y`.
+- **Touches:** in `deploy`, `read_pack_version` (reads `VERSION` from the checkout),
+  `git_info`/`git_branch` (commit, dirty flag, branch), `install_cmd` (records `pack_version` in
+  the manifest, prints "(was ...)"), `register_install` (`installs.json` holds no version today;
+  it changes only if update needs the base ref recorded), `status_cmd` (string equality,
+  `MISMATCH` flag) and `update_cmd` (no version check today; its `git clone --depth 1` has no
+  merge-base, so it needs `main` fetched or a deeper clone).
+  `tests/test_version.py` keeps checking `VERSION` on `main` only; new tests cover the derived
+  string and the comparison.
+- **Left to planner:** base ref when `main` is absent locally (`origin/main`), branch-name
+  sanitizing (`/` and other characters), whether a dirty tree adds a marker.
+- **Done when:** a worktree install shows the derived version in `deploy status`, it stays right
+  after a rebase with no edits, `main` installs show `X.y`, and the suite passes.
+
+Priority: high — do early. Effort: M.
+
+### 4. deploy update: downgrade guard
+
+When `deploy update` finds the installed version (or commit) is newer than the upstream branch it
+would install — as happens when a worktree install is ahead of the pushed branch — print a warning
+naming both versions and ask `Continue with the update? [y/N]`; default No. Non-interactive runs
+fail unless `--yes` is passed.
+Priority: high — do early, after item 3. Effort: S.
+
+### 5. Persistence and long-term memory (2.x)
 
 - **Goal:** carry decisions, run history and distilled knowledge across sessions, packages and
   programs, in a committed project store that agents read just in time.
@@ -85,6 +144,9 @@
   risks); `docs/archive/plan-memory-v2.md` (the v2.0 plan; Interfaces 12 for Stage 4);
   `.supervisor/memory/decisions/` (D1-D13 entries; D12 under `archive/`).
 
+Priority: high — active goal; finishes the memory feature; follows the small deploy items
+that make its dev cycle cleaner. Effort: L.
+
 #### Stage 4: Move the working set out of `docs/`
 
 - **Goal:** agent working state is separate from the project's human documentation.
@@ -113,11 +175,38 @@
 - **Goal:** relevant memory arrives without an explicit lookup step.
 - **Scope:** a SessionStart or SubagentStart hook injecting active entry summaries, shipped in
   `supervisor.md` frontmatter.
-- **Done when:** it fixes an observed failure after v2.0 or Stage 4 (a relevant entry missed). Start
-  this stage only on such a failure.
+- **Done when:** it fixes an observed failure after v2.0 or Stage 4 (a relevant entry missed).
+  Start this stage only on such a failure.
 - **Dependencies:** v2.0; D10.
 
-### 2. Science artefacts
+### 6. lead-loop: stop after a clean minor round
+
+When a critic round returns only SHOULD/NIT findings and all are applied, do not run another
+critic round; re-review only after BLOCKING fixes or new material.
+Priority: normal. Effort: S.
+
+### 7. Light path for small prose revisions
+
+A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
+rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
+reconsider whether scope-critic adds value for `writer` at all.
+Priority: normal. Effort: M.
+
+### 8. Program logs for flat plans
+
+In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
+flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
+(needs a supervisor clause; supervisor.md is at its word cap).
+Priority: normal. Effort: M.
+
+### 9. Configurable model tiers for alternative providers
+
+Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
+third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
+mapping).
+Priority: normal. Effort: M.
+
+### 10. Science artefacts
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -125,7 +214,7 @@
   a README (what we were trying to do, what we learned) next to the figures, data files and other
   output. Likely needs a new skill.
 - **Decisions already made:**
-  - Depends on item 1: artefact READMEs may feed long-term memory.
+  - Depends on item 5: artefact READMEs may feed long-term memory.
 - **Left to planner:**
   - Stamp format: date, time, or date plus a slug?
   - Which agent writes the artefacts, and which the README?
@@ -135,54 +224,11 @@
   the goal and what was learned, with its outputs beside it; the suite passes.
 - **Pointers:** `docs/research-memory.md` section 8 item 7.
 
-### 3. README clarity and provider neutrality
+Priority: normal, after item 5. Effort: L.
 
-Make README less Claude-specific; reword the model-tier mentions so "Opus/Fable" reads as a
-capability level ("Opus/Fable-level", e.g. for `planner`) rather than a specific product, and
-remove confusion between the two names. Small, do early.
-
-### 4. Configurable model tiers for alternative providers
-
-Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
-third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
-mapping).
-
-### 5. Light path for small prose revisions
-
-A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
-rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
-reconsider whether scope-critic adds value for `writer` at all.
-
-### 6. lead-loop: stop after a clean minor round
-
-When a critic round returns only SHOULD/NIT findings and all are applied, do not run another
-critic round; re-review only after BLOCKING fixes or new material.
-
-### 7. Program logs for flat plans
-
-In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
-flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
-(needs a supervisor clause; supervisor.md is at its word cap).
-
-### 8. Memory across branches and worktrees (future release)
+### 11. Memory across branches and worktrees (future release)
 
 `.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
 state; define how conflicting or duplicate entries are reconciled when a feature is merged
 (supersede rules, curator pass at merge, or merge-time report).
-
-### 9. deploy update: downgrade guard
-
-When `deploy update` finds the installed version (or commit) is newer than the upstream branch it
-would install — as happens when a worktree install is ahead of the pushed branch — print a warning
-naming both versions and ask `Continue with the update? [y/N]`; default No. Non-interactive runs
-fail unless `--yes` is passed.
-Priority: high — do early.
-
-### 10. Launcher help instead of blind forwarding
-
-`claude-<tag> -h` / `--help` (and unknown launcher-level flags) currently forward straight to
-`claude`, so there is no way to list what the launcher offers. Show the launcher's own help page
-first: its subcommands (`install`, `update`, `status`, `uninstall`, …), the tag and target it runs
-with, and a closing line stating that any other arguments are forwarded unchanged to `claude` (with
-`claude --help` as the pointer).
-Priority: high — do early.
+Priority: low — future release. Effort: L.

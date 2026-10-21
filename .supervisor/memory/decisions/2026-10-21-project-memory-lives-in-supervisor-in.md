@@ -9,4 +9,4 @@ supersedes:
 D1. The store is `.supervisor/` at the project root and is committed, so collaborators and later
 sessions share it. A user who wants it local adds `.supervisor/` to `.gitignore`; archive moves then
 use plain `mv`. Consequence: entries must hold no secrets or personal notes, and branches can
-diverge in memory state (ROADMAP item 8).
+diverge in memory state (ROADMAP item "Memory across branches and worktrees").
