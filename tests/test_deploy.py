@@ -616,10 +616,10 @@ def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
     r = run_launcher(launcher, env, "a b", "--", "")
     assert r.returncode == 0, r.stderr
     assert r.stdout == "%s\n\n\na b\n--\n\n" % sbx
-    # only a leading update/uninstall is the launcher's own
-    r = run_launcher(launcher, env, "--help", "updates", "x", "update", "uninstall")
+    # only a leading help/version/update/uninstall/list is the launcher's own
+    r = run_launcher(launcher, env, "-p", "--help", "-h", "--version", "updates", "x", "update", "uninstall", "list")
     assert r.returncode == 0, r.stderr
-    assert r.stdout == "%s\n\n\n--help\nupdates\nx\nupdate\nuninstall\n" % sbx
+    assert r.stdout == "%s\n\n\n-p\n--help\n-h\n--version\nupdates\nx\nupdate\nuninstall\nlist\n" % sbx
 
     r = run(pack, target, "status", target_args=extra)
     assert "Target: %s" % sbx in r.stdout
@@ -773,6 +773,108 @@ def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert keep.read_text() == "x"
     assert "nothing to uninstall" in r.stdout and "The directory still exists" in r.stdout
+
+
+# --------------------------------------------------------------------------- launcher help, versions, list
+
+def stub_env(tmp_path: Path, with_claude: bool = True) -> dict:
+    """Env for a launcher run: a recording stub `claude` on PATH, or no claude at all."""
+    if with_claude:
+        stub_claude(tmp_path / "bin")
+    return {"PATH": "%s:/usr/bin:/bin" % (tmp_path / "bin") if with_claude else "/usr/bin:/bin",
+            "HOME": str(tmp_path)}
+
+
+@pytest.mark.parametrize("flag", ["-h", "--help"])
+def test_launcher_help(pack, target, tmp_path, flag):
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    r = run_launcher(launcher, stub_env(tmp_path), flag)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.startswith("claude-t: ")
+    assert "Tag: t   Config dir: %s" % sbx in r.stdout
+    assert r.stdout.rstrip().endswith("Any other arguments go unchanged to claude (see claude --help).")
+    assert not (tmp_path / "bin" / "claude.argv").exists()
+
+
+@pytest.mark.parametrize("version, shown", [("7.1\n", "7.1"), (None, "unknown")])
+def test_launcher_version(pack, target, tmp_path, version, shown):
+    if version:
+        version_file(pack, version)
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    sbx, launcher = sandbox_paths(tmp_path, "t")
+    r = run_launcher(launcher, stub_env(tmp_path), "--version")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines() == ["claude-supervisor %s (claude-t, %s)" % (shown, sbx),
+                                     "claude: 2.1.300 (Claude Code)"]
+    r = run_launcher(launcher, stub_env(tmp_path, with_claude=False), "--version")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines()[1:] == ["claude: not found"]
+    assert not (tmp_path / "bin" / "claude.argv").exists()
+
+
+@pytest.mark.parametrize("with_claude", [True, False])
+def test_deploy_version(tmp_path, with_claude):
+    env = stub_env(tmp_path, with_claude)
+    r = subprocess.run([sys.executable, str(SCRIPT), "--version"], capture_output=True, text=True, env=env,
+                       timeout=60, stdin=subprocess.DEVNULL)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines() == [
+        "claude-supervisor %s" % (SCRIPT.parent / "VERSION").read_text().strip(),
+        "claude: 2.1.300 (Claude Code)" if with_claude else "claude: not found"]
+
+
+def test_list_empty(pack, target):
+    r = run(pack, target, "list", target_args=[])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout == "No registered installs.\n"
+
+
+def list_rows(out: str) -> dict:
+    """The `deploy list` rows by target, each as its column values."""
+    lines = out.splitlines()
+    assert lines[0].split() == ["TAG", "TARGET", "VERSION", "BRANCH", "COMMIT", "LAUNCHER"]
+    return {l.split()[1]: l.split() for l in lines[1:]}
+
+
+def test_list_shows_installs(remote, three, tmp_path):
+    t, u, g = three
+    r = deploy_run(remote, remote.state / "deploy", "list")
+    assert r.returncode == 0, r.stdout + r.stderr
+    commit = manifest(t)["source_commit"][:7]
+    assert list_rows(r.stdout) == {
+        str(t): ["t", str(t), "1.0", "main", commit, "yes"],
+        str(u): ["u", str(u), "1.0", "main", commit, "yes"],
+        str(g): ["(global)", str(g), "1.0", "main", commit, "-"]}
+
+
+def test_list_missing_launcher_and_manifest(remote, three, tmp_path):
+    t, u, g = three
+    claude_launcher(tmp_path, "t").unlink()
+    shutil.rmtree(u)
+    (g / MANIFEST).write_text("{")
+    out = deploy_run(remote, remote.state / "deploy", "list").stdout
+    rows = list_rows(out)
+    assert rows[str(t)][2:] == ["1.0", "main", manifest(t)["source_commit"][:7], "missing"]
+    assert "(no manifest)" in out and str(u) in rows
+    assert rows[str(g)][2:] == ["(error)", "main", "-", "-"]
+
+
+def test_list_marks_dirty_commit(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    m = manifest(sbx)
+    m["source_dirty"] = True
+    (sbx / MANIFEST).write_text(json.dumps(m))
+    rows = list_rows(deploy_run(remote, remote.state / "deploy", "list").stdout)
+    assert rows[str(sbx)][4] == m["source_commit"][:7] + "-dirty"
+
+
+def test_launcher_list(remote, three, tmp_path):
+    direct = deploy_run(remote, remote.state / "deploy", "list").stdout
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "list")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout == direct and len(direct.splitlines()) == 4
 
 
 # --------------------------------------------------------------------------- registry and update

@@ -68,14 +68,19 @@ Use this only for a proxy or gateway; omit it to use a normal login. Install cop
 claude-supervisor update              # claude update, then this sandbox's pack
 claude-supervisor update --all        # every install in this launcher's prefix
 claude-supervisor uninstall           # delete this sandbox
+claude-supervisor list                # every install in this launcher's prefix
+claude-supervisor --version           # pack and claude versions
+claude-supervisor -h                  # the launcher's own help
 ```
 
-The launcher checks only its first argument. `update` and `uninstall` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`) for this sandbox; everything else goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
+The launcher checks only its first argument. `update`, `uninstall` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`); `--version` and `-h`/`--help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run ./deploy install from your checkout` and exits 1.
+- `-h` / `--help` prints the launcher's commands, its tag and config dir, and a note that `install`, `status` and `doctor` run from the checkout.
+- `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
 - `claude-<tag> --fable ...` (first argument only) runs that session on Fable; see Fable Or Opus.
 - `--global` installs have no launcher; use the deploy tool.
 
@@ -87,7 +92,10 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 ~/.local/state/claude-supervisor/deploy update                # the default sandbox; or "$REPO/deploy" update
 ~/.local/state/claude-supervisor/deploy update --tag work     # another sandbox (--target DIR, or --global)
 ~/.local/state/claude-supervisor/deploy update --all --yes    # every registered install
+~/.local/state/claude-supervisor/deploy list                  # what is registered
 ```
+
+`list [--prefix DIR]` shows each install in that prefix's registry: tag, target, installed version, branch, commit (short, with `-dirty` if the source was dirty), and whether the launcher exists (`yes`, `missing`, or `-` for `--global` or when there is no readable manifest). `./deploy --version` prints the checkout's pack version and the `claude:` line.
 
 `update` shallow-clones the branch recorded at install from the git remote recorded at install into a temp dir and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
 

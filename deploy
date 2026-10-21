@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deploy the claude-supervisor pack into a Claude Code config dir (default: sandbox ~/.config/claude-supervisor).
 
-Subcommands: install | update | status | uninstall | migrate | doctor.  Run `deploy <cmd> --help`.
+Subcommands: install | update | status | list | uninstall | migrate | doctor.  Run `deploy <cmd> --help`.
 
 Ownership model: every installed file is recorded in a manifest with the
 hash it had when installed (the "baseline").  On re-install each file is
@@ -48,13 +48,40 @@ REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 OPUS_MODEL = "claude-opus-5-5"
 
 
+LAUNCHER_HELP = """\
+claude-%(tag)s: Claude Code with the claude-supervisor pack
+Tag: %(tag)s   Config dir: %(target)s
+
+Usage: claude-%(tag)s [COMMAND [OPTIONS]] | [CLAUDE ARGS...]
+  update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
+  uninstall [--yes] [--dry-run]        delete this sandbox, its launcher and its login
+  list                                 list every registered install
+  --version                            show the installed pack version and the claude version
+  --fable                              run this session on Fable instead of Opus
+  -h, --help                           show this help
+
+install, status and doctor run from your checkout: ./deploy <command> --tag %(tag)s
+Any other arguments go unchanged to claude (see claude --help).
+"""
+
+
 def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
     d = state_dir(prefix) / "deploy"
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
-             'case "$1" in update|uninstall)',
+             'case "$1" in',
+             "-h|--help) cat <<'EOF'",
+             LAUNCHER_HELP % {"tag": tag, "target": target} + "EOF",
+             "  exit 0;;",
+             "--version)",
+             "  v=$(sed -n 's/^  \"pack_version\": \"\\([^\"]*\\)\".*/\\1/p' '%s/%s' 2>/dev/null)" % (target, MANIFEST_NAME),
+             "  printf 'claude-supervisor %%s (claude-%s, %%s)\\n' \"${v:-unknown}\" '%s'" % (tag, target),
+             '  if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi',
+             "  exit 0;;",
+             "update|uninstall|list)",
              "  d='%s'" % d,
              '  [ -x "$d" ] || { echo "claude-%s: $d missing; run ./deploy install from your checkout" >&2; exit 1; }' % tag,
              "  s=$1; shift",
+             "  [ \"$s\" = list ] && exec \"$d\" list \"$@\" --prefix '%s'" % prefix,
              # the fixed flags come last, so argparse ignores a user's --tag/--target/--prefix
              "  exec \"$d\" \"$s\" \"$@\" --prefix '%s' --tag '%s' --target '%s' --launcher;;" % (prefix, tag, target),
              "esac",
@@ -919,6 +946,37 @@ def status_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- list
+
+def list_row(key: str, entry: dict) -> Tuple[str, ...]:
+    tag, branch = "(global)" if entry.get("tag") is None else entry["tag"], entry_branch(entry)
+    try:
+        m = load_manifest(Path(key))
+    except DeployError:
+        return (tag, key, "(error)", branch, "-", "-")
+    if m is None:
+        return (tag, key, "(no manifest)", branch, "-", "-")
+    commit = (m.get("source_commit") or "-")[:7]
+    if commit != "-" and m.get("source_dirty"):
+        commit += "-dirty"
+    launcher = m.get("launcher")
+    return (tag, key, m.get("pack_version") or "-", branch, commit,
+            "-" if not launcher else "yes" if is_launcher(Path(launcher)) else "missing")
+
+
+def list_cmd(args: argparse.Namespace) -> int:
+    installs = load_registry(resolve_prefix(args))
+    if not installs:
+        print("No registered installs.")
+        return 0
+    rows = [("TAG", "TARGET", "VERSION", "BRANCH", "COMMIT", "LAUNCHER")]
+    rows += [list_row(key, entry) for key, entry in installs.items()]
+    widths = [max(len(r[i]) for r in rows) for i in range(6)]
+    for r in rows:
+        print("  ".join(c.ljust(w) for c, w in zip(r, widths)).rstrip())
+    return 0
+
+
 # --------------------------------------------------------------------------- uninstall
 
 def uninstall_all(args: argparse.Namespace) -> int:
@@ -1265,6 +1323,17 @@ def parse_version(text: str) -> Optional[Tuple[int, int, int]]:
     return tuple(int(x) for x in m.groups()) if m else None  # type: ignore[return-value]
 
 
+def claude_version() -> Optional[str]:
+    """The output of `claude --version` ("error: ..." when it cannot run), or None when claude is not on PATH."""
+    claude = shutil.which("claude")
+    if not claude:
+        return None
+    try:
+        return subprocess.run([claude, "--version"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        return "error: %s" % exc
+
+
 def is_truthy(value: object) -> bool:
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
@@ -1292,14 +1361,10 @@ def doctor_cmd(args: argparse.Namespace) -> int:
     add("PASS" if sys.version_info >= (3, 9) else "FAIL", "python %s%s" % (
         sys.version.split()[0], "" if sys.version_info >= (3, 9) else "; deploy needs 3.9 or newer"))
 
-    claude = shutil.which("claude")
-    if not claude:
+    out = claude_version()
+    if out is None:
         add("FAIL", "claude CLI not found on PATH; install Claude Code and open a new terminal")
     else:
-        try:
-            out = subprocess.run([claude, "--version"], capture_output=True, text=True, timeout=30).stdout
-        except (OSError, subprocess.SubprocessError) as exc:
-            out = "error: %s" % exc
         ver = parse_version(out)
         need = ".".join(map(str, MIN_CLAUDE_VERSION))
         if ver is None:
@@ -1380,12 +1445,24 @@ def doctor_cmd(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------------- CLI
 
+class VersionAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        out = claude_version()
+        print("claude-supervisor %s" % (read_pack_version(REPO_ROOT / "pack") or "unknown"))
+        print("claude: %s" % ("not found" if out is None else out.strip()))
+        parser.exit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="deploy",
         description="Install, inspect and remove the claude-supervisor pack in a Claude Code config dir.",
         epilog="Target: sandbox ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
                "or --global for ~/.claude.")
+    p.add_argument("--version", action=VersionAction, help="show the pack version and the claude version")
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True
 
@@ -1424,6 +1501,11 @@ def build_parser() -> argparse.ArgumentParser:
                         description="Show manifest info and per-file state (ok/modified/missing/outdated).")
     common(sp)
     sp.set_defaults(func=status_cmd)
+
+    sp = sub.add_parser("list", help="list every registered install",
+                        description="Show each registered install with its pack version, branch, commit and launcher.")
+    sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
+    sp.set_defaults(func=list_cmd)
 
     sp = sub.add_parser("uninstall", help="remove the pack",
                         description="Remove unmodified managed files, restore settings agent, delete the manifest. "

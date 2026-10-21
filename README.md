@@ -43,7 +43,7 @@ Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. Ins
 
 A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind, and so do MCP servers and `~/.claude.json` state. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`. `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, the strongest and costliest model (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable is billed to usage credits on some plans, so the launcher runs them on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for the top model tier, Fable-level: the strongest and costliest (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable can be billed separately, so the launcher runs these agents on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs them on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
@@ -61,13 +61,13 @@ Just ask for what you want. The supervisor picks the path:
 
 To choose yourself, say "quick" or "just do it" for a quick specialist, or "full", "thorough", or "with review" for a lead.
 
-Ask for the strongest drafter ("best possible") and `writer` drafts on Fable. This has an effect only where Fable is not remapped to Opus: a session started with `--fable`, or a `--global` install without `ANTHROPIC_DEFAULT_FABLE_MODEL`.
+Ask for the strongest drafter ("best possible") and `writer` drafts at the Fable level. This has an effect only where Fable is not remapped to Opus: a session started with `--fable`, or a `--global` install without `ANTHROPIC_DEFAULT_FABLE_MODEL`.
 
 ## How It Works
 
 **Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). A project can add a REVIEW.md at the repo root (and in subdirectories) with review-only rules; critic applies it after the brief's contract and before its own defaults. Details are in [docs/architecture.md](docs/architecture.md).
 
-**Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a Haiku specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
+**Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a fast-tier (Haiku-level) specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
 
 ```mermaid
 flowchart LR
@@ -177,6 +177,8 @@ The full inventory, with models, effort, workers, reviewers, and internal skills
 ./deploy update --all           # every registered install
 claude-supervisor update        # claude update first, then this sandbox's pack
 ./deploy status                 # installed files, version, remote, and branch
+./deploy list                   # every registered install: version, branch, commit, launcher
+claude-supervisor --version     # pack and claude versions; -h lists launcher commands
 ./deploy uninstall --dry-run    # show what would be removed
 ./deploy uninstall --yes        # or: claude-supervisor uninstall
 ```
@@ -207,7 +209,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 | `another deploy is running` | Wait for it to finish, then re-run |
 | `is not registered under prefix X` | Run `./deploy install` once (pass `--prefix` if you installed with one) |
 | `cannot read branch` | Check network access and credentials |
-| Claude Code asks to bill Fable to usage credits | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
+| Claude Code asks to bill Fable separately | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
@@ -215,7 +217,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-deploy              installer: install | update | status | uninstall | doctor | migrate
+deploy              installer: install | update | status | list | uninstall | doctor | migrate
 tests/              deploy tests, pack lint, VERSION check
 docs/               architecture.md, deploy.md (deploy runbook)
 docs/archive/       finished plans and their research
