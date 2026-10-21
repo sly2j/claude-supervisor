@@ -231,7 +231,7 @@ exec claude "$@"
   `## Update`.
 - **Update needs a pushed `main`:** a clone of an older `main` has no `update --from`. The hand-off
   then fails with an argparse error. Push each package before relying on `update`.
-- **SSH remote** (`git@eicweb.phy.anl.gov:...`): the clone needs key access. Without it, git
+- **SSH remote** (`git@<host>:...`): the clone needs key access. Without it, git
   fails, and the error is reported per remote.
 - **`claude-<tag> uninstall`** used to send the prompt "uninstall" to claude. `update` already
   meant `claude update`, so P3 keeps that meaning and adds the pack update.

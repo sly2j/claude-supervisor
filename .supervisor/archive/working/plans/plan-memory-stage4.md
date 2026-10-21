@@ -275,9 +275,9 @@ per D6.
 1. `clerk` records item 1's bullet without an entry (Data); the OQ1 and OQ4 entries exist
    (written 2026-10-21). `executor`
    raises `VERSION` by one and runs the suite; `git-ops` commits the plan and entries on `main`.
-2. `git -C /Users/sjoosten/Work/claude-agents worktree add ../claude-supervisor-dev \
+2. `git -C <checkout> worktree add ../claude-supervisor-dev \
    -b memory-stage4`
-3. `/Users/sjoosten/Work/claude-supervisor-dev/deploy install --tag supervisor-dev`. An
+3. `<dev-worktree>/deploy install --tag supervisor-dev`. An
    unregistered `~/.config/claude-supervisor-dev` (only `projects/` and `skills/`) is left from
    v2.0; check how `install` treats it first, and ask the owner before removing it.
 
@@ -285,7 +285,7 @@ As in v2.0 (`docs/archive/plan-memory-v2.md:766-775`): the stable `claude-superv
 drives the program, `claude-supervisor-dev` sessions run the V checks, P3 and the P4 close-out,
 and the branch is pushed to origin; rebases on `main` need a force-push (`--force-with-lease`)
 of `memory-stage4`, gated per git-safety. After Setup the stable session runs from
-`/Users/sjoosten/Work/claude-supervisor-dev`, so Log appends and entries land on the branch; P4
+`<dev-worktree>`, so Log appends and entries land on the branch; P4
 step 3 is the only later work on `main`. Each package brief has `executor` commit on the branch
 itself, with no `VERSION` change.
 

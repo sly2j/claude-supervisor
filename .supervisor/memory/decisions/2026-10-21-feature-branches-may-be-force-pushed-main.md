@@ -7,7 +7,7 @@ source: user 2026-10-21
 supersedes:
 ---
 The user said: "you can force push if desired. Only protected branch is main." Feature branches
-of this repo (e.g. `memory-stage4`) are pushed to origin (eicweb) and must be rebased on `main`
+of this repo (e.g. `memory-stage4`) are pushed to origin (the private remote) and must be rebased on `main`
 often (CLAUDE.md), so their history is rewritten and a plain push is rejected. Force-pushing a
 feature branch, as `git push --force-with-lease`, is therefore authorized without asking again.
 `main` is the only protected branch and is never force-pushed. The rule covers this repo's git

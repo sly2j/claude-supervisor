@@ -3,7 +3,7 @@
 Line numbers refer to files at `19f3cd0`. `VERSION` is `1.23`. ROADMAP item 1's "Decisions already
 made" (D1-D5, D7-D9, D11, the names `curator`, `clerk`, `git-ops`) bind this plan and are not
 reopened. Work happens on the branch `memory-v2` in the worktree
-`/Users/sjoosten/Work/claude-supervisor-dev`, deployed as `claude-supervisor-dev`; all `pack/`,
+`<dev-worktree>`, deployed as `claude-supervisor-dev`; all `pack/`,
 `docs/`, `tests/` and `README.md` paths in P1-P3 are under that worktree.
 
 ## Goal

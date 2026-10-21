@@ -98,7 +98,7 @@ a dir (default `~/.config/claude-<tag>`). It writes a `claude-<tag>` launcher, w
    ```sh
    #!/bin/sh
    # managed by claude-supervisor (tag: supervisor)
-   CLAUDE_CONFIG_DIR='/Users/sjoosten/.config/claude-supervisor'; export CLAUDE_CONFIG_DIR
+   CLAUDE_CONFIG_DIR='/Users/<user>/.config/claude-supervisor'; export CLAUDE_CONFIG_DIR
    exec claude "$@"
    ```
 
@@ -107,9 +107,9 @@ a dir (default `~/.config/claude-<tag>`). It writes a `claude-<tag>` launcher, w
    ```sh
    #!/bin/sh
    # managed by claude-supervisor (tag: work)
-   CLAUDE_CONFIG_DIR='/Users/sjoosten/.config/claude-work'; export CLAUDE_CONFIG_DIR
+   CLAUDE_CONFIG_DIR='/Users/<user>/.config/claude-work'; export CLAUDE_CONFIG_DIR
    ANTHROPIC_BASE_URL='https://llm.example.com'; export ANTHROPIC_BASE_URL
-   ANTHROPIC_AUTH_TOKEN="$(cat '/Users/sjoosten/.config/claude-work/token')"; export ANTHROPIC_AUTH_TOKEN
+   ANTHROPIC_AUTH_TOKEN="$(cat '/Users/<user>/.config/claude-work/token')"; export ANTHROPIC_AUTH_TOKEN
    exec claude "$@"
    ```
 
@@ -580,7 +580,7 @@ Change `1.9` to `1.10`, once.
 ### Executor Sequence
 
 ```bash
-cd /Users/sjoosten/Work/claude-agents
+cd <checkout>
 # after U1-U3:
 printf '1.10\n' > VERSION
 python3 -m pytest -q

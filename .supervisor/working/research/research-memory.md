@@ -90,7 +90,7 @@ quoting them elsewhere.
     setting" (sub-agents docs). Skill hooks register on invocation and run for the rest of the
     session. [I] Hooks could therefore ship in `supervisor.md` frontmatter with no deploy change.
 - **Local observation** [V]:
-  - `~/.config/claude-supervisor/projects/-Users-sjoosten-Work-claude-agents/memory/` exists and
+  - `~/.config/claude-supervisor/projects/-Users-<user>-<checkout>/memory/` exists and
     is empty (`ls -la`). So is every `~/.claude/projects/*/memory/` dir that was checked.
   - There is no `agent-memory/` dir and no `memory:` key in `pack/`.
   - This session's environment has `CLAUDE_CODE_CHILD_SESSION=1`.
