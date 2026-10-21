@@ -72,7 +72,7 @@ without guessing and the user can approve.
 - A child plan is a normal plan for one package at the briefed path, with no `## Work Packages`.
 - To split a package, return `Amend parent:` (new blocks, `Deps` on it, changed lines), never a
   parent edit. The user approves the parent plan once; child plans and `Amend parent:` packages
-  need no approval unless a major design decision arises.
+  need approval only on major design decisions.
 
 ## Review
 
