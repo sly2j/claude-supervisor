@@ -391,6 +391,13 @@ def test_status_reports_source_validation_error(pack, target):
     assert "removed from source" not in r.stdout
 
 
+def test_status_with_missing_explicit_source_says_what_to_do(pack, target, tmp_path):
+    run(pack, target, "install")
+    r = run(tmp_path / "nope", target, "status")
+    assert r.returncode == 2
+    assert "source directory not found" in r.stderr and "pass --source DIR" in r.stderr
+
+
 # --------------------------------------------------------------------------- fable
 
 @pytest.fixture
@@ -822,6 +829,32 @@ def test_deploy_version(tmp_path, with_claude):
     assert r.stdout.splitlines() == [
         "claude-supervisor %s" % (SCRIPT.parent / "VERSION").read_text().strip(),
         "claude: 2.1.300 (Claude Code)" if with_claude else "claude: not found"]
+
+
+def tool_version(tmp_path: Path) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(state_dir(tmp_path) / "deploy"), "--version"],
+                          capture_output=True, text=True, env=stub_env(tmp_path), timeout=60,
+                          stdin=subprocess.DEVNULL)
+
+
+def test_tool_copy_version_survives_deleted_checkout(pack, target, tmp_path):
+    version_file(pack, "1.7\n")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert (state_dir(tmp_path) / "VERSION").read_text() == "1.7\n"
+    shutil.rmtree(str(pack))
+    (tmp_path / "VERSION").unlink()
+    r = tool_version(tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines() == ["claude-supervisor 1.7", "claude: 2.1.300 (Claude Code)"]
+
+
+def test_reinstall_without_version_removes_recorded_tool_version(pack, target, tmp_path):
+    version_file(pack, "1.7\n")
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    (tmp_path / "VERSION").unlink()
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    assert not (state_dir(tmp_path) / "VERSION").exists()
+    assert tool_version(tmp_path).stdout.splitlines()[0] == "claude-supervisor unknown"
 
 
 def test_list_empty(pack, target):
@@ -2045,14 +2078,44 @@ def test_status_reports_outdated_and_not_installed(pack, target):
     assert states["agents/supervisor.md"] == "ok"
 
 
-def test_status_after_source_dir_removed_says_what_to_do(pack, target):
-    assert run(pack, target, "install").returncode == 0
-    shutil.rmtree(str(pack))
-    env = {"PATH": str(target.parent / "bin"), "HOME": str(target.parent)}
-    r = subprocess.run([sys.executable, str(SCRIPT), "status", "--target", str(target)], capture_output=True,
-                       text=True, env=env, timeout=60, stdin=subprocess.DEVNULL)  # no --source, as after update
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "source dir gone; pass --source" in r.stdout
+def run_status(exe: Path, tmp_path: Path, *args: str) -> subprocess.CompletedProcess:
+    """Status without --source, as after `update` or from the tool copy."""
+    env = {"PATH": str(tmp_path / "bin"), "HOME": str(tmp_path)}
+    return subprocess.run([sys.executable, str(exe), "status"] + list(args), capture_output=True, text=True,
+                          env=env, timeout=60, stdin=subprocess.DEVNULL)
+
+
+def break_source(pack: Path, how: str) -> None:
+    if how == "deleted":
+        shutil.rmtree(str(pack))
+    elif how == "invalid":
+        shutil.rmtree(str(pack / "agents"))
+        shutil.rmtree(str(pack / "skills"))
+    else:
+        (pack / "agents" / "helper.md").write_text(agent_md("other"))
+
+
+@pytest.mark.parametrize("how, version, shown", [("deleted", "1.7\n", "1.7"), ("invalid", "1.7\n", "1.7"),
+                                                ("wrong-name", "1.7\n", "1.7"), ("deleted", None, "not recorded")])
+def test_status_without_available_source_reads_the_manifest(pack, target, tmp_path, how, version, shown):
+    if version:
+        version_file(pack, version)
+    assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    (sbx / "agents" / "helper.md").write_text("edited")
+    (sbx / "agents" / "supervisor.md").unlink()
+    break_source(pack, how)
+    for exe, args in ((SCRIPT, ["--target", str(sbx)]),
+                      (state_dir(tmp_path) / "deploy", ["--tag", "t", "--prefix", str(tmp_path / ".local")])):
+        r = run_status(exe, tmp_path, *args)
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "Traceback" not in r.stderr
+        assert "Source: %s (not available; pass --source <checkout>/pack to compare)" % pack in r.stdout
+        assert "Version: installed=%s (source not available)" % shown in r.stdout
+        assert "MISMATCH" not in r.stdout and "source=" not in r.stdout
+        states = dict(l.strip().split(None, 1) for l in r.stdout.splitlines() if l.startswith("  "))
+        assert states == {"agents/helper.md": "modified", "agents/supervisor.md": "missing",
+                          "skills/demo/SKILL.md": "ok", "skills/demo/scripts/run.sh": "ok"}
 
 
 def test_symlink_at_target_is_skipped_with_next_step(pack, target, tmp_path):
@@ -2329,13 +2392,25 @@ def test_derive_version_base_follows_a_rebase_onto_bumped_main(remote, feat_tree
     assert d.derive_version(feat_tree / "pack") == "1.1+feat.1.g%s" % short_sha(remote, feat_tree)
 
 
-def test_derive_version_falls_back_to_origin_main_then_plain(remote, feat_tree):
+def test_derive_version_prefers_origin_main_then_local_main_then_plain(remote, feat_tree):
     d = load_deploy()
-    remote.git(remote.clone, "checkout", "-q", "--detach")
-    remote.git(remote.clone, "branch", "-q", "-D", "main")  # only refs/remotes/origin/main is left
-    assert d.derive_version(feat_tree / "pack") == "1.0+feat.1.g%s" % short_sha(remote, feat_tree)
+    derived = "1.0+feat.1.g%s" % short_sha(remote, feat_tree)
     remote.git(remote.clone, "update-ref", "-d", "refs/remotes/origin/main")
-    assert d.derive_version(feat_tree / "pack") == "1.0"
+    assert d.derive_version(feat_tree / "pack") == derived  # only refs/heads/main is left
+    remote.git(remote.clone, "update-ref", "refs/remotes/origin/main", "refs/heads/main")
+    remote.git(remote.clone, "checkout", "-q", "--detach")
+    remote.git(remote.clone, "branch", "-q", "-D", "main")
+    assert d.derive_version(feat_tree / "pack") == derived  # only refs/remotes/origin/main is left
+    remote.git(remote.clone, "update-ref", "-d", "refs/remotes/origin/main")
+    assert d.derive_version(feat_tree / "pack") == "1.0"  # neither: plain VERSION
+
+
+def test_derive_version_ignores_local_main_ahead_of_origin(remote, feat_tree):
+    """Local main holds the unpushed feat work and a bump; origin/main is what the branch is measured from."""
+    remote.git(remote.clone, "merge", "-q", "--ff-only", "feat")
+    (remote.clone / "VERSION").write_text("1.1\n")
+    remote.git(remote.clone, "commit", "-q", "-am", "bump")
+    assert load_deploy().derive_version(feat_tree / "pack") == "1.0+feat.1.g%s" % short_sha(remote, feat_tree)
 
 
 def test_branch_install_records_and_status_shows_derived_version(remote, feat_tree, tmp_path):

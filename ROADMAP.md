@@ -129,28 +129,44 @@ When a critic round returns only SHOULD/NIT findings and all are applied, do not
 critic round; re-review only after BLOCKING fixes or new material.
 Priority: normal. Effort: S.
 
-### 3. Light path for small prose revisions
+### 3. Planner: no hard-coded future version numbers
+
+Plans and roadmap items name future releases by stage, package or "next minor", never a concrete
+`X.y`: `VERSION` rises with every commit on `main`, and branch work lands later than planned (the
+Stage 4 plan targeted v2.5, which the deploy fixes took). Touches `pack/agents/planner.md` (and any
+plan template or annotation rules). Done when the planner rule exists and the suite passes.
+Priority: normal. Effort: S.
+
+### 4. critic: Opus at default effort
+
+Run `critic` on Opus at default effort instead of `xhigh`. Touches the `effort:` frontmatter in
+`pack/agents/critic.md`, the inventory in `docs/architecture.md` (diagram, Agents table, model
+paragraph) and the tier table in `pack/skills/agent-authoring/SKILL.md`. Done when the frontmatter
+is changed, the inventory and tier table are in sync, and the suite passes.
+Priority: normal. Effort: S.
+
+### 5. Light path for small prose revisions
 
 A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
 rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
 reconsider whether scope-critic adds value for `writer` at all.
 Priority: normal. Effort: M.
 
-### 4. Program logs for flat plans
+### 6. Program logs for flat plans
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
 flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
 (needs a supervisor clause; supervisor.md is at its word cap).
 Priority: normal. Effort: M.
 
-### 5. Configurable model tiers for alternative providers
+### 7. Configurable model tiers for alternative providers
 
 Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
 third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
 mapping).
 Priority: normal. Effort: M.
 
-### 6. Science artefacts
+### 8. Science artefacts
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -170,14 +186,14 @@ Priority: normal. Effort: M.
 
 Priority: normal, after item 1. Effort: L.
 
-### 7. Memory across branches and worktrees (future release)
+### 9. Memory across branches and worktrees (future release)
 
 `.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
 state; define how conflicting or duplicate entries are reconciled when a feature is merged
 (supersede rules, curator pass at merge, or merge-time report).
 Priority: low — future release. Effort: L.
 
-### 8. Roadmap intake: tell users they can add items
+### 10. Roadmap intake: tell users they can add items
 
 The README does not say the roadmap takes user-added tasks. Add an "Adding to the roadmap" section:
 ask the supervisor ("add to the roadmap: ...") to append an item (VERSION bump and commit), or edit

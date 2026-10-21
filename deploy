@@ -447,7 +447,7 @@ def derive_version(source: Path) -> Optional[str]:
     branch = git_branch(source)
     if plain is None or commit is None or branch == "main":
         return plain
-    ref = next((r for r in ("refs/heads/main", "refs/remotes/origin/main")
+    ref = next((r for r in ("refs/remotes/origin/main", "refs/heads/main")
                 if git_out(source, "rev-parse", "--verify", "--quiet", r)), None)
     mb = ref and git_out(source, "merge-base", "HEAD", ref)
     ahead = mb and git_out(source, "rev-list", "--count", mb + "..HEAD")
@@ -903,6 +903,12 @@ def install_cmd(args: argparse.Namespace) -> int:
                 print("now tracking branch %s of %s" % (branch or "main", remote or "no remote"))
             register_install(prefix, target, tag, remote, branch)
             atomic_write_bytes(state_dir(prefix) / "deploy", Path(__file__).read_bytes(), mode=0o755)
+            # beside the tool copy like VERSION beside deploy in a checkout, so its --version works
+            if pack_version is not None:
+                atomic_write_bytes(state_dir(prefix) / "VERSION", (pack_version + "\n").encode(), mode=0o644)
+            else:
+                with contextlib.suppress(FileNotFoundError):
+                    (state_dir(prefix) / "VERSION").unlink()
 
     print("\nSummary: " + ", ".join("%s=%d" % kv for kv in counts.items()))
     print("Settings: " + settings_msg)
@@ -918,10 +924,12 @@ def install_cmd(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------------- status
 
-def file_states(target: Path, manifest: dict, source: Optional[Path]) -> List[Tuple[str, str]]:
-    src_files: Dict[str, Path] = {}
-    if source is not None:
+def file_states(target: Path, manifest: dict, source: Optional[Path],
+                src_files: Optional[Dict[str, Path]] = None) -> List[Tuple[str, str]]:
+    """Row per file; `src_files` is `collect_source(source)` when the caller already has it."""
+    if source is not None and src_files is None:
         src_files = collect_source(source)
+    src_files = src_files or {}
     rows = []
     for key, entry in sorted(manifest["files"].items()):
         dst = target / key
@@ -951,8 +959,18 @@ def status_cmd(args: argparse.Namespace) -> int:
     else:
         if not (target / MANIFEST_NAME).exists():
             print("Note: legacy manifest %s; run ./deploy install from your checkout to migrate" % LEGACY_MANIFEST_NAME)
-        gone = not args.source and not Path(str(manifest.get("source_dir"))).is_dir()
-        print("Source: %s%s" % (manifest.get("source_dir"), " (source dir gone; pass --source <checkout>/pack)" if gone else ""))
+        src_files: Optional[Dict[str, Path]] = None
+        source = resolve_source(args) if args.source else Path(str(manifest.get("source_dir") or ""))
+        if args.source or (manifest.get("source_dir") and source.is_dir()):
+            try:
+                src_files = collect_source(source)
+            except DeployError:
+                if args.source:
+                    raise
+        if src_files is None:
+            print("Source: %s (not available; pass --source <checkout>/pack to compare)" % manifest.get("source_dir"))
+        else:
+            print("Source: %s" % manifest.get("source_dir"))
         try:
             reg_prefix = Path(manifest["prefix"]) if manifest.get("prefix") else resolve_prefix(args)
             entry = load_registry(reg_prefix).get(str(target))
@@ -967,12 +985,15 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("Installed: %s" % manifest.get("installed_at"))
         if manifest.get("launcher"):
             print("Launcher: %s" % manifest["launcher"])
-        source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         recorded = manifest.get("pack_version")
-        current = derive_version(source) if source.is_dir() else None
-        flag = " (MISMATCH: run ./deploy install from your checkout)" if recorded and current and recorded != current else ""
-        print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
-        rows = file_states(target, manifest, source if source.is_dir() else None)
+        if src_files is None:
+            print("Version: installed=%s (source not available)" % (recorded or "not recorded"))
+            rows = file_states(target, manifest, None)
+        else:
+            current = derive_version(source)
+            flag = " (MISMATCH: run ./deploy install from your checkout)" if recorded and current and recorded != current else ""
+            print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
+            rows = file_states(target, manifest, source, src_files)
         width = max([len(k) for k, _ in rows] + [10])
         for key, state in rows:
             print("  %-*s  %s" % (width, key, state))
