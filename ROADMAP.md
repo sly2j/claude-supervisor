@@ -24,47 +24,7 @@
 Ordering (2026-10-21): priority first, effort second, so a large high-priority item outranks
 small lower-priority ones; an item that another needs comes before it.
 
-### 1. Branch and worktree versioning
-
-- **Gap:** feature branches never touch `VERSION`, so a worktree install reports the `main`
-  version it branched from. After a rebase onto a newer `main` that number reads as stale or as a
-  mismatch, the version string does not tell a branch install from a `main` install of the same
-  `X.y`, and `deploy update` can silently replace a branch install that is ahead with an older
-  build (item 2).
-- **Owner's suggestion:** `<main>-<branch>`, e.g. `1.23-worktree-zz`, with the main part updated
-  at each rebase.
-- **Recommended scheme:** keep `VERSION` as the `main` version only, and let `deploy` derive the
-  installed version from git at install and status time:
-  `<VERSION at merge-base with main>+<branch>.<commits-ahead>.g<short-sha>`, e.g.
-  `2.0+memory-v2.7.g8b1d7de`. This is the PEP 440 local-version / SemVer build-metadata style and
-  carries what `git describe` gives (base, commits ahead, short SHA) plus the branch. Nothing is
-  edited on rebase, because the main part is read from `VERSION` at the merge-base. `deploy
-  status` and the downgrade guard (item 2) compare the main version first, then commits-ahead;
-  `main` installs stay plain `X.y`.
-- **Touches:** in `deploy`, `read_pack_version` (reads `VERSION` from the checkout),
-  `git_info`/`git_branch` (commit, dirty flag, branch), `install_cmd` (records `pack_version` in
-  the manifest, prints "(was ...)"), `register_install` (`installs.json` holds no version today;
-  it changes only if update needs the base ref recorded), `status_cmd` (string equality,
-  `MISMATCH` flag) and `update_cmd` (no version check today; its `git clone --depth 1` has no
-  merge-base, so it needs `main` fetched or a deeper clone).
-  `tests/test_version.py` keeps checking `VERSION` on `main` only; new tests cover the derived
-  string and the comparison.
-- **Left to planner:** base ref when `main` is absent locally (`origin/main`), branch-name
-  sanitizing (`/` and other characters), whether a dirty tree adds a marker.
-- **Done when:** a worktree install shows the derived version in `deploy status`, it stays right
-  after a rebase with no edits, `main` installs show `X.y`, and the suite passes.
-
-Priority: high — do early. Effort: M.
-
-### 2. deploy update: downgrade guard
-
-When `deploy update` finds the installed version (or commit) is newer than the upstream branch it
-would install — as happens when a worktree install is ahead of the pushed branch — print a warning
-naming both versions and ask `Continue with the update? [y/N]`; default No. Non-interactive runs
-fail unless `--yes` is passed.
-Priority: high — do early, after item 1. Effort: S.
-
-### 3. Persistence and long-term memory (2.x)
+### 1. Persistence and long-term memory (2.x)
 
 - **Goal:** carry decisions, run history and distilled knowledge across sessions, packages and
   programs, in a committed project store that agents read just in time.
@@ -163,34 +123,34 @@ that make its dev cycle cleaner. Effort: L.
   Start this stage only on such a failure.
 - **Dependencies:** v2.0; D10.
 
-### 4. lead-loop: stop after a clean minor round
+### 2. lead-loop: stop after a clean minor round
 
 When a critic round returns only SHOULD/NIT findings and all are applied, do not run another
 critic round; re-review only after BLOCKING fixes or new material.
 Priority: normal. Effort: S.
 
-### 5. Light path for small prose revisions
+### 3. Light path for small prose revisions
 
 A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
 rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
 reconsider whether scope-critic adds value for `writer` at all.
 Priority: normal. Effort: M.
 
-### 6. Program logs for flat plans
+### 4. Program logs for flat plans
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
 flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
 (needs a supervisor clause; supervisor.md is at its word cap).
 Priority: normal. Effort: M.
 
-### 7. Configurable model tiers for alternative providers
+### 5. Configurable model tiers for alternative providers
 
 Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
 third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
 mapping).
 Priority: normal. Effort: M.
 
-### 8. Science artefacts
+### 6. Science artefacts
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -198,7 +158,7 @@ Priority: normal. Effort: M.
   a README (what we were trying to do, what we learned) next to the figures, data files and other
   output. Likely needs a new skill.
 - **Decisions already made:**
-  - Depends on item 3: artefact READMEs may feed long-term memory.
+  - Depends on item 1: artefact READMEs may feed long-term memory.
 - **Left to planner:**
   - Stamp format: date, time, or date plus a slug?
   - Which agent writes the artefacts, and which the README?
@@ -208,20 +168,20 @@ Priority: normal. Effort: M.
   the goal and what was learned, with its outputs beside it; the suite passes.
 - **Pointers:** `docs/research-memory.md` section 8 item 7.
 
-Priority: normal, after item 3. Effort: L.
+Priority: normal, after item 1. Effort: L.
 
-### 9. Memory across branches and worktrees (future release)
+### 7. Memory across branches and worktrees (future release)
 
 `.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
 state; define how conflicting or duplicate entries are reconciled when a feature is merged
 (supersede rules, curator pass at merge, or merge-time report).
 Priority: low — future release. Effort: L.
 
-### 10. Roadmap intake: tell users they can add items
+### 8. Roadmap intake: tell users they can add items
 
 The README does not say the roadmap takes user-added tasks. Add an "Adding to the roadmap" section:
 ask the supervisor ("add to the roadmap: ...") to append an item (VERSION bump and commit), or edit
 ROADMAP.md by hand. Show the format (numbered heading, 2-5 line body, `Priority: high|normal|low`
 and `Effort: S|M|L` line); items are ordered by priority, then effort; `curator` moves landed items
-to `.supervisor/history.md`. After item 3 (Stage 4), the README names `.supervisor/roadmap.md`.
+to `.supervisor/history.md`. After item 1 (Stage 4), the README names `.supervisor/roadmap.md`.
 Priority: normal — small. Effort: S.

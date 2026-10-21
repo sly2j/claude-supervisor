@@ -2254,6 +2254,160 @@ def test_install_records_source_commit_and_dirty(remote, tmp_path):
     assert manifest(sbx)["source_commit"] == head and manifest(sbx)["source_dirty"] is True
 
 
+# --------------------------------------------------------------------------- branch versions, downgrade guard
+
+@pytest.mark.parametrize("version, key", [
+    ("2.3", (2, 3, 0)),
+    ("2.3+feat.7.gabc1234", (2, 3, 7)),
+    ("2.3+feat.7.gabc1234.dirty", (2, 3, 7)),
+    ("2.3+fix-2.7.3.gabc1234", (2, 3, 3)),  # a dotted label does not confuse the commits-ahead field
+    ("2.3+feat", (2, 3, 0)),
+    ("garbage", None), ("2", None), ("2.3.1", None), ("", None), (None, None),
+])
+def test_version_key(version, key):
+    assert load_deploy().version_key(version) == key
+
+
+def test_version_key_orders_main_version_then_commits_ahead():
+    keys = [load_deploy().version_key(v) for v in
+            ("2.3", "2.3+feat.1.gabc1234", "2.3+feat.7.gabc1234", "2.4", "2.4+x.1.g1234567", "10.0")]
+    assert keys == sorted(keys) and len(set(keys)) == len(keys)
+    assert load_deploy().version_key("2.9") < load_deploy().version_key("2.10")
+
+
+def short_sha(remote, tree: Path) -> str:
+    return subprocess.run(["git", "-C", str(tree), "rev-parse", "--short=7", "HEAD"], capture_output=True,
+                          text=True, env=remote.env).stdout.strip()
+
+
+def commit_in(remote, tree: Path, body: str) -> None:
+    (tree / "pack" / "agents" / "helper.md").write_text(agent_md("helper", body))
+    remote.git(tree, "add", "-A")
+    remote.git(tree, "commit", "-q", "-m", body)
+
+
+def test_derive_version_plain_on_main_and_outside_git(remote, pack):
+    d = load_deploy()
+    assert d.derive_version(remote.clone / "pack") == "1.0"
+    (remote.clone / "pack" / "agents" / "helper.md").write_text(agent_md("helper", "uncommitted"))
+    assert d.derive_version(remote.clone / "pack") == "1.0"  # dirty main stays plain
+    version_file(pack, "1.7\n")
+    assert d.derive_version(pack) == "1.7"
+    assert d.derive_version(pack.parent / "nowhere" / "pack") is None
+
+
+def test_derive_version_branch_ahead_dirty_and_detached(remote, feat_tree):
+    d = load_deploy()
+    pack_dir = feat_tree / "pack"
+    sha = short_sha(remote, feat_tree)
+    assert d.derive_version(pack_dir) == "1.0+feat.1.g%s" % sha
+    commit_in(remote, feat_tree, "feat v2")
+    sha = short_sha(remote, feat_tree)
+    assert d.derive_version(pack_dir) == "1.0+feat.2.g%s" % sha
+    (pack_dir / "agents" / "helper.md").write_text(agent_md("helper", "uncommitted"))
+    assert d.derive_version(pack_dir) == "1.0+feat.2.g%s.dirty" % sha
+    remote.git(feat_tree, "checkout", "-q", "--detach", "-f")
+    assert d.derive_version(pack_dir) == "1.0+detached.2.g%s" % sha
+
+
+@pytest.mark.parametrize("branch, label", [("topic/x_y", "topic-x-y"), ("fix-2.7", "fix-2.7")])
+def test_derive_version_sanitizes_label_keeping_dots(remote, feat_tree, branch, label):
+    remote.git(feat_tree, "checkout", "-q", "-b", branch)
+    version = load_deploy().derive_version(feat_tree / "pack")
+    assert version == "1.0+%s.1.g%s" % (label, short_sha(remote, feat_tree))
+    assert load_deploy().version_key(version) == (1, 0, 1)
+
+
+def test_derive_version_base_follows_a_rebase_onto_bumped_main(remote, feat_tree):
+    (remote.work / "VERSION").write_text("1.1\n")
+    remote.git(remote.work, "commit", "-q", "-am", "bump")
+    remote.git(remote.work, "push", "-q", "origin", "HEAD:main")
+    remote.git(remote.clone, "pull", "-q", "--ff-only")
+    d = load_deploy()
+    assert d.derive_version(feat_tree / "pack").startswith("1.0+feat.1.g")
+    remote.git(feat_tree, "rebase", "-q", "main")
+    assert d.derive_version(feat_tree / "pack") == "1.1+feat.1.g%s" % short_sha(remote, feat_tree)
+
+
+def test_derive_version_falls_back_to_origin_main_then_plain(remote, feat_tree):
+    d = load_deploy()
+    remote.git(remote.clone, "checkout", "-q", "--detach")
+    remote.git(remote.clone, "branch", "-q", "-D", "main")  # only refs/remotes/origin/main is left
+    assert d.derive_version(feat_tree / "pack") == "1.0+feat.1.g%s" % short_sha(remote, feat_tree)
+    remote.git(remote.clone, "update-ref", "-d", "refs/remotes/origin/main")
+    assert d.derive_version(feat_tree / "pack") == "1.0"
+
+
+def test_branch_install_records_and_status_shows_derived_version(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    version = "1.0+feat.1.g%s" % short_sha(remote, feat_tree)
+    assert manifest(dev)["pack_version"] == version
+    r = deploy_run(remote, feat_tree / "deploy", "status", "--tag", "dev")
+    assert "Version: installed=%s, source=%s\n" % (version, version) in r.stdout and "MISMATCH" not in r.stdout
+    commit_in(remote, feat_tree, "feat v2")
+    r = deploy_run(remote, feat_tree / "deploy", "status", "--tag", "dev")
+    assert "installed=%s, source=1.0+feat.2.g%s (MISMATCH" % (version, short_sha(remote, feat_tree)) in r.stdout
+    r = deploy_run(remote, feat_tree / "deploy", "install", "--tag", "dev")
+    assert "Version: 1.0+feat.2.g%s (was %s)" % (short_sha(remote, feat_tree), version) in r.stdout
+    assert deploy_run(remote, feat_tree / "deploy", "--version").stdout.startswith("claude-supervisor 1.0+feat.2.g")
+
+
+def test_update_of_branch_install_records_derived_version_and_does_not_warn(remote, feat_tree, tmp_path):
+    dev = install_dev(remote, feat_tree, tmp_path)
+    push_feat(remote, "feat v2")  # one more commit on the remote branch: the install is behind, not ahead
+    r = update(remote, "--tag", "dev")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "is newer than" not in r.stdout + r.stderr and "feat v2" in helper_text(dev)
+    assert manifest(dev)["pack_version"].startswith("1.0+feat.2.g")  # the full clone has a merge-base
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+@pytest.fixture
+def ahead_dev(remote, feat_tree, tmp_path) -> Path:
+    """A dev install from a worktree holding an unpushed commit: ahead of what update would install."""
+    commit_in(remote, feat_tree, "unpushed")
+    dev = install_dev(remote, feat_tree, tmp_path)
+    assert manifest(dev)["pack_version"].startswith("1.0+feat.2.g")
+    return dev
+
+
+@pytest.mark.parametrize("extra", [[], ["--from", "CLONE"]])
+def test_update_downgrade_needs_yes_without_a_terminal(remote, ahead_dev, extra):
+    extra = [str(remote.clone) if a == "CLONE" else a for a in extra]
+    before = snapshot(ahead_dev)
+    r = update(remote, "--tag", "dev", *extra)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "WARNING %s: installed 1.0+feat.2.g" % ahead_dev in r.stdout and "is newer than" in r.stdout
+    assert "re-run with --yes" in r.stderr
+    assert snapshot(ahead_dev) == before and "unpushed" in helper_text(ahead_dev)
+
+    r = update(remote, "--tag", "dev", "--yes", *extra)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "WARNING" in r.stdout and "unpushed" not in helper_text(ahead_dev)
+    assert not manifest(ahead_dev)["pack_version"].startswith("1.0+feat.2.g")
+    assert list(remote.tmpdir.iterdir()) == []
+
+
+@pytest.mark.parametrize("extra", [[], ["--from", "CLONE"]])
+def test_update_declined_downgrade_leaves_install_unchanged(remote, ahead_dev, tmp_path, monkeypatch, capsys, extra):
+    d = load_deploy()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(d, "confirm", lambda prompt, assume_yes: False)
+    before = snapshot(ahead_dev)
+    extra = [str(remote.clone) if a == "CLONE" else a for a in extra]
+    argv = ["update", "--tag", "dev", "--target", str(ahead_dev), "--prefix", str(tmp_path / ".local")] + extra
+    assert d.update_cmd(d.build_parser().parse_args(argv)) == 1
+    assert "%s left unchanged" % ahead_dev in capsys.readouterr().out
+    assert snapshot(ahead_dev) == before
+
+
+def test_update_downgrade_dry_run_only_warns(remote, ahead_dev):
+    before = snapshot(ahead_dev)
+    r = update(remote, "--tag", "dev", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "WARNING" in r.stdout and snapshot(ahead_dev) == before
+
+
 # --------------------------------------------------------------------------- migrate (preflight)
 
 @pytest.mark.parametrize("breakage", ["launcher", "registry"])

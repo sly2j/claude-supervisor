@@ -428,6 +428,50 @@ def read_pack_version(source: Path) -> Optional[str]:
     return path.read_text(encoding="utf-8").strip() or None
 
 
+def git_out(source: Path, *args: str) -> Optional[str]:
+    """Stripped stdout of `git -C source <args>`, or None when it fails or git is missing."""
+    try:
+        out = subprocess.run(["git", "-C", str(source)] + list(args), capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() if out.returncode == 0 else None
+
+
+def derive_version(source: Path) -> Optional[str]:
+    """VERSION, plus build metadata on a branch checkout: `<base>+<branch>.<ahead>.g<sha>[.dirty]`.
+
+    `base` is VERSION at the merge-base with main and `ahead` the commits since, so nothing is edited
+    on rebase. Plain VERSION on main, outside git, or when there is no main to compare with."""
+    plain = read_pack_version(source)
+    commit, dirty = git_info(source)
+    branch = git_branch(source)
+    if plain is None or commit is None or branch == "main":
+        return plain
+    ref = next((r for r in ("refs/heads/main", "refs/remotes/origin/main")
+                if git_out(source, "rev-parse", "--verify", "--quiet", r)), None)
+    mb = ref and git_out(source, "merge-base", "HEAD", ref)
+    ahead = mb and git_out(source, "rev-list", "--count", mb + "..HEAD")
+    sha = git_out(source, "rev-parse", "--short=7", "HEAD")
+    if not (ahead and sha):
+        return plain
+    base = git_out(source.parent, "show", mb + ":./VERSION") or plain
+    label = re.sub(r"[^A-Za-z0-9.-]", "-", branch or "detached")
+    return "%s+%s.%s.g%s%s" % (base, label, ahead, sha, ".dirty" if dirty else "")
+
+
+def version_key(version: Optional[str]) -> Optional[Tuple[int, int, int]]:
+    """(X, y, commits ahead) of an `X.y[+meta]` version, or None when it does not parse."""
+    main, _, meta = (version or "").partition("+")
+    m = re.fullmatch(r"(\d+)\.(\d+)", main)
+    if not m:
+        return None
+    parts = meta.split(".")  # labels may hold dots, so read from the right
+    if parts[-1] == "dirty":
+        parts.pop()
+    ahead = int(parts[-2]) if len(parts) >= 2 and re.fullmatch(r"g[0-9a-f]+", parts[-1]) and parts[-2].isdigit() else 0
+    return int(m.group(1)), int(m.group(2)), ahead
+
+
 # --------------------------------------------------------------------------- manifest / lock / settings
 
 def manifest_path(target: Path) -> Path:
@@ -708,7 +752,7 @@ def install_preflight(args: argparse.Namespace) -> Tuple[Path, Path, Optional[st
 
 def install_cmd(args: argparse.Namespace) -> int:
     source, target, tag, prefix, launcher, token, src_files = install_preflight(args)
-    pack_version = read_pack_version(source)
+    pack_version = derive_version(source)
     if args.overwrite_local and not args.dry_run:
         if not confirm("--overwrite-local will back up and replace locally modified/unmanaged files in %s. Continue?"
                        % target, args.yes):
@@ -925,7 +969,7 @@ def status_cmd(args: argparse.Namespace) -> int:
             print("Launcher: %s" % manifest["launcher"])
         source = Path(args.source).expanduser().resolve() if args.source else Path(str(manifest.get("source_dir")))
         recorded = manifest.get("pack_version")
-        current = read_pack_version(source) if source.is_dir() else None
+        current = derive_version(source) if source.is_dir() else None
         flag = " (MISMATCH: run ./deploy install from your checkout)" if recorded and current and recorded != current else ""
         print("Version: installed=%s, source=%s%s" % (recorded or "not recorded", current or "unknown", flag))
         rows = file_states(target, manifest, source if source.is_dir() else None)
@@ -1130,6 +1174,16 @@ def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run:
         return 1
 
 
+def downgrade_ok(key: str, manifest: dict, new_version: Optional[str], assume_yes: bool, dry_run: bool) -> bool:
+    """False when the install is newer than what update would put there and the user declines."""
+    old = manifest.get("pack_version")
+    old_key, new_key = version_key(old), version_key(new_version)
+    if not (old_key and new_key and old_key > new_key):
+        return True
+    print("WARNING %s: installed %s is newer than %s, which update would install" % (key, old, new_version))
+    return dry_run or confirm("Continue with the update?", assume_yes)
+
+
 def update_cmd(args: argparse.Namespace) -> int:
     prefix = resolve_prefix(args)
     installs = load_registry(prefix)
@@ -1184,6 +1238,7 @@ def update_cmd(args: argparse.Namespace) -> int:
                 failed += 1
         sys.stdout.flush()
     groups: Dict[Tuple[str, str], List[str]] = {}
+    manifests: Dict[str, dict] = {}
     for key, entry in selected.items():
         try:
             manifest = load_manifest(Path(key))
@@ -1194,11 +1249,16 @@ def update_cmd(args: argparse.Namespace) -> int:
         if manifest is None:
             print("SKIP %s: no manifest" % key)
         elif source is not None:
-            failed += replay_install(key, entry, manifest, source, args.dry_run) != 0
+            if downgrade_ok(key, manifest, derive_version(source / "pack"), args.yes, args.dry_run):
+                failed += replay_install(key, entry, manifest, source, args.dry_run) != 0
+            else:
+                print("%s left unchanged" % key)
+                failed += 1
         elif entry.get("remote") is None:
             print("ERROR %s: no recorded remote; run ./deploy install from your checkout, or pass --from" % key)
             failed += 1
         else:
+            manifests[key] = manifest
             groups.setdefault((entry["remote"], entry_branch(entry)), []).append(key)
 
     for (remote, branch), keys in groups.items():
@@ -1229,8 +1289,9 @@ def update_cmd(args: argparse.Namespace) -> int:
         with tempfile.TemporaryDirectory() as tmp:
             clone = Path(tmp) / "src"
             try:
-                cloned = subprocess.run(["git", "clone", "--depth", "1", "--branch", branch, "--quiet",
-                                         remote, str(clone)]).returncode == 0
+                # A branch other than main needs a full clone so origin/main gives it a merge-base.
+                cloned = subprocess.run(["git", "clone"] + (["--depth", "1"] if branch == "main" else [])
+                                        + ["--branch", branch, "--quiet", remote, str(clone)]).returncode == 0
             except FileNotFoundError:
                 print("ERROR git not found on PATH; install git")
                 failed += len(keys)
@@ -1242,11 +1303,16 @@ def update_cmd(args: argparse.Namespace) -> int:
                       "branch exists, or pass --from DIR" % (remote, branch))
                 failed += len(keys)
                 continue
-            selection = ["--all"] if args.all else entry_selection(keys[0], selected[keys[0]])
-            argv = [sys.executable, str(clone / "deploy"), "update", "--from", str(clone), "--prefix", str(prefix)] + \
-                selection + ["--yes"] + (["--dry-run"] if args.dry_run else [])
-            if subprocess.run(argv).returncode != 0:
-                failed += len(keys)
+            new_version = derive_version(clone / "pack")
+            for key in keys:
+                if not downgrade_ok(key, manifests[key], new_version, args.yes, args.dry_run):
+                    print("%s left unchanged" % key)
+                    failed += 1
+                    continue
+                argv = [sys.executable, str(clone / "deploy"), "update", "--from", str(clone), "--prefix", str(prefix)] + \
+                    entry_selection(key, selected[key]) + ["--yes"] + (["--dry-run"] if args.dry_run else [])
+                sys.stdout.flush()
+                failed += subprocess.run(argv).returncode != 0
     return 1 if failed else (EXIT_STALE if stale else 0)
 
 
@@ -1451,7 +1517,7 @@ class VersionAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         out = claude_version()
-        print("claude-supervisor %s" % (read_pack_version(REPO_ROOT / "pack") or "unknown"))
+        print("claude-supervisor %s" % (derive_version(REPO_ROOT / "pack") or "unknown"))
         print("claude: %s" % ("not found" if out is None else out.strip()))
         parser.exit()
 
