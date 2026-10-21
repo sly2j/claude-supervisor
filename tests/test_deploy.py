@@ -827,7 +827,7 @@ def test_deploy_version(tmp_path, with_claude):
                        timeout=60, stdin=subprocess.DEVNULL)
     assert r.returncode == 0, r.stderr
     assert r.stdout.splitlines() == [
-        "claude-supervisor %s" % (SCRIPT.parent / "VERSION").read_text().strip(),
+        "claude-supervisor %s" % load_deploy().derive_version(SCRIPT.parent / "pack"),
         "claude: 2.1.300 (Claude Code)" if with_claude else "claude: not found"]
 
 

@@ -44,6 +44,9 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   length on load-bearing contracts such as verdict tokens, output schemas, or routing tables.
 - State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,
   B's scope must accept that work.
+- Keep definitions self-contained: behaviour an agent or skill needs is stated in the pack's own
+  files, never delegated to the source repo's memory entries, plans, or docs, which do not exist
+  where the pack is deployed.
 - Agents that report upward use a bounded report with explicit size caps.
 - Prefer a skill over an agent when the thing is a procedure or a body of knowledge rather than a
   role with its own model or context needs.
@@ -65,6 +68,7 @@ Judge a definition by its likely operational effect, not its tidiness:
 - Are its boundaries reciprocal with its neighbors?
 - Are its contracts checkable?
 - Does it duplicate rules that live in a preloaded skill?
+- Is it self-contained, or does behaviour depend on the source repo's memory, plans, or docs?
 
 ## After Changing The Pack
 
