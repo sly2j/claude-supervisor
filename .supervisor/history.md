@@ -11,3 +11,4 @@
 - 2026-10-21 2.10 Planner: no hard-coded future version numbers (roadmap item 2); goals: none; plan: none; decisions: none
 - 2026-10-21 2.11 effort: default everywhere except Haiku quick tier at xhigh (owner decision); goals: none; plan: none; decisions: .supervisor/memory/decisions/2026-10-21-agents-run-at-default-effort-haiku-at.md
 - 2026-10-21 2.12 project-memory: roadmap items may name a major release, never a minor version (owner decision); goals: none; plan: none; decisions: none
+- 2026-10-21 2.15 planner: child plans need approval only on a major design decision (owner decision); goals: none; plan: none; decisions: .supervisor/memory/decisions/2026-10-21-planner-decides-when-to-split-into.md

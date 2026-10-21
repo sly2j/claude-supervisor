@@ -71,8 +71,8 @@ without guessing and the user can approve.
 - Integration work is a package too; a parent plan's `## Orchestration` and `## Todo` point here.
 - A child plan is a normal plan for one package at the briefed path, with no `## Work Packages`.
 - To split a package, return `Amend parent:` (new blocks, `Deps` on it, changed lines), never a
-  parent edit. The user approves the parent plan once; packages added by `Amend parent:` need
-  no further approval.
+  parent edit. The user approves the parent plan once; child plans and `Amend parent:` packages
+  need no approval unless a major design decision arises.
 
 ## Review
 
@@ -90,6 +90,6 @@ applies.
 
 ## Final Output
 
-Write the plan first, then return the `lead-loop` report with the approach in three to five lines
+Write the plan first, then return the `lead-loop` report with the approach in 3-5 lines
 and the next step (user approval, then `executor`); for a parent plan, end with one line per
 package: id, Deps, Stages, Status, Artifacts.

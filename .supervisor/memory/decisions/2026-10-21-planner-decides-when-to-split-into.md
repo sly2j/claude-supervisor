@@ -12,4 +12,4 @@ Why: a second approval round for every split would stall long programs on bookke
 
 `pack/agents/planner.md` (`## Work Packages`) states the judgment criterion, the parallel preference, the user override, the single parent approval and the no-approval rule for amended packages.
 
-Reach: product; written into pack/agents/planner.md (## Work Packages), except "sees child plans only on a real design choice", which is NOT stated in the product.
+Reach: product; written into pack/agents/planner.md (## Work Packages). Since 2.15 that includes the child-plan rule: child plans and `Amend parent:` packages need no approval unless a major design decision arises (owner, 2026-10-21).

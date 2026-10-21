@@ -88,9 +88,7 @@ that make its dev cycle cleaner. Effort: L.
 
 `pack/agents/supervisor.md` is at its 1000-word Main cap, and Program logs for flat plans needs a
 clause there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the
-owner for approval before adding clauses. Open: whether "the user sees child plans only on a real
-design choice" (`.supervisor/memory/decisions/2026-10-21-planner-decides-when-to-split-into.md`)
-goes into the pack, and where.
+owner for approval before adding clauses.
 Priority: normal — unblocks Program logs for flat plans. Effort: S.
 
 ### 3. Roadmap intake: tell users they can add items
