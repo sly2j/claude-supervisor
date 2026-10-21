@@ -232,3 +232,12 @@ Priority: normal, after item 5. Effort: L.
 state; define how conflicting or duplicate entries are reconciled when a feature is merged
 (supersede rules, curator pass at merge, or merge-time report).
 Priority: low — future release. Effort: L.
+
+### 12. Roadmap intake: tell users they can add items
+
+The README does not say the roadmap takes user-added tasks. Add an "Adding to the roadmap" section:
+ask the supervisor ("add to the roadmap: ...") to append an item (VERSION bump and commit), or edit
+ROADMAP.md by hand. Show the format (numbered heading, 2-5 line body, `Priority: high|normal|low`
+and `Effort: S|M|L` line); items are ordered by priority, then effort; `curator` moves landed items
+to `.supervisor/history.md`. After item 5 (Stage 4), the README names `.supervisor/roadmap.md`.
+Priority: normal — small. Effort: S.
