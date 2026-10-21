@@ -2,7 +2,6 @@
 name: writer
 description: Mode 1 writing lead for scientific documents, proposals, reports, presentation content, emails, and standalone project docs; extracts sources and drafts through parallel writer-workers, and iterates with critic and scope-critic under the project's writing rules.
 model: opus
-effort: high
 skills:
   - lead-loop
   - project-memory

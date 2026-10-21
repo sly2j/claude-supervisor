@@ -9,14 +9,14 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 
 | Tier | Agents | Model / effort | Tools |
 |---|---|---|---|
-| Main | supervisor | fable / high | no Bash, no NotebookEdit; writes only its memory files |
-| Lead | researcher, executor, writer | opus / high | all; preload `lead-loop` |
-| Lead | planner | fable / xhigh | all; preload `lead-loop` |
-| Worker | researcher-worker, planner-worker, executor-worker | sonnet / high | `disallowedTools` includes `Agent` |
-| Worker | writer-worker | opus / high | `disallowedTools` includes `Agent` |
+| Main | supervisor | fable / default | no Bash, no NotebookEdit; writes only its memory files |
+| Lead | researcher, executor, writer | opus / default | all; preload `lead-loop` |
+| Lead | planner | fable / default | all; preload `lead-loop` |
+| Worker | researcher-worker, planner-worker, executor-worker | sonnet / default | `disallowedTools` includes `Agent` |
+| Worker | writer-worker | opus / default | `disallowedTools` includes `Agent` |
 | Review | critic | opus / default | read-only plus Bash; no `Agent` |
-| Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
-| Memory | curator | sonnet / high | explicit allowlist; no `Agent` |
+| Review | scope-critic | fable / default | read-only, no Bash, no `Agent` |
+| Memory | curator | sonnet / default | explicit allowlist; no `Agent` |
 | Quick | clerk, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
 - `planner` dispatches `critic` with `model: fable`, and `writer` dispatches `writer-worker` with

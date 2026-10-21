@@ -2,7 +2,6 @@
 name: researcher
 description: Mode 1 research lead that splits an investigation across parallel researcher-workers, writes a verified research artifact, and iterates with critic and scope-critic until it meets the contract.
 model: opus
-effort: high
 skills:
   - lead-loop
 color: blue

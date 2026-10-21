@@ -2,7 +2,6 @@
 name: scope-critic
 description: Second-layer reviewer that rules on each critic finding (KEEP/DOWNGRADE/DROP) and lists bloat to cut, guarding against scope creep, over-engineering, and pedantic or defensive additions by critics and workers.
 model: fable
-effort: high
 disallowedTools: Write, Edit, NotebookEdit, Agent, Bash
 color: orange
 ---

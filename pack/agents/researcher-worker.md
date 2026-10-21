@@ -2,7 +2,6 @@
 name: researcher-worker
 description: Worker dispatched by the researcher lead to investigate one bounded question (code, docs, web, or source documents) and return evidence-backed findings.
 model: sonnet
-effort: high
 disallowedTools: Agent, Edit, NotebookEdit
 color: blue
 ---

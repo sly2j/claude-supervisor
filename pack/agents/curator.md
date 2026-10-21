@@ -4,7 +4,6 @@ description: Memory curator that supervisor dispatches directly to close out a f
 skills:
   - project-memory
 model: sonnet
-effort: high
 tools: Read, Edit, Write, Glob, Grep, Bash
 color: purple
 ---

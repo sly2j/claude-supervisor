@@ -1,6 +1,6 @@
 ---
 domain: process
-summary: The curator is a Memory-tier agent on sonnet, high effort, body cap 400, no Agent tool
+summary: The curator is a Memory-tier agent on sonnet, default effort (high until 2.11), body cap 400, no Agent tool
 affects: [pack/agents/curator.md, pack/skills/agent-authoring/SKILL.md, tests/test_pack_lint.py]
 verified: 2026-10-21
 source: docs/archive/plan-memory-v2.md#approach

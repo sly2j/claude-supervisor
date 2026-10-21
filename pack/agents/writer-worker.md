@@ -2,7 +2,6 @@
 name: writer-worker
 description: Worker dispatched by the writer lead to extract one source with the named extraction skill, or to write or revise prose at a given path following the style skill, writing rules, and author voice.
 model: opus
-effort: high
 disallowedTools: Agent
 skills:
   - project-memory

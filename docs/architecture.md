@@ -25,19 +25,19 @@
 
 | Agent | Role | Model / effort | Tools |
 |---|---|---|---|
-| `supervisor` | Main thread: routing, briefing, synthesis | fable / high | all except Bash, NotebookEdit |
-| `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / high | all |
-| `planner` | Lead: implementation plans in `.supervisor/working/plans/` | fable / xhigh | all |
-| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / high | all |
-| `writer` | Lead: scientific and technical prose, slide content, project docs | opus / high | all |
-| `researcher-worker` | Worker: one bounded investigation | sonnet / high | all except Agent, Edit, NotebookEdit |
-| `planner-worker` | Worker: one bounded repo question for a plan | sonnet / high | all except Agent, Write, Edit, NotebookEdit |
-| `executor-worker` | Worker: one unit of change in its assigned files | sonnet / high | all except Agent |
-| `writer-worker` | Worker: extracts sources, drafts and revises prose | opus / high (fable on request) | all except Agent |
+| `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
+| `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / default | all |
+| `planner` | Lead: implementation plans in `.supervisor/working/plans/` | fable / default | all |
+| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / default | all |
+| `writer` | Lead: scientific and technical prose, slide content, project docs | opus / default | all |
+| `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
+| `planner-worker` | Worker: one bounded repo question for a plan | sonnet / default | all except Agent, Write, Edit, NotebookEdit |
+| `executor-worker` | Worker: one unit of change in its assigned files | sonnet / default | all except Agent |
+| `writer-worker` | Worker: extracts sources, drafts and revises prose | opus / default (fable on request) | all except Agent |
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by planner) | read-only plus Bash |
-| `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / high | read-only, no Bash |
+| `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
 | `clerk` | Quick: small, exact edits; records memory entries as briefed | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
-| `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); archives draft state | sonnet / high | Read, Edit, Write, Glob, Grep, Bash |
+| `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); archives draft state | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
 | `git-ops` | Quick: routine git with guardrails | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
 
@@ -71,7 +71,7 @@ Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE`
 
 ## Models And Cost
 
-The full assignment is in the [Agents](#agents) table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. The critic runs on Opus at default effort, and planner overrides it to Fable for plan reviews, and writer can override writer-worker to Fable when the user asks for the strongest drafter. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. Deployed agents keep `model: fable`; the sandbox launcher maps Fable to Opus unless started with `--fable` (see `docs/deploy.md`).
+The full assignment is in the [Agents](#agents) table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. Every agent runs at default effort except the Haiku quick tier, which runs at xhigh. Planner overrides the critic to Fable for plan reviews, and writer can override writer-worker to Fable when the user asks for the strongest drafter. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. Deployed agents keep `model: fable`; the sandbox launcher maps Fable to Opus unless started with `--fable` (see `docs/deploy.md`).
 
 A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and the lead's own turns). Mode 2 costs one Haiku call, and a plan close-out one Sonnet call. Routing small work to Mode 2 is the main cost control; `Review: light` drops the extra rounds for mechanical Mode 1 work.
 

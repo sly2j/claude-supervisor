@@ -2,7 +2,6 @@
 name: executor
 description: Mode 1 implementation lead that splits code, script, test, config, and agent-definition work, git conflicts, and Python environments across parallel executor-workers with disjoint files, validates the result, and iterates with critic and scope-critic.
 model: opus
-effort: high
 skills:
   - lead-loop
   - git-safety

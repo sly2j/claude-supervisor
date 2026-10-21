@@ -2,7 +2,6 @@
 name: executor-worker
 description: Worker dispatched by the executor lead to implement one unit of change within an assigned set of files, validate it, and return a diff.
 model: sonnet
-effort: high
 disallowedTools: Agent
 color: green
 ---

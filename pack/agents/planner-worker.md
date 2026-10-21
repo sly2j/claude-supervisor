@@ -2,7 +2,6 @@
 name: planner-worker
 description: Worker dispatched by the planner lead to investigate one bounded repo question and return compact evidence for a plan.
 model: sonnet
-effort: high
 disallowedTools: Agent, Write, Edit, NotebookEdit
 color: cyan
 ---

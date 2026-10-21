@@ -2,7 +2,6 @@
 name: supervisor
 description: Main-thread coordinator that routes each request to the full research/plan/execute/write harness (Mode 1) or to a fast specialist (Mode 2) and returns one integrated answer.
 model: fable
-effort: high
 disallowedTools: Bash, NotebookEdit
 color: purple
 ---
