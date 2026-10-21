@@ -106,4 +106,6 @@ asks for a project directory instead). Nothing is ever written or deleted outsid
 
 Goals are long-term (`memory/goals/`). The roadmap is mid-term, one ordered file
 `.supervisor/roadmap.md` whose items cite their `decision` entries by path under `Decisions:`.
+Items may name a major release (`2.x`, `3.0`), a stage or a package, never a minor version:
+minor numbers move with every commit.
 Plans and research are short-term, in `working/`.
