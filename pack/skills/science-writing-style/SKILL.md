@@ -6,8 +6,8 @@ description: Style rules for external-facing scientific prose - proposals, paper
 # Science writing style
 
 Each rule is either **[hard floor]** (never relaxed) or **[overridable default]** (yields to
-project Standing Rules, active Session Decisions, or author samples, per
-`writing-rules-persistence`).
+project writing conventions, active Session Decisions, or author samples, per
+`project-memory`).
 
 ## AI-tell avoidance
 
@@ -113,22 +113,22 @@ Genres: `proposal` (default), `paper-intro`, `abstract`, `report`, `pitch`, `let
 - **Read the whole draft first.** Use the dispatched genre, or default to `proposal` and say so.
   If the brief gives a review focus (general quality, AI-tell/voice cleanup, compliance check,
   technical completeness), stay inside it.
-- **Overrides before findings.** Before raising a finding, check Standing Rules, active Session
-  Decisions for this draft, and author-sample anchors (precedence in `writing-rules-persistence`).
-  Do not raise patterns they cover unless a hard floor is violated; list each suppression with its
+- **Overrides before findings.** Before raising a finding, check writing conventions, active
+  Session Decisions for this draft, and author-sample anchors (precedence in `project-memory`). Do
+  not raise patterns they cover unless a hard floor is violated; list each suppression with its
   source. Pending Verification items never suppress a finding; a matching pattern may be raised as
   minor with a `watchlist` note.
 - **AI-tell detection.** Flag every hard-floor violation above, plus repeated sentence patterns and
   abstract noun stacks. Each finding includes a concrete replacement.
 - **Severity.**
   - Must-fix (BLOCKING): factual errors, unsupported claims, missing required sections,
-    page-budget overruns, Standing Rule violations, banned vocabulary, hard-floor violations, voice
-    mismatches not explicitly preserved, structural defects.
+    page-budget overruns, writing convention violations, banned vocabulary, hard-floor violations,
+    voice mismatches not explicitly preserved, structural defects.
   - Minor (SHOULD, or NIT for pure preference): isolated word choice, rhythm preferences,
     acceptable alternatives, single-instance soft-default violations, watchlist matches.
 - **Needs-user findings.** Three conditions cannot be fixed by another drafting round: missing
-  essential source facts, a conflict between the user's request and a Standing Rule, and a scope
-  mismatch. Report each as a BLOCKING finding labeled `needs user: missing facts` (or
+  essential source facts, a conflict between the user's request and a writing convention, and a
+  scope mismatch. Report each as a BLOCKING finding labeled `needs user: missing facts` (or
   `rule conflict`, `scope mismatch`) so the `writer` lead escalates instead of iterating. Never use
   this label for fixable style, structure, or polish. When facts are missing, say what is missing
   instead of adding polish findings.

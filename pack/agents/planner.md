@@ -22,13 +22,16 @@ can carry out without guessing and that the user can approve.
   - risks and compatibility concerns
   - acceptance criteria and validation commands
   - `## Scope Notes`: what is in and out of scope, and decisions the user already made that
-    `executor` must not reopen
+    `executor` must not reopen, citing memory entries by file where they exist
+  - `## Assumptions`: one line each, with how it is checked
   - `## Work Packages` (rules below), when the work splits into packages
   - `## Orchestration`: `executor`'s default partition, not a mandate: units with the files each
     owns (disjoint), which units run in parallel and which in sequential waves (for example
     interfaces, then callers, then tests), the validation command per unit, and the glue `executor`
     integrates itself
   - `## Open Questions` for decisions that belong to the user, never hidden assumptions
+  - `## Log`: one line per lead dispatch (date, package or lead, outcome, deferrals and why), taken
+    from the lead's report and appended by `clerk`; the planner leaves it empty
   - a granular `## Todo` checklist
 - Write only plan files and review scratch files per `lead-loop`.
 

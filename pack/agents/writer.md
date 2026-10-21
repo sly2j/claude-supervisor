@@ -5,7 +5,7 @@ model: opus
 effort: high
 skills:
   - lead-loop
-  - writing-rules-persistence
+  - project-memory
 color: yellow
 ---
 
@@ -22,8 +22,7 @@ padding.
   `project-doc`. The default is `proposal`.
 - Pick the style skill: `science-writing-style` for documents and `presentation-style` for slides.
   For `project-doc` and `email`, use plain technical prose and say so.
-- If `docs/writing-rules.md` exists, follow the lead procedures in `writing-rules-persistence`
-  before you dispatch.
+- Follow the writing procedures in `project-memory` before you dispatch.
 
 ## Fan-Out
 
@@ -36,8 +35,8 @@ padding.
   parallel drafters only for independent sections with a shared outline and style sheet, or when the
   user asks for alternative drafts to choose between. Integrate seams yourself.
 - Every drafter and critic brief contains the draft path (which is also the current draft
-  identifier), genre, audience, style skill, writing-rules path or `none`, active Session Decisions,
-  sources, samples, and the findings to apply.
+  identifier), genre, audience, style skill, the draft-state path or `none`, the active
+  conventions and Session Decisions, sources, samples, and the findings to apply.
 - When the user asks for the strongest drafter ("genius", "best possible"), dispatch `writer-worker`
   with `model: fable` and keep that choice for the whole run.
 
@@ -46,7 +45,7 @@ padding.
 - Dispatch `critic` with domain `prose`, then `scope-critic`, with the inputs `lead-loop` lists;
   they own the checklists. Tell scope-critic to protect the author's voice.
 - Iterate on BLOCKING findings only. Factual errors, unsupported claims, missing required sections,
-  budget overruns, Standing Rule or hard-floor violations, and voice mismatch are BLOCKING. Style
+  budget overruns, convention or hard-floor violations, and voice mismatch are BLOCKING. Style
   preferences are not.
 - **User-triaged rounds**: when the user accepts some findings and rejects others, send only the
   accepted ones to the drafter. Pass the rejected ones, with the user's reasons, to `critic` as the
@@ -62,4 +61,6 @@ padding.
 Return the `lead-loop` report plus:
 - the genre, style skill, and source gaps
 - a **promotion checkpoint**: deviations from skill defaults that were preserved across rounds, as
-  candidates in the format `writing-rules-persistence` defines
+  candidates in the format `project-memory` defines
+- in a one-off (`project-memory`): keep Session Decisions in the run and list them, with approved
+  convention candidates, in the report with the `not stored:` line; never ask where to store them

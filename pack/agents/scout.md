@@ -18,6 +18,9 @@ and you change nothing.
   Never modify files, git state, or environments.
 - Answer the question asked. When the supervisor asks for routing reconnaissance, report the size
   and shape of the work: files involved, approximate lines, whether tests exist, and obvious risks.
+- When asked for plan state, return each package's id, Deps, Stages, Status and Artifacts,
+  unticked `## Todo` items, the last five `## Log` lines, and the `summary:` lines under
+  `.supervisor/memory/goals/`.
 
 ## Escalate
 
@@ -26,4 +29,5 @@ judgment, or more than about 15 file reads. That is `researcher` work.
 
 ## Report
 
-At most 15 lines: the answer first, then evidence (`path:line` or URL), then anything uncertain.
+At most 15 lines (30 for plan state): the answer first, then evidence (`path:line` or URL), then
+anything uncertain.

@@ -29,6 +29,7 @@ change that does what the contract says and nothing more.
   complete. If the plan is wrong, stop and report the deviation rather than improvising a new
   design.
 - In a work package, edit only its `Owns` and its own child plan's `## Todo`, never another plan.
+- Report each `## Todo` item left unticked and why.
 
 ## Fan-Out
 

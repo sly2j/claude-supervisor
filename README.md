@@ -52,7 +52,7 @@ Just ask for what you want. The supervisor picks the path:
 | Situation | Path | Why |
 |---|---|---|
 | Conversation, general advice, one or two small reads | The supervisor answers directly | Nothing to delegate |
-| Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `quick-edit`, `git-ops`, or `scout` | Cheapest path, no review loop |
+| Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `clerk`, `git-ops`, or `scout` | Cheapest path, no review loop |
 | Anything else in one area of work | One lead (`researcher`, `planner`, `executor`, or `writer`) with workers and review | Design judgment gets reviewed |
 | Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor`, skipping stages that add nothing | You approve the plan before code is written |
 | Streams that each need their own research, plan, or write stage | Work packages, run in waves | Independent streams run in parallel |
@@ -96,7 +96,7 @@ The planner breaks a plan into work packages when streams each need their own re
 - Artifacts: docs/plan-hooks-p9.md
 ```
 
-The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package, and your answer re-runs that stage, also in a new session: the plan file holds the state.
+The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package, and your answer re-runs that stage, also in a new session: the plan file holds the state. Its `## Log` section gets one line per lead run, with what was deferred and why, so a new session can tell you what ran and what is still open.
 
 A chain, where each package consumes the one before it: six stages, six waves.
 
@@ -148,6 +148,8 @@ flowchart LR
 
 The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
 
+`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/writing/` for per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. It is created on the first write in a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory itself); elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project". It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+
 ## What's In The Pack
 
 Who handles what:
@@ -156,7 +158,8 @@ Who handles what:
 - `planner`: implementation plans in `docs/plan-*.md`
 - `executor`: code, tests, config, agent definitions, git conflicts, Python environments
 - `writer`: scientific and technical prose, slide content, project docs
-- `quick-edit`: small, exact edits; runs a given command
+- `clerk`: small, exact edits; runs a given command; records memory entries
+- `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups
 

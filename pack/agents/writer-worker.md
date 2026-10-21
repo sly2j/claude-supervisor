@@ -5,7 +5,7 @@ model: opus
 effort: high
 disallowedTools: Agent
 skills:
-  - writing-rules-persistence
+  - project-memory
 color: yellow
 ---
 
@@ -44,7 +44,7 @@ extraction skill means extraction, a style skill means drafting.
 - **Changes**: one line per change, tied to a finding ID when revising.
 - **Preserved**: text a finding targeted that you kept, with the rule or sample that justifies
   keeping it.
-- **Overrides applied**: Standing Rules or Session Decisions that changed default behavior, or
+- **Overrides applied**: conventions or Session Decisions that changed default behavior, or
   `none`.
 - **TODOs**: the missing facts.
 - **Self-check**: every finding is addressed or preserved, and the change list matches the actual

@@ -25,8 +25,9 @@ against its ROADMAP done-when before the next starts.
 
 - **P1, Stage 1:** rename `quick-edit` to `clerk`; add the `project-memory` skill (schema, naming,
   supersede, validate-before-use, the three horizons, the store `README.md` template, work-area
-  detection and scratch rules in `references/work-areas.md`); one supervisor clause has the
-  post-wave `clerk` record binding decisions; `lead-loop` greps the store at contract time.
+  detection and scratch rules in `references/work-areas.md`, superseded by D13); one supervisor
+  clause has the post-wave `clerk` record binding decisions; `lead-loop` greps the store at
+  contract time.
 - **P2, Stage 2:** `## Assumptions` and `## Log` become plan sections; `lead-loop`'s report
   contract ends with a `Log:` line that the post-wave `clerk` appends unchanged; `executor` reports
   unticked Todo items with a reason; `scout` returns the log tail with plan state.
@@ -86,6 +87,7 @@ Planner calls the roadmap left open, each with its rationale:
   mid-job; a user-answered one-off area reused in a later session, or one that gains a long-term
   signal, triggers the D12 question once more, and the answer persists in the marker; auto-detected
   one-offs (temp, `~/Downloads`) carry no marker and never ask (Interfaces 4).
+  Superseded by D13: no scratch, no marker, no pruning.
 - **Idle plans are proposed, never archived (user-accepted).** On every run the curator lists
   plans with no `## Log` activity for 30 days and asks archive-or-keep; "keep" is logged, which
   resets the clock. 30 days matches the scratch threshold; a false positive costs one question.
@@ -255,9 +257,9 @@ replacement is a new file in `memory/<kind>/` carrying `supersedes: <archived pa
 step the old file gains the frontmatter line `superseded by: <new path>` and is moved (`git mv`) to
 `archive/memory/<kind>/`. A finished goal moves the same way with `met: YYYY-MM-DD` or
 `dropped: YYYY-MM-DD` added instead (`goal` only). An archived file therefore carries exactly one
-of these three lines, and `verified:` is the only field a curator run changes on a file in
-`memory/`. No secrets or personal notes; personal preferences stay in Claude Code auto memory
-(D8).
+of these three lines. Only `verified:`, or `supersedes:` on the newer of two merged entries,
+changes on a file that stays in `memory/`. No secrets or personal notes; personal preferences stay
+in Claude Code auto memory (D8).
 
 ### 3. `README.md` and `history.md`
 
@@ -276,6 +278,9 @@ of these three lines, and `verified:` is the only field a curator run changes on
   writes the first line, for v2.0. Paths per Interfaces 2.
 
 ### 4. Work-area detection and scratch (D12; OQ3 decided, plus the user-accepted scratch rules)
+
+Superseded by D13 (one-offs persist nothing and ask nothing; detection per D13): the rest of this
+section is kept as history, except the "Without git" bullet at its end, which still stands.
 
 Applied by whichever agent makes the first write under a directory (clerk, writer, curator). The
 procedure lives in `project-memory/references/work-areas.md`; `SKILL.md` keeps a three-line
@@ -327,15 +332,16 @@ summary and the pointer, so the clerk's preload stays lean.
   and `git-ops` never read it.
 - Validate before use: every file under `memory/` is in force; what it replaced sits under
   `archive/memory/<kind>/`, reachable through its `supersedes:` path when the history matters. An
-  entry whose `affects:` paths are missing, or for which `git log --since=<verified> --
-  <affects>` is non-empty (mtime newer than `verified:` without git), is a claim to re-check, not
-  a fact; say so when citing it. A `machine:/path` reference whose machine is not the current host
-  (`hostname -s`) cannot be verified from here, so it is treated as unavailable for this task; cite
-  it, but do not try to read it. The curator resolves such an entry by confirming it (`verified:`)
-  or superseding it, which moves it out of `memory/`.
-- `scout`, when asked for plan state, returns each package's `Status`, unticked `## Todo` items,
-  the last five `## Log` lines, and the `summary:` lines under `memory/goals/`. The supervisor's
-  one `scout` call on resume or project start carries this (supervisor L82).
+  entry whose `affects:` paths are missing, or for which `git log --since="<verified>
+  23:59:59" -- <affects>` is non-empty (mtime newer than `verified:` without git), is a claim to
+  re-check, not a fact; say so when citing it. A `machine:/path` reference whose machine is not
+  the current host (`hostname -s`) cannot be verified from here, so it is treated as unavailable
+  for this task; cite it, but do not try to read it. The curator resolves such an entry by
+  confirming it (`verified:`) or superseding it, which moves it out of `memory/`.
+- `scout`, when asked for plan state, returns each package's id, Deps, Stages, Status and
+  Artifacts, unticked `## Todo` items, the last five `## Log` lines, and the `summary:` lines under
+  `memory/goals/`, within a report of at most 15 lines (30 for plan state). The supervisor's one
+  `scout` call on resume or project start carries this (supervisor L82).
 - Expiry (D6; OQ1 decided): flag on `affects:` change only; no time-based archiving of entries in
   v2.0.
 - Hooks (D10; OQ2 decided): none in v2.0.
@@ -361,7 +367,8 @@ summary and the pointer, so the clerk's preload stays lean.
   its key is that string with the `:` and leading `/` dropped, then `/` -> `--`, for example
   `polaris--home--me--doc.tex`; paths per Interfaces 2. One-off jobs use
   `<scratch>/<dir key>/writing/<key>.md` with `<key>` relative to the directory, so promotion is a
-  plain move (section 4). Template `templates/draft-state.md`:
+  plain move (section 4; superseded by D13: a one-off keeps no draft state). Template
+  `templates/draft-state.md`:
 
 ```
 ---
@@ -373,10 +380,10 @@ file: proposal/body.tex  # the path the key encodes, kept exact
 - <pattern seen once in this draft; promote to a convention or drop>
 ```
 
-- The `writer` lead creates and updates the file (per-item user approval, as today); it is the
-  only writer of draft state. The curator moves it to `.supervisor/archive/working/writing/` at
-  close-out of the program that owns the draft or when the user says the draft is done; the move
-  is the whole status change.
+- The `writer` lead creates and updates the file (per-item user approval, as today); only it writes
+  draft state, apart from `curator migrate` and the archive moves. The curator moves it to
+  `.supervisor/archive/working/writing/` at close-out of the program that owns the draft or when the
+  user says the draft is done; the move is the whole status change.
 - Precedence, highest first: style-skill hard floors; active `convention` entries with
   `domain: writing` whose `affects:` is empty or covers the draft; the draft's Session Decisions;
   author samples; style-skill defaults. Pending Verification never suppresses a finding
@@ -486,31 +493,30 @@ Other insertions (headroom today in parentheses):
   121 of 300 lines.
 - `planner.md` (87): P1 ends L24-25 with "must not reopen, citing memory entries by file where
   they exist" (+8); P2 adds the Contents bullets "- `## Assumptions`: one line each, with how it
-  is checked" and "- `## Log`: one line per lead dispatch (date, unit, outcome, deferrals and
-  why), taken from the lead's report and appended by `clerk`; the planner leaves it empty" (39
-  words). Total 47 of 87.
-- `scout.md` Do (206): "- When asked for plan state, return each package's `Status`, unticked
-  `## Todo` items, the last five `## Log` lines, and the `summary:` lines under
-  `.supervisor/memory/goals/`." 26 words.
-- `clerk.md` Do (130): "- Write memory entries and `## Log` lines exactly as briefed, in the
+  is checked" and "- `## Log`: one line per lead dispatch (date, package or lead, outcome,
+  deferrals and why), taken from the lead's report and appended by `clerk`; the planner leaves it
+  empty" (41 words). Total 49 of 87.
+- `scout.md` Do (206): "- When asked for plan state, return each package's id, Deps, Stages, Status
+  and Artifacts, unticked `## Todo` items, the last five `## Log` lines, and the `summary:` lines
+  under `.supervisor/memory/goals/`." 31 words.
+- `clerk.md` Do (130): "- Write `## Log` lines exactly as briefed, and memory entries in the
   `project-memory` format. Before the first memory write under a directory, run the skill's area
   check and return its question unchanged." 33 words.
-- `executor.md` after L31 (326): "- A unit that leaves a `## Todo` item unticked reports the item
-  and why." 15 words.
-- `writer.md` (234): L25-26 "If `.supervisor/memory/` holds writing conventions or the draft has
-  a state file under `.supervisor/working/writing/`, follow the writing procedures in
-  `project-memory` before you dispatch."; L38-40 "the draft-state path or `none`, the active
+- `executor.md` after L31 (326): "- Report each `## Todo` item left unticked and why." 10 words.
+- `writer.md` (234): L25 "Follow the writing procedures in `project-memory` before you
+  dispatch."; L38-40 "the draft-state path or `none`, the active
   conventions and Session Decisions"; L64-65 "in the format `project-memory` defines".
 - `writer-worker.md` (50): L8 skill name; L47-48 "conventions or Session Decisions". Net 0.
-- `critic.md` (17): L46-47 "Load `project-memory` when your brief gives conventions or a
-  draft-state path." 11 words against 9 today, so 585 of 600.
+- `critic.md` (17): L46-47 "Load `project-memory` (`references/writing.md`) for any prose review
+  where `.supervisor/` exists." 10 words against 9 today, so 584 of 600.
 - `curator.md`: at most 400 words; the procedures, including the roadmap step and the idle-plan
   sweep, live in the reference file; the body names them in one line each.
-- `project-memory/SKILL.md`: target 800 words of the 1300 cap; the layout block and its
-  principle (section 1) about 120 words, including the one area-ownership line "`working/`
-  areas: `writing/` is written by `writer`, `research/` by `researcher`, `plans/` by `planner`;
-  any agent may read any area."; the horizons paragraph about 40 words; detection and scratch a
-  three-line summary plus the `references/work-areas.md` pointer.
+- `project-memory/SKILL.md`: target 800 words of the 1300 cap; the layout block and its principle
+  (section 1) about 120 words, including the one area-ownership line "`working/` areas: `writing/`
+  is written by `writer` (and `curator` for migrate and archive moves), `research/` by `researcher`,
+  `plans/` by `planner`; any agent may read any area."; the horizons paragraph about 40 words;
+  detection and scratch a three-line summary plus the `references/work-areas.md` pointer
+  (D13: replaced by the `## Projects and one-offs` section).
 
 ### 10. Documentation
 
@@ -520,9 +526,9 @@ Other insertions (headroom today in parentheses):
   whatever was superseded or finished, `history.md` for what landed and a `README.md` that
   explains the layout; created only in long-term work
   areas (a git repo, `CLAUDE.md`, `.claude/`, `.obsidian/`, or when you say so); one-off jobs use
-  scratch under the config dir; say "remember X" or "forget X"; the `curator` distills finished
-  programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes
-  lessons for your approval.
+  scratch under the config dir (superseded by D13, see README); say "remember X" or "forget X";
+  the `curator` distills finished programs, trims landed items from the roadmap, flags plans idle
+  for 30 days, and proposes lessons for your approval.
 - `docs/architecture.md` `## Memory` (about 130 words): the three horizons (goals, roadmap,
   plans) and the three dirs plus `history.md`, with the layout principle (folders for fixed
   properties, labels for changing ones, the archive mirrors the live tree), who writes (clerk
@@ -599,7 +605,7 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   asking `planner` to plan the follow-up yields a plan whose Scope Notes cite that entry file
   unprompted.
   `python3 -m pytest -q` passes; `git grep -n quick-edit -- pack docs/architecture.md README.md
-  tests` is empty; supervisor body is at most 991 words.
+  tests` is empty; supervisor body is at most 1000 words.
 - **V2 (Stage 2).** A plan with a glue Todo item the executor defers; the executor's report ends
   with a `Log:` line naming the item and why, and the plan's `## Log` gains that line verbatim.
   In a new session, "why is `<item>` unticked?" is answered by `scout` from the plan alone.
@@ -614,8 +620,8 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   `superseded by: <new path>` and the newer one in `memory/decisions/` with `supersedes:` naming
   the archived path, both paths resolving; the fact re-verified in place or superseded the same
   way; the goal under `archive/memory/goals/` with `met: <date>`; `grep -rl "superseded by"
-  .supervisor/memory` empty; item 1 gone from `ROADMAP.md`, its two decisions stored as
-  `decision` entries, item 2 untouched, and `history.md` holding exactly one new line for item 1
+  .supervisor/memory` empty; item 1 gone from `ROADMAP.md`, one `decision` entry per "Decisions
+  already made" bullet, item 2 untouched, and `history.md` holding exactly one new line for item 1
   with date, commit, title, the goal path, the archived plan path and the two decision paths;
   `plan-stale.md` proposed as archive-or-keep in the report and still in place; "keep" appends
   `user: kept active` to its log. `migrate docs/writing-rules.md` yields two `convention`
@@ -624,21 +630,21 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   with `find .supervisor/archive -maxdepth 1 -type f` empty; a writer run on that draft applies
   the convention (critic reports the suppression with the entry file). "remember X" and
   "forget X" each produce one entry change, the latter a move into `archive/memory/<kind>/`.
-  Scratch, in an ambiguous directory answered "one-off", with seeded sibling scratch dirs
-  `stale-a/` (one file 40 days old) and `busy-b/` (one old file, one fresh): after a one-off
-  writer run, `stale-a/` is gone and `busy-b/` kept; with the marker's `decided:` backdated a day,
-  the next run asks the promotion question once, "no" writes `promotion: kept` and a third run
-  asks nothing; after `git init` there, one more question, and "yes" leaves the draft state under
-  `.supervisor/working/writing/` with the scratch dir removed. Suite passes; supervisor at most
-  991 words; `git grep -n -e writing-rules -e "Standing Rule" -- pack docs/architecture.md
+  In a directory outside any git work tree, with no `.supervisor/`, `.claude/`, `CLAUDE.md` or
+  `AGENTS.md` in it or above it (e.g. `mktemp -d`; not inside `memdemo`), a writer run that records a Session Decision leaves nothing on disk anywhere (no
+  `.supervisor/`, no `$CLAUDE_CONFIG_DIR/scratch`) and its report carries the line `not stored: no
+  project store here; say *remember* to keep it`; "remember X" there then creates `.supervisor/`
+  with `README.md` matching the template and one entry. A critic in a prose review reads only the
+  conventions and the draft state (no listing of `.supervisor/`). Suite passes; supervisor at most
+  1000 words; `git grep -n -e writing-rules -e "Standing Rule" -- pack docs/architecture.md
   README.md tests ':!pack/skills/project-memory'` is empty (the skill itself documents the
   migration).
 - **Landing.** `main` has one squash commit with `VERSION` `2.0`, ROADMAP item 1 holding only
   Stages 4-5 with the roadmap move in Stage 4's scope and L20 naming the curator,
   `docs/archive/plan-memory-v2.md` with its Todo ticked, `.supervisor/memory/` with entries for
-  D1-D12 and this plan's decisions, `.supervisor/README.md`, `.supervisor/history.md` with one
-  line for v2.0, and `./deploy install` done; `claude-supervisor` routes a
-  "remember X" to `curator`.
+  D1-D11, D12 as superseded by D13, and D13, and this plan's decisions, `.supervisor/README.md`,
+  `.supervisor/history.md` with one line for v2.0, and `./deploy install` done;
+  `claude-supervisor` routes a "remember X" to `curator`.
 
 ## Validation Commands
 
@@ -650,9 +656,8 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   `ls pack/skills/writing-rules-persistence` (expect missing).
 - Dev deploy after each package: `./deploy install --tag supervisor-dev` from the worktree, then
   the owner's V1-V3 sessions under `claude-supervisor-dev`.
-- P3 scratch check, after the first one-off run of the V3 scratch scenario:
-  `ls "$CLAUDE_CONFIG_DIR/scratch"` in a dev-tag session to see the seeded dirs and the marker
-  (`cat .../one-off`).
+- P3 one-off check, after the one-off writer run of V3: `ls "$CLAUDE_CONFIG_DIR/scratch"` is
+  absent and `find <dir> -name .supervisor` is empty.
 - P3 layout check, in `memdemo` after the V3 close-out: `find .supervisor/archive -maxdepth 1
   -type f`, `grep -rl "superseded by" .supervisor/memory` and `grep -rl -e '^kind:' -e '^status:'
   .supervisor` (all expect nothing); `find .supervisor -name '*.md' | sort` shows only
@@ -666,10 +671,10 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
 
 - **In:** Stages 1-3 of ROADMAP item 1 as specified above; the landing as v2.0; the docs, tests
   and tier table they touch; the one-time commit of this plan on `main` before branching; the
-  user-accepted additions of 2026-10-18 (Interfaces 4 scratch rules, 6 `Log:` lines, 8 idle-plan
-  sweep and roadmap step, 12 horizons) and the layout decisions of the same day (Interfaces 1-3:
-  kind folders with no `kind:` field, `working/writing/`, the archive mirror with
-  supersede-and-move, `history.md`, the store `README.md`).
+  user-accepted additions of 2026-10-18 (Interfaces 4 scratch rules, superseded by D13; 6 `Log:`
+  lines, 8 idle-plan sweep and roadmap step, 12 horizons) and the layout decisions of the same
+  day (Interfaces 1-3: kind folders with no `kind:` field, `working/writing/`, the archive mirror
+  with supersede-and-move, `history.md`, the store `README.md`).
 - **Out:** Stages 4 (moving research, plans and `ROADMAP.md`, converting roadmap decisions to
   references, the `docs/` migration) and 5 (hooks); ROADMAP item 2 (science artefacts); a RAID
   register or issue list; vector, graph or external stores; any `deploy` change; editing
@@ -679,7 +684,7 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   file or a `kind:` or `status:` field; per-commit or per-dispatch `history.md` lines; per-section
   draft keys; automatic draft-state or plan archiving by age; logging quick-tier
   dispatches; a roadmap template or a planner rule about roadmap items before Stage 4; a promotion
-  question on every write (it is once per directory, plus once per new signal); a `.supervisor/`
+  question on every write (moot after D13: no promotion question); a `.supervisor/`
   in this repo before the P4 close-out; rules for anticipated failures; a flat `memory/`,
   superseded entries left in `memory/`, or files at the top level of `archive/`.
 - **Settled, do not reopen:** ROADMAP item 1 "Decisions already made" (D1-D5, D7-D9, D11; the
@@ -714,7 +719,7 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   `docs/architecture.md`, `README.md`.
 - Deps: none
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-v2`
 
 ### P2: Stage 2, program state that explains itself
@@ -726,7 +731,7 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   `docs/architecture.md:59`.
 - Deps: P1
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-v2`
 
 ### P3: Stage 3, curator close-out and writing conventions
@@ -742,7 +747,7 @@ repo `memdemo` (git init, a `CLAUDE.md`, a few files):
   `README.md`.
 - Deps: P1, P2
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-v2`
 
 ### P4: Landing v2.0
@@ -790,17 +795,20 @@ wave 1 runs these units in parallel with disjoint files:
   3. `git rebase main` when `main` moved; commit on `memory-v2` (no `VERSION` change).
   4. `./deploy install --tag supervisor-dev` from the worktree; return the lead-loop report.
   5. The owner runs the package's V scenario in a `claude-supervisor-dev` session; a failure
-     re-runs the package with the observed behaviour in the brief.
+     re-runs the package with the observed behaviour in the brief. Owner decision 2026-10-18:
+     V1-V3 run as a batch at P4 step 1; a package's `Status` reflects implementation and review
+     only.
 - P4 sequence (the supervisor drives; who acts is named per step):
   1. `executor`, in the worktree: `git rebase main`; `python3 -m pytest -q`; dev install. The
      owner reruns V1-V3 once.
   2. The owner, in a `claude-supervisor-dev` session: that supervisor dispatches `curator
      close-out docs/plan-memory-v2.md` with the brief "also write one `decision` entry per
-     ROADMAP D1-D12 (`source: docs/archive/plan-memory-v2.md#scope-notes`), D2, D8 and D11 as
-     amended in Files P4; the history line's version is `2.0`; also remove the 'v2.0 boundary'
-     line; leave `docs/research-memory.md` in place". The close-out's roadmap step removes Stages
-     1-3 and the "v2.0 boundary" line from `ROADMAP.md` (the landed part of item 1; Stages 4-5
-     stay) and appends the first `history.md` line. The
+     D1-D11, D12 as superseded by D13, and D13
+     (`source: docs/archive/plan-memory-v2.md#scope-notes`), D2, D8 and D11 as amended in Files
+     P4; no entry cap for this run; the history line's version is `2.0`; also remove the 'v2.0
+     boundary' line; leave `docs/research-memory.md` in place". The close-out's
+     roadmap step removes Stages 1-3 and the "v2.0 boundary" line from `ROADMAP.md` (the landed
+     part of item 1; Stages 4-5 stay) and appends the first `history.md` line. The
      owner checks the entries, `README.md`, `history.md` and `git diff ROADMAP.md`, answers any
      idle-plan proposal, and commits on the branch through its `git-ops`.
   3. `executor` on `main`, brief asks it to commit: `git merge --squash memory-v2`;
@@ -822,7 +830,8 @@ and stand unless the user vetoes them at review.
   (Interfaces 5).
 - **OQ2 D10, hooks. Decided:** none in v2.0 (Interfaces 5).
 - **OQ3 D12, work areas. Decided:** the signals, scratch location, 30-day pruning and mtime
-  fallback in Interfaces 4, with the age basis and promotion rules the user added.
+  fallback in Interfaces 4, with the age basis and promotion rules the user added (superseded in
+  part by D13).
 - **OQ4 Per-draft state (item a). Decided:** one state file per draft, keyed by draft path, with
   Pending Verification per draft (Interfaces 7).
 - **OQ5 Goal ownership (item b). Decided:** the curator writes `goal` entries and marks them `met`
@@ -835,54 +844,80 @@ and stand unless the user vetoes them at review.
 - **OQ9 No `status:` field (recommended, applied).** Location is the status; an archived file
   carries one `superseded by:`, `met:` or `dropped:` line (Interfaces 2). A veto restores the
   field.
+- **D13, one-off directories. Decided:** A project is a git work tree, or a directory with
+  `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting `$HOME` or
+  its ancestors; the walk stops at the git toplevel. Inside a git work tree the root is the nearest
+  `.supervisor/` within it, else the git toplevel, which wins over anything above it; outside git it
+  is the nearest `.supervisor/`, else the nearest other signal. One-off directories (not inside a
+  git work tree and no `.supervisor/`/`.claude/`/`CLAUDE.md`/`AGENTS.md` here or above, short of
+  `$HOME`): nothing persisted, nothing asked; opt-in via *remember* / *make this a project* /
+  close-out creates the store. Scratch markers, `$CLAUDE_CONFIG_DIR/scratch`, retention and
+  promotion removed. Owner, 2026-10-21, after V3 step 6; `.claude/`, `CLAUDE.md` and `AGENTS.md`
+  signals added by the owner 2026-10-21; `$HOME` bound and git-toplevel precedence added by the
+  owner 2026-10-21, since `~/.claude/` made every directory under `~` a project.
 
 ## Log
 
 (Empty at planning; the post-wave `clerk` appends each lead's `Log:` line once v2.0 is deployed.)
 
+- 2026-10-21 executor: P3 fix round after V3 step 6: D13 one-off handling replaces the scratch
+  flow; close-out one entry per roadmap decision; archive edit before move; gitignore note;
+  critic retrieval bounded; remember/forget briefs verbatim; deferred: none
+- 2026-10-21 executor: P3 close round: D13 project signals extended (`.claude/`, `CLAUDE.md`,
+  `AGENTS.md`), close-out brief names D1-D11, D12 as superseded and D13, one-off migrate via make
+  this a project, review nits; V3 ticked; deferred: none
+- 2026-10-21 executor: D13 amendment: project walk stops at the git toplevel and never considers
+  `$HOME` or its ancestors; a git toplevel outranks any store or signal above it; deferred: none
+- 2026-10-21 executor: P4 landed; squash to main as 2.0; deferred: none
+
 ## Todo
 
 - [x] User accepts OQ1-OQ7 at their defaults and the four additions (2026-10-18)
-- [ ] User approves the revised plan
-- [ ] Setup: commit this plan on `main` (VERSION 1.24); worktree `../claude-supervisor-dev`,
+- [x] User approves the revised plan
+- [x] Setup: commit this plan on `main` (VERSION 1.24); worktree `../claude-supervisor-dev`,
   branch `memory-v2`; `deploy install --tag supervisor-dev`
-- [ ] P1 U1: `git mv` to `clerk.md`, name, description, body, skill preload, Do bullet;
+- [x] P1 U1: `git mv` to `clerk.md`, name, description, body, skill preload, Do bullet;
   supervisor L29, L58-59, L86-87, L90, L109-110 rewrap; agent-authoring L19; lint L19; `clerk`
   refs (both architecture L59 mentions), `project-memory` row, README L55, L159 and Memory
   paragraph
-- [ ] P1 U2: `project-memory/SKILL.md` (Interfaces 1-5 incl. the layout block, principle and
+- [x] P1 U2: `project-memory/SKILL.md` (Interfaces 1-5 incl. the layout block, principle and
   area-ownership line, 12 horizons), `templates/entry.md` (no `kind:` or `status:`, with
   `supersedes:`), `templates/store-readme.md`, `references/work-areas.md` (detection with the
   README copy, marker, pruning, reuse and re-check; `writing/` scratch paths), lead-loop Memory
   bullet (`grep -r`), planner L24-25 wording
-- [ ] P1 glue: pytest, grep clean, supervisor count, review, commit on branch, dev install
-- [ ] P1: owner runs V1 on the dev tag
-- [ ] P2 U1: planner Contents bullets; lead-loop section 7 `Log:` bullet; executor unticked-item
+- [x] P1 glue: pytest, grep clean, supervisor count, review, commit on branch, dev install
+- [x] P1: owner runs V1 on the dev tag (passed 2026-10-20/21, owner-confirmed)
+- [x] P2 U1: planner Contents bullets; lead-loop section 7 `Log:` bullet; executor unticked-item
   bullet
-- [ ] P2 U2: scout plan-state bullet; supervisor L82 and L86-87 Stage 2 fragments (`Log:` hook)
-- [ ] P2 U3: README:99 sentence; architecture:59
-- [ ] P2 glue: pytest, supervisor count, review, rebase, commit on branch, dev install
-- [ ] P2: owner runs V2 on the dev tag (report `Log:` line equals the plan's `## Log` line)
-- [ ] P3 U1: `curator.md`, `references/curator-procedures.md` (incl. supersede-and-move to
+- [x] P2 U2: scout plan-state bullet; supervisor L82 and L86-87 Stage 2 fragments (`Log:` hook)
+- [x] P2 U3: README:99 sentence; architecture:59
+- [x] P2 glue: pytest, supervisor count, review, rebase, commit on branch, dev install
+- [x] P2: owner runs V2 on the dev tag (report `Log:` line equals the plan's `## Log` line; passed
+  2026-10-20/21, owner-confirmed)
+- [x] P3 U1: `curator.md`, `references/curator-procedures.md` (incl. supersede-and-move to
   `archive/memory/<kind>/`, goal moves, roadmap step with the high-level `history.md` line,
   idle-plan sweep), SKILL.md pointers, Memory tier row, L24, L40, lint L19 and L21,
   `test_memory_templates` (key sets of Interfaces 11)
-- [ ] P3 U2: `references/writing.md` (`working/writing/` keys, archive to
+- [x] P3 U2: `references/writing.md` (`working/writing/` keys, archive to
   `archive/working/writing/`, migration target), `templates/draft-state.md`, writer (incl. L49),
   writer-worker, critic, science-writing-style (incl. L125, L130), remove
   `writing-rules-persistence/`
-- [ ] P3 U3: supervisor L82, L89-91; architecture rows, L12, L59, L61-63, L73, L85, `## Memory`;
+- [x] P3 U3: supervisor L82, L89-91; architecture rows, L12, L59, L61-63, L73, L85, `## Memory`;
   README curator bullet and Memory paragraph
-- [ ] P3 glue: pytest, greps clean, supervisor count at most 991, review, rebase, commit on
+- [x] P3 glue: pytest, greps clean, supervisor count at most 991, review, rebase, commit on
   branch, dev install
-- [ ] P3: owner runs V3 on the dev tag (incl. toy roadmap, stale plan, scratch and layout checks)
-- [ ] P4: executor rebases, pytest, dev install; owner reruns V1-V3
-- [ ] P4: owner's dev session: curator close-out (entries incl. D1-D12, README.md, the v2.0
+- [x] P3: owner runs V3 on the dev tag (incl. toy roadmap, stale plan, one-off and layout checks)
+  (steps 1-5 run 2026-10-20/21 on c461ea0, pass; step 6 re-check of the D13 rule waived by owner
+  2026-10-21, verified by text review)
+- [x] P4: executor rebases, pytest, dev install (review follow-ups and plan sync included)
+- [x] P4: owner reruns V1-V3 (V1-V3 run 2026-10-20/21; D13 re-check waived by owner)
+- [x] P4: owner's dev session: curator close-out (entries incl. D1-D11, D12 as superseded by D13,
+  and D13, README.md, the v2.0
   history line, plan archived, Stages 1-3 and the boundary line removed from ROADMAP.md), commit
   on branch
-- [ ] P4: executor on `main`: squash merge, VERSION 2.0, remaining ROADMAP edits (retitle,
+- [x] P4: executor on `main`: squash merge, VERSION 2.0, remaining ROADMAP edits (retitle,
   pointers, L8, D2, D8 and D11 lines, Stage 4 paths and roadmap move, L20 rule), tick these
   items in the archived plan, pytest, commit with VERSION staged, `./deploy install`,
   `./deploy status`
-- [ ] P4: with the user's confirmation: git-ops pushes; owner removes dev install, worktree,
-  branch
+- [x] P4: with the user's confirmation: git-ops pushes; owner removes dev install, worktree,
+  branch (performed in the landing pass after this commit)

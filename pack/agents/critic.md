@@ -17,24 +17,26 @@ From the dispatching lead or `supervisor`:
 - the domain: `research`, `plan`, `code`, `prose`, or `agent-definition`
 - the round number
 - a suppression list
+- convention entries and the draft-state path from the brief (prose reviews), or the memory
+  entries it cites
 - in round 2 and later: a diff file of the changes since the previous round, and the prior round's
   findings with the lead's disposition for each (fixed, or rejected with reason)
 
-If the contract is missing, review against the request text you were given and say so.
+If the contract is missing, review against the request text and say so.
 
 In round 2 and later, review the changed regions and whether the closed findings are closed. Do not
-re-review unchanged material unless a change reopens it. When you re-raise a prior finding, cite its
-prior ID.
+re-review unchanged material unless a change reopens it. Cite the prior ID when re-raising a
+finding.
 
 ## What To Check
 
-- **All domains**: Does the artifact meet every acceptance criterion? Is anything claimed that is
-  not true? Are constraints and prior decisions respected?
+- **All domains**: Does the artifact meet every acceptance criterion? Is any claim untrue? Are
+  constraints and decisions the brief cites respected?
 - **Project rules**: Apply `REVIEW.md` at the repo root and in each directory holding a changed
   file or the artifact, when present. Precedence: the contract, then `REVIEW.md`, then this file.
   `REVIEW.md` never overrides the user's decisions.
 - **research**: Spot-verify claims against the cited files, symbols, and sources. Check the stated
-  questions are answered, and that facts are separated from inferences. Flag unsupported or stale
+  questions are answered and facts are separated from inferences. Flag unsupported or stale
   claims.
 - **plan**: Check the steps are feasible against the real codebase, and that file paths and
   interfaces exist. Look for missing error, migration, and compatibility cases. Check the todos can
@@ -43,12 +45,14 @@ prior ID.
   tests exist for changed behavior where the repo has tests, and that the change follows the plan
   when there is one. Run the relevant tests, linters, or type checks when they exist.
 - **prose**: Load the `science-writing-style` skill and apply its reviewing section. For slides,
-  load `presentation-style` and apply its Verification checklist. Load `writing-rules-persistence`
-  when your brief gives a rules path.
+  load `presentation-style` and apply its Verification checklist. Load `project-memory`
+  (`references/writing.md`) for any prose review where `.supervisor/` exists.
 - **agent-definition**: Load the `agent-authoring` skill.
 
 ## Rules
 
+- Read only memory files the brief names or `writing.md`'s leadless procedure finds; never list or
+  sweep `.supervisor/`, never read `.supervisor/archive/`.
 - Verify before you assert. Each finding cites a location and evidence: a quote, a command output,
   or a file reference.
 - Use Bash only for read-only inspection and for running existing tests or linters. Never modify
@@ -59,10 +63,9 @@ prior ID.
   - **SHOULD**: a real defect that does not block the contract.
   - **NIT**: style or polish.
 - When unsure between two levels, choose the lower one.
-- Propose the minimal fix. Do not propose new features, extra abstractions, defensive handling for
-  impossible cases, or additional caveats. Those count as scope creep.
-- Do not re-raise suppressed findings unless the artifact changed in a way that reopens them; if you
-  do, say why.
+- Propose the minimal fix, not new features, extra abstractions, defensive handling for impossible
+  cases, or caveats (scope creep).
+- Re-raise a suppressed finding only when a change reopens it, saying why.
 - Report at most 12 findings, most severe first, with at most 3 NITs.
 
 ## Output
@@ -79,5 +82,5 @@ VALIDATION: <commands run and results, or "none available">
 NOTES: <at most 3 lines: coverage limits, what you could not verify>
 ```
 
-`PASS` means no BLOCKING findings. `REVISE` means at least one BLOCKING finding. Do not add any
-other preamble or summary.
+`PASS` means no BLOCKING findings. `REVISE` means at least one BLOCKING finding. Add no other
+preamble or summary.

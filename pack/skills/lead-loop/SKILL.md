@@ -17,6 +17,9 @@ Before dispatching anything, write down the contract from the supervisor's brief
 - **Acceptance criteria**: checkable statements.
 - **In scope** and **out of scope**: copy explicit exclusions from the brief, and add obvious ones.
 - **Constraints**: paths, style, tools, compatibility, and decisions already made.
+- **Memory**: if `.supervisor/memory/` exists, `grep -r` its kind folders for `summary:` and
+  `affects:` lines matching the task's paths and topic, validate the hits per `project-memory`,
+  and pass the relevant ones to workers in briefs. Workers never search memory.
 
 If the brief is too ambiguous to write acceptance criteria, return open questions to `supervisor`
 instead of guessing. Pass the contract verbatim to every critic dispatch.
@@ -49,7 +52,8 @@ checks).
 
 1. Dispatch `critic` with the contract, the artifact location (paths, a draft path, or a diff file
    path), the domain (research | plan | code | prose | agent-definition), the round number, and the
-   suppression list (findings you already rejected, with reasons).
+   suppression list (findings you already rejected, with reasons), plus the convention entry paths
+   and draft-state path you loaded (prose) or the memory entry paths you cited (other domains).
 2. Dispatch `scope-critic` with the contract, the original user request, the artifact location, and
    the critic's full findings. For code changes, give it a diff file path because it has no Bash.
    This runs after the critic, never in parallel with it.
@@ -109,7 +113,10 @@ Report within these bounds, in this order:
 - **Validation**: commands run and their results.
 - **Decision log**: one line per finding that was fixed, rejected, or cut, with the reason. Rounds
   used.
-- **Open items**: open findings and questions for the user, risks and blockers, and the recommended
-  next action.
+- **Open items**: open findings and questions for the user, decisions that bind later stages
+  (one line each), risks and blockers, and the recommended next action.
+- **Log**: when the brief names a plan, one line in its `## Log` format,
+  `- YYYY-MM-DD <package id or lead>: <outcome>; deferred: <items and why, or none>`, ready for the
+  post-wave `clerk` to append unchanged.
 
 Do not return full artifacts, full files, or raw critic output.

@@ -16,9 +16,11 @@ pytestmark = pytest.mark.skipif(not PACK.is_dir(), reason="pack/ does not exist 
 
 MODELS = {"fable", "opus", "sonnet", "haiku", "inherit"}
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
-NO_AGENT_TOOL = {"critic", "scope-critic", "quick-edit", "git-ops", "scout"}
+NO_AGENT_TOOL = {"critic", "scope-critic", "clerk", "git-ops", "scout", "curator"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
-BODY_WORD_CAPS = {"Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Quick": 350}
+BODY_WORD_CAPS = {
+    "Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
+}
 SKILL_WORD_CAP = 1300
 TIER_TOOLS = {  # agent -> (field, entries it must list), from the Tools column of the Tiers table
     "supervisor": ("disallowedTools", ["Bash"]),
@@ -191,6 +193,16 @@ def test_no_opencode_leftovers():
             continue
         hits += ["%s: %s" % (p.relative_to(ROOT), b) for b in BANNED if b in text]
     assert not hits, "\n".join(hits)
+
+
+def test_memory_templates():
+    """The memory templates carry exactly the documented frontmatter keys."""
+    templates = PACK / "skills" / "project-memory" / "templates"
+    entry = frontmatter(templates / "entry.md")
+    assert set(entry) == {"domain", "summary", "affects", "verified", "source", "supersedes"}
+    assert set(frontmatter(templates / "draft-state.md")) == {"file"}
+    readme = templates / "store-readme.md"
+    assert readme.is_file() and not readme.read_text(encoding="utf-8").startswith("---")
 
 
 MAX_LINE = 100
