@@ -14,7 +14,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Lead | planner | fable / xhigh | all; preload `lead-loop` |
 | Worker | researcher-worker, planner-worker, executor-worker | sonnet / high | `disallowedTools` includes `Agent` |
 | Worker | writer-worker | opus / high | `disallowedTools` includes `Agent` |
-| Review | critic | opus / xhigh | read-only plus Bash; no `Agent` |
+| Review | critic | opus / default | read-only plus Bash; no `Agent` |
 | Review | scope-critic | fable / high | read-only, no Bash, no `Agent` |
 | Memory | curator | sonnet / high | explicit allowlist; no `Agent` |
 | Quick | clerk, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
@@ -34,7 +34,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 - Frontmatter:
   - `name` (kebab-case, equal to the filename stem)
   - `description` (one sentence that says what and when, because it drives routing)
-  - `model`, `effort`
+  - `model`, `effort` (omit `effort` when the Tiers table says `default`)
   - `tools` or `disallowedTools`
   - optional `skills` (a YAML list) and `color`
 - Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,

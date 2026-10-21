@@ -69,6 +69,7 @@ def _tier_rows() -> dict:
     for row in rows:
         tier, agents, model_effort, _tools = [c.strip() for c in row.strip("|").split("|")]
         model, effort = [x.strip() for x in model_effort.split("/")]
+        effort = None if effort == "default" else effort  # frontmatter omits effort
         for name in agents.split(","):
             tiers[name.strip()] = (tier, model, effort)
     return tiers

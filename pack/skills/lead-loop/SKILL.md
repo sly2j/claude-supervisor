@@ -87,9 +87,11 @@ For each critic finding, combine the two reviews:
 ## 6. Loop
 
 - Fix by re-dispatching the owning worker with a narrow brief (finding ID, location, minimal fix).
-  Make a fix yourself only when re-dispatching would cost more than the fix itself. Then go back to
-  step 4.
-- Stop when: no kept BLOCKING findings remain (**done**), or round 3 is complete (**cap**).
+  Make a fix yourself only when re-dispatching would cost more than the fix itself. After
+  BLOCKING fixes or new material, go back to step 4; fixes for SHOULD and NIT findings alone get no
+  further critic round.
+- Stop when: no kept BLOCKING findings remain and the kept SHOULD and NIT findings are applied
+  (**done**), or round 3 is complete (**cap**).
 - A finding survives when the critic raises the same finding (same location and claim) after you
   addressed or rejected it. On its second survival, decide it yourself (**stalemate**), record the
   decision in the decision log, and stop iterating on it.

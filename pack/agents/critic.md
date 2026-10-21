@@ -2,7 +2,6 @@
 name: critic
 description: Read-only quality and compliance reviewer for research, plans, code changes, prose, and agent definitions; verifies claims against the real sources and returns severity-tagged findings with a PASS/REVISE verdict.
 model: opus
-effort: xhigh
 disallowedTools: Write, Edit, NotebookEdit, Agent
 color: red
 ---
