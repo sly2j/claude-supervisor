@@ -238,3 +238,20 @@ flat `## Todo` plans and child plans do not. Decide whether flat plans should lo
 `.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
 state; define how conflicting or duplicate entries are reconciled when a feature is merged
 (supersede rules, curator pass at merge, or merge-time report).
+
+### 9. deploy update: downgrade guard
+
+When `deploy update` finds the installed version (or commit) is newer than the upstream branch it
+would install — as happens when a worktree install is ahead of the pushed branch — print a warning
+naming both versions and ask `Continue with the update? [y/N]`; default No. Non-interactive runs
+fail unless `--yes` is passed.
+Priority: high — do early.
+
+### 10. Launcher help instead of blind forwarding
+
+`claude-<tag> -h` / `--help` (and unknown launcher-level flags) currently forward straight to
+`claude`, so there is no way to list what the launcher offers. Show the launcher's own help page
+first: its subcommands (`install`, `update`, `status`, `uninstall`, …), the tag and target it runs
+with, and a closing line stating that any other arguments are forwarded unchanged to `claude` (with
+`claude --help` as the pointer).
+Priority: high — do early.
