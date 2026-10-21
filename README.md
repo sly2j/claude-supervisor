@@ -84,7 +84,7 @@ flowchart LR
 
 Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `.supervisor/working/` (`plans/plan-*.md`, `research/research-*.md`), so you can read and annotate them between steps; finished ones move to `.supervisor/archive/working/` with `git mv`.
 
-The planner breaks a plan into work packages when streams each need their own research, plan, or write stage. Plain parallel work stays a flat plan. Each package lists only the stages it needs (`research`, `plan`, `execute`, `write`) and depends only on the packages whose output it consumes. A package block (field rules in `pack/agents/planner.md`):
+The planner breaks a plan into work packages when streams each need their own research, plan, or write stage. Plain parallel work stays a flat plan. Each package lists only the stages it needs (`research`, `plan`, `execute`, `write`) and depends only on the packages whose output it consumes. A package block (field rules in the `plan-writing` skill):
 
 ```
 ### P9: deploy hook

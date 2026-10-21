@@ -27,7 +27,7 @@
 |---|---|---|---|
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
 | `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / default | all |
-| `planner` | Lead: implementation plans in `.supervisor/working/plans/` | fable / default | all |
+| `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | fable / default | all |
 | `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / default | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs | opus / default | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
@@ -57,7 +57,7 @@ The supervisor's brief sets the review depth: `Review: full` (default, the loop 
 
 Why two critics? A single critic improves correctness but drifts toward defensive additions: extra validation, caveats, edge cases nobody has, and "for completeness" sections. Each one sounds reasonable, so a lead that accepts every finding grows the artifact every round. `scope-critic` sees the original request and the critic's findings together, and its only job is to say which findings the contract actually needs. It is barred from adding requirements, so it cannot become a third source of growth.
 
-**Work packages.** A plan may carry a `## Work Packages` section: a breakdown into packages with disjoint ownership, dependencies, and the stages each needs, which the supervisor runs as a program one wave at a time. The rules are in `pack/agents/planner.md` (`## Work Packages`) and `pack/agents/supervisor.md` (`## Programs`); the README's `## Larger Work` section has the diagrams. After each wave, one `clerk` advances each package's `Status`, appends each lead's `Log:` line to the plan's `## Log`, and applies any `Amend parent:`: a package's planner splits it by returning new packages for the parent plan, so plans never nest. A blocked package is skipped until the user answers, which re-runs its stage. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts, and goals into memory, then archives the plan, its child plans, and its research to `.supervisor/archive/working/`.
+**Work packages.** A plan may carry a `## Work Packages` section: a breakdown into packages with disjoint ownership, dependencies, and the stages each needs, which the supervisor runs as a program one wave at a time. The six-field block and Status values are in `pack/skills/plan-writing/SKILL.md` (`## Work Packages`), the split rules (when to split, `Amend parent:`) in `pack/agents/planner.md` (`## Work Packages`), and the run rules in `pack/agents/supervisor.md` (`## Programs`); the README's `## Larger Work` section has the diagrams. After each wave, one `clerk` advances each package's `Status`, appends each lead's `Log:` line to the plan's `## Log`, and applies any `Amend parent:`: a package's planner splits it by returning new packages for the parent plan, so plans never nest. A blocked package is skipped until the user answers, which re-runs its stage. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts, and goals into memory, then archives the plan, its child plans, and its research to `.supervisor/archive/working/`.
 
 ## Mode 2: The Quick Tier
 
@@ -65,7 +65,7 @@ The supervisor dispatches one Haiku specialist directly, with no review loop. Th
 
 ## Routing
 
-The supervisor picks the mode. An explicit user choice ("quick", "full") wins. Otherwise Mode 2 applies only when the task is fully specified, small, local, needs no design decision, and is cheap to undo. Larger work chains through the leads: `researcher` -> `planner` -> user approval -> `executor`, skipping stages that add nothing. Mechanical multi-file work gets `Review: light`.
+The supervisor picks the mode. An explicit user choice ("quick", "full") wins. Otherwise Mode 2 applies only when the task is fully specified, small, local, needs no design decision, and is cheap to undo. Larger work chains through the leads: `researcher` -> `planner` (questions, then the plan) -> user approval -> `executor`, skipping stages that add nothing. Mechanical multi-file work gets `Review: light`.
 
 Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE` (operation, both sides, conflicted files with hunk counts and mechanical flags). The supervisor sends easy conflicts to `executor` with `Review: light`, and hard ones through `researcher` -> `planner` -> user approval -> `executor`.
 
@@ -84,6 +84,7 @@ Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadm
 | Skill | Used by | Origin |
 |---|---|---|
 | lead-loop | all leads (preloaded) | new |
+| plan-writing | planner (preloaded), critic | new |
 | project-memory | clerk, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | new |
 | git-safety | executor, git-ops (preloaded); executor reads `references/conflict-resolution.md` on unmerged paths | old git-expert + conflict-resolver |
 | python-env | executor, executor-worker | old python-maintainer |

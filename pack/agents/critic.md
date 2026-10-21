@@ -37,9 +37,7 @@ finding.
 - **research**: Spot-verify claims against the cited files, symbols, and sources. Check the stated
   questions are answered and facts are separated from inferences. Flag unsupported or stale
   claims.
-- **plan**: Check the steps are feasible against the real codebase, and that file paths and
-  interfaces exist. Look for missing error, migration, and compatibility cases. Check the todos can
-  be executed without guessing, and that the plan covers the research findings.
+- **plan**: Load the `plan-writing` skill and apply its reviewing section.
 - **code**: Look for correctness, security, data loss, and broken contracts or interfaces. Check
   tests exist for changed behavior where the repo has tests, and that the change follows the plan
   when there is one. Run the relevant tests, linters, or type checks when they exist.

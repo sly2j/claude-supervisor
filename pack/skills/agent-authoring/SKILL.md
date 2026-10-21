@@ -11,7 +11,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 |---|---|---|---|
 | Main | supervisor | fable / default | no Bash, no NotebookEdit; writes only its memory files |
 | Lead | researcher, executor, writer | opus / default | all; preload `lead-loop` |
-| Lead | planner | fable / default | all; preload `lead-loop` |
+| Lead | planner | fable / default | all; preload `lead-loop`, `plan-writing` |
 | Worker | researcher-worker, planner-worker, executor-worker | sonnet / default | `disallowedTools` includes `Agent` |
 | Worker | writer-worker | opus / default | `disallowedTools` includes `Agent` |
 | Review | critic | opus / default | read-only plus Bash; no `Agent` |

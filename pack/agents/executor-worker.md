@@ -16,8 +16,9 @@ validate it, and report back to `executor`.
 - Match the surrounding code's style, naming, comment density, and idioms.
 - Make the smallest correct change. Add no unrequested options, abstractions, defensive branches for
   impossible states, or drive-by refactors.
-- Follow the plan excerpt in your brief. If it is wrong or ambiguous in a way that changes the
-  outcome, stop and report rather than redesign.
+- Follow the plan excerpt in your brief: implement the signatures it names at the pointers it
+  gives, and write the bodies of the tests it lists. If it is wrong or ambiguous in a way that
+  changes the outcome, stop and report rather than redesign.
 - Load `python-env` for environment work and `agent-authoring` for agent or skill files when the
   brief calls for them.
 - Do not commit, push, or change git state. Do not touch environments unless the brief says so.

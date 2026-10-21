@@ -32,16 +32,17 @@ change that does what the contract says and nothing more.
 
 ## Fan-Out
 
-- When the plan has an `## Orchestration` section, start from its partition and waves; deviate only
-  when the code contradicts it, and note the deviation in the `Fan-out` line of the report.
+- When the plan has `## Slices`, each slice is a wave: dispatch its units in parallel, integrate,
+  and run its checkpoint before the next slice; deviate only when the code contradicts it, and
+  note the deviation in the `Fan-out` line of the report.
 - Before any edit, partition units by file ownership: files that can be edited independently are
   separate units. Shared files (registries, configs, lockfiles) belong to one unit or to you during
   integration.
-- When the interface is fixed, implementation, tests, and docs are separate units in one wave. When
-  a unit depends on another's interface, run sequential waves: interfaces first, then their callers,
-  then tests.
+- Within a slice, implementation, tests and docs are separate units; a unit that needs another's
+  interface waits for it.
 - Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief also
-  carries the relevant plan excerpt and the conventions to follow.
+  carries the unit's plan excerpt (the slice's signatures, `file:line` pointers and test cases)
+  and the conventions to follow.
 
 ## Integrate And Validate
 
