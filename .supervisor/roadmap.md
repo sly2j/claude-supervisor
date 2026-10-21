@@ -84,28 +84,56 @@ that make its dev cycle cleaner. Effort: L.
 - **Decisions:**
   - `.supervisor/memory/decisions/2026-10-21-no-retrieval-hooks-in-v2-0-add-one-only.md` (D10)
 
-### 2. Light path for small prose revisions
+### 2. Make room in supervisor.md
+
+`pack/agents/supervisor.md` is at its 1000-word Main cap, and Program logs for flat plans needs a
+clause there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the
+owner for approval before adding clauses. Open: whether "the user sees child plans only on a real
+design choice" (`.supervisor/memory/decisions/2026-10-21-planner-decides-when-to-split-into.md`)
+goes into the pack, and where.
+Priority: normal — unblocks Program logs for flat plans. Effort: S.
+
+### 3. Roadmap intake: tell users they can add items
+
+The README does not say the roadmap takes user-added tasks. Candidates: an "Adding to the
+roadmap" README section (hand-editing `.supervisor/roadmap.md`, with the item format), and a
+supervisor "add to the roadmap: ..." path. On 2026-10-21 the owner selected neither; confirm
+which, if any, before starting, or drop the item.
+Priority: normal — small. Effort: S.
+
+### 4. Light path for small prose revisions
 
 A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
-rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
-reconsider whether scope-critic adds value for `writer` at all.
+rounds. Owner decisions (2026-10-21): the writer defaults to `Review: light` below a size
+threshold (the planner proposes the threshold), and scope-critic reviews writer output only under
+`Review: full`.
 Priority: normal. Effort: M.
 
-### 3. Program logs for flat plans
+### 5. Program logs for flat plans
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
-flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
-(needs a supervisor clause; supervisor.md is at its word cap).
+flat `## Todo` plans and child plans do not. Owner decision (2026-10-21): flat and child plans get
+the same logging as programs, not deferrals only.
+Depends on: Make room in supervisor.md
 Priority: normal. Effort: M.
 
-### 4. Configurable model tiers for alternative providers
+### 6. Configurable model tiers for alternative providers
 
 Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
-third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
-mapping).
+third-party providers that implement the Anthropic API via API keys. Owner direction
+(2026-10-21): when an install is configured with an API key, `deploy` asks whether to configure
+the tiers, lists the provider's available models, and lets the user pick one per tier by number
+or by typing a name. `deploy` stays standard-library-only.
 Priority: normal. Effort: M.
 
-### 5. Science artefacts
+### 7. Memory across branches and worktrees (future release)
+
+`.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
+state; define how conflicting or duplicate entries are reconciled when a feature is merged
+(supersede rules, curator pass at merge, or merge-time report). Undecided.
+Priority: low — future release. Effort: L.
+
+### 8. Science artefacts (future release)
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -114,6 +142,7 @@ Priority: normal. Effort: M.
   output. Likely needs a new skill.
 - **Depends on:** Persistence and long-term memory (artefact READMEs may feed long-term memory)
 - **Left to planner:**
+  - Is `artefacts/` at the repo root an accepted exception to `.supervisor/` as the one root?
   - Stamp format: date, time, or date plus a slug?
   - Which agent writes the artefacts, and which the README?
   - What feeds long-term memory, and who distills it?
@@ -122,21 +151,4 @@ Priority: normal. Effort: M.
   the goal and what was learned, with its outputs beside it; the suite passes.
 - **Pointers:** `.supervisor/working/research/research-memory.md` section 8 item 7.
 
-Priority: normal, after Persistence and long-term memory. Effort: L.
-
-### 6. Memory across branches and worktrees (future release)
-
-`.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
-state; define how conflicting or duplicate entries are reconciled when a feature is merged
-(supersede rules, curator pass at merge, or merge-time report).
-Priority: low — future release. Effort: L.
-
-### 7. Roadmap intake: tell users they can add items
-
-The README does not say the roadmap takes user-added tasks. Add an "Adding to the roadmap" section:
-ask the supervisor ("add to the roadmap: ...") to append an item (VERSION bump and commit), or edit
-`.supervisor/roadmap.md` by hand. Show the format (numbered heading, 2-5 line body,
-`Priority: high|normal|low` and `Effort: S|M|L` line); items are ordered by priority, then effort;
-`curator` moves landed items to `.supervisor/history.md`. Runs after Stage 4 of Persistence and
-long-term memory lands, so the README names `.supervisor/roadmap.md`.
-Priority: normal — small. Effort: S.
+Priority: low — deferred by the owner 2026-10-21 to a future release. Effort: L.
