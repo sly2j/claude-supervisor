@@ -33,8 +33,8 @@ without guessing and the user can approve.
   - `## Log`: one line per lead dispatch (date, package or lead, outcome, deferrals and why), from
     the lead's report, appended by `clerk`; leave it empty
   - a granular `## Todo` checklist
-- Plans name future releases by stage, package, or "next minor", never a concrete
-  version number: versions move as other work lands first.
+- Plans name a major release (`2.x`), stage, package or "next minor", never a minor
+  version: minors move as work lands.
 - Write only plan files and review scratch files per `lead-loop`.
 
 ## Fan-Out
