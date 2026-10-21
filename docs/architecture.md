@@ -26,8 +26,8 @@
 | Agent | Role | Model / effort | Tools |
 |---|---|---|---|
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / high | all except Bash, NotebookEdit |
-| `researcher` | Lead: research artifacts in `docs/research-*.md` | opus / high | all |
-| `planner` | Lead: implementation plans in `docs/plan-*.md` | fable / xhigh | all |
+| `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / high | all |
+| `planner` | Lead: implementation plans in `.supervisor/working/plans/` | fable / xhigh | all |
 | `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / high | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs | opus / high | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / high | all except Agent, Edit, NotebookEdit |
@@ -37,7 +37,7 @@
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by planner) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / high | read-only, no Bash |
 | `clerk` | Quick: small, exact edits; records memory entries as briefed | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
-| `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules; archives draft state | sonnet / high | Read, Edit, Write, Glob, Grep, Bash |
+| `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); archives draft state | sonnet / high | Read, Edit, Write, Glob, Grep, Bash |
 | `git-ops` | Quick: routine git with guardrails | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
 
@@ -57,7 +57,7 @@ The supervisor's brief sets the review depth: `Review: full` (default, the loop 
 
 Why two critics? A single critic improves correctness but drifts toward defensive additions: extra validation, caveats, edge cases nobody has, and "for completeness" sections. Each one sounds reasonable, so a lead that accepts every finding grows the artifact every round. `scope-critic` sees the original request and the critic's findings together, and its only job is to say which findings the contract actually needs. It is barred from adding requirements, so it cannot become a third source of growth.
 
-**Work packages.** A plan may carry a `## Work Packages` section: a breakdown into packages with disjoint ownership, dependencies, and the stages each needs, which the supervisor runs as a program one wave at a time. The rules are in `pack/agents/planner.md` (`## Work Packages`) and `pack/agents/supervisor.md` (`## Programs`); the README's `## Larger Work` section has the diagrams. After each wave, one `clerk` advances each package's `Status`, appends each lead's `Log:` line to the plan's `## Log`, and applies any `Amend parent:`: a package's planner splits it by returning new packages for the parent plan, so plans never nest. A blocked package is skipped until the user answers, which re-runs its stage. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts, and goals into memory, then archives the plan, its child plans, and its research to `docs/archive/`.
+**Work packages.** A plan may carry a `## Work Packages` section: a breakdown into packages with disjoint ownership, dependencies, and the stages each needs, which the supervisor runs as a program one wave at a time. The rules are in `pack/agents/planner.md` (`## Work Packages`) and `pack/agents/supervisor.md` (`## Programs`); the README's `## Larger Work` section has the diagrams. After each wave, one `clerk` advances each package's `Status`, appends each lead's `Log:` line to the plan's `## Log`, and applies any `Amend parent:`: a package's planner splits it by returning new packages for the parent plan, so plans never nest. A blocked package is skipped until the user answers, which re-runs its stage. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts, and goals into memory, then archives the plan, its child plans, and its research to `.supervisor/archive/working/`.
 
 ## Mode 2: The Quick Tier
 
@@ -77,7 +77,7 @@ A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and t
 
 ## Memory
 
-Three horizons: long-term `goal` entries, a mid-term roadmap, and short-term plans. The store `.supervisor/` holds `memory/<kind>/` (entries in force), `working/` (per-document writer state), `archive/`, and `history.md` (one line per landed item). Folders carry fixed properties (an entry's kind), labels carry changing ones, and the archive mirrors the live tree. The `clerk` records, the `curator` curates, and `writer` owns `working/writing/`. Leads read matching entries at contract time, `scout` reads for the supervisor, and workers never read. Entries are claims to validate before use; a change supersedes the old entry and moves it to `archive/`. The curator writes at most five new entries per run. Outside a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting `$HOME` or its ancestors; a git toplevel outranks anything above it) nothing is stored until the user opts in ("remember X", "make this a project", or a close-out). Stage 4 moves research, plans, and the roadmap into `.supervisor/`.
+Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadmap.md`), and short-term plans. The store `.supervisor/` holds `memory/<kind>/` (entries in force), `working/` (research, plans, per-document writer state), `archive/`, and `history.md` (one line per landed item). Folders carry fixed properties (an entry's kind), labels carry changing ones, and the archive mirrors the live tree. The `clerk` records, the `curator` curates, and `writer` owns `working/writing/`. Leads read matching entries at contract time, `scout` reads for the supervisor, and workers never read. Entries are claims to validate before use; a change supersedes the old entry and moves it to `archive/`. The curator writes at most five new entries per run, except when migrating a legacy layout. Outside a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting `$HOME` or its ancestors; a git toplevel outranks anything above it) nothing is stored until the user opts in ("remember X", "make this a project", or a close-out).
 
 ## Skills
 

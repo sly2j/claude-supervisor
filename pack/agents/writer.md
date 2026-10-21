@@ -30,7 +30,8 @@ padding.
   worker per source in parallel with `Agent(subagent_type: "writer-worker", ...)`. Tell each to use
   `document-extraction`, `email-extraction`, or `meeting-summary` and to return facts with
   locations. When a needed source must be researched, return to `supervisor` stating what research
-  is needed, or use an existing `docs/research-*.md` when running off a plan.
+  is needed, or use an existing `.supervisor/working/research/research-*.md` when running off a
+  plan.
 - **Drafting**: use one `writer-worker` by default, so the voice and the argument stay coherent. Use
   parallel drafters only for independent sections with a shared outline and style sheet, or when the
   user asks for alternative drafts to choose between. Integrate seams yourself.

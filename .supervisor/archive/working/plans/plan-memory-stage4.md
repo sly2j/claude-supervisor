@@ -26,7 +26,7 @@ the suite passes.
    (today only for a legacy `docs/writing-rules.md`). Live files move to `working/`; each spent
    file in `docs/archive/` is distilled into `decision`/`fact` entries still in force, then moved
    to `archive/working/<area>/`. It reuses the brief form and `follow-up:` lines; the five-entry cap
-   lifts for the one-time P3 run only (OQ4). Rejected: a migration command in `deploy` (deploy
+   does not apply to any `migrate` run (OQ4). Rejected: a migration command in `deploy` (deploy
    never touches projects, and distillation needs judgment); new programs only (D3 decided a
    one-time migration).
 3. **Moved sources are resolved, not rewritten.** Entries are never edited and `history.md` is
@@ -155,10 +155,8 @@ per D6.
 - **Other projects.** Unmigrated projects keep working: briefs name plan paths, close-out archives
   any named plan to the new mirror, and I3 proposes the migration. A project that gitignores
   `.supervisor/` takes its plans out of version control on migration; that follows its D1 choice.
-- **Dev install.** The branch is not pushed, so refresh the dev tag with
-  `./deploy install --tag supervisor-dev` from the worktree after each branch commit, never with
-  `update`. Installs are stand-alone of their checkout, so nothing here relies on the dev install
-  reading the worktree; V7 compares the install's recorded version with the worktree head.
+- **Dev install.** Dropped by the owner on 2026-10-21 (`supervisor-dev` uninstalled): steps that
+  name the dev tag (Setup's install, V7, dev-tag sessions) use the suite and simulated runs instead.
 
 ## Acceptance criteria and validation
 
@@ -234,7 +232,7 @@ per D6.
   `REVIEW.md`; `docs/architecture.md` (except the roadmap clause of 80).
 - Deps: none
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-stage4`
 
 ### P2: Roadmap location and references
@@ -246,7 +244,7 @@ per D6.
 - Deps: P1 (shared files, disjoint lines); P3 (same memory folder and git index; moves the files
   P2 points at)
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-stage4`
 
 ### P3: Migrate this repo
@@ -256,7 +254,7 @@ per D6.
   `.supervisor/memory/**`, `.supervisor/working/{research,plans}/`, `.supervisor/archive/working/`
 - Deps: P1
 - Stages: execute
-- Status: execute
+- Status: done
 - Artifacts: commit on `memory-stage4`; plan path afterwards
   `.supervisor/working/plans/plan-memory-stage4.md`
 
@@ -285,7 +283,8 @@ per D6.
 
 As in v2.0 (`docs/archive/plan-memory-v2.md:766-775`): the stable `claude-supervisor` session
 drives the program, `claude-supervisor-dev` sessions run the V checks, P3 and the P4 close-out,
-and the branch is never pushed, so rebases stay local. After Setup the stable session runs from
+and the branch is pushed to origin; rebases on `main` need a force-push (`--force-with-lease`)
+of `memory-stage4`, gated per git-safety. After Setup the stable session runs from
 `/Users/sjoosten/Work/claude-supervisor-dev`, so Log appends and entries land on the branch; P4
 step 3 is the only later work on `main`. Each package brief has `executor` commit on the branch
 itself, with no `VERSION` change.
@@ -315,7 +314,7 @@ with one conclusion; one commit. V4 adds a working plan whose last Log line is d
 their entry files; Science artefacts' "Depends on item 1" becomes `Depends on:` by title.
 
 **P3.** A dev-tag session in the worktree dispatches `curator migrate docs/` with this brief: no
-entry cap (one-time run, OQ4); skip the superseded items (install-lifecycle "out: `list`";
+entry cap (`migrate` is exempt, OQ4); skip the superseded items (install-lifecycle "out: `list`";
 sandboxed-install "`--fable` flag stays"; versioning `1.x` scheme, "no update subcommand", "no
 `--version` flag"; opus-default and fable-fallback mechanics; memory-v2 D12); keep
 `docs/research-memory.md` and this plan live. The owner reviews `git diff --stat` and the new
@@ -377,38 +376,49 @@ the report lists in editable files (the roadmap is P2's).
   2026-10-21: default.** No `Goals:` lines until the owner adds goals (`remember goal: ...`); the
   alternative (the curator writes goals for item 1 and Science artefacts in P2) is not chosen.
   Affects P2 only.
-- **OQ4. Entry cap for P3.** **Resolved 2026-10-21: yes, lift the five-entry cap for the one-time
-  P3 migration** ("migrations are a special case"), so the owner reviews all new entries (about 30)
-  in one diff instead of six runs. The exemption covers that run only; later migrations are not
-  decided.
+- **OQ4. Entry cap for P3.** **Resolved 2026-10-21: yes, and amended the same day: the five-entry
+  cap is lifted for any `migrate` run** (any project migrating from an older layout; "migrations
+  are a special case"), so the owner reviews all new entries (about 30 here) in one diff instead of
+  six runs. Ordinary runs keep the cap. P1 states the exemption in `curator.md` and
+  `curator-procedures.md`.
 
 ## Log
 
 - 2026-10-21 planner: plan written (P1-P4), one review round, critic PASS; deferred: OQ1-OQ4 to the owner (P2 blocked on OQ1, OQ3)
 - 2026-10-21 supervisor: OQ1-OQ4 answered by owner (OQ1: .supervisor/roadmap.md; OQ2 fixture; OQ3 default; OQ4 cap lifted for migration); P2 unblocked
+- 2026-10-21 executor P1: done, 9031668 on memory-stage4 (pushed); critic PASS round 2 (C1-C3, C6 fixed; C4, C5, C7 rejected); migrate cap exemption made general (OQ4 amended); dev tag at 2.6+memory-stage4.1.g9031668 (V7 ok); deferred: V1 (needs a dev-tag session; fixture built), V6 test_deploy_version fix (predates P1, outside P1's files), item-1 bullet entry (clerk)
+- 2026-10-21 executor V1: pass (simulated curator, fixture clone; dev tag dropped by owner); P1 text fixed in 460b58e (distil ## Approach; report stale names in moved working files; moved sources under working/); deferred: tool/preload exercise (no dev tag)
+- 2026-10-21 executor P3: done, 460b58e on memory-stage4 (pushed); 11 files moved, 27 entries (25 decisions, 2 facts), docs/ = architecture.md, deploy.md; critic PASS round 2; deferred: owner entry review, reach-gap questions (REVIEW.md do-not-report list; planner approve-once rule), supersede candidates to P4, inbound refs in ROADMAP.md to P2
+- 2026-10-21 supervisor: owner accepted P3's 27 entries; REVIEW.md do-not-report list extended; planner split rules written into planner.md
+- 2026-10-21 executor P2: done, a61ca62 on memory-stage4 (pushed; A follow-up e7a6591); roadmap at .supervisor/roadmap.md in I5 format (item 1: 18 Decisions paths; Science artefacts Depends on by title; no Goals: lines), pack/README/architecture name it, V5 roadmap clean outside Stage 4, suite 365 passed; critic PASS round 1 (B-C1 fixed, B-C2 rejected); deferred: three entries with affects ROADMAP.md to P4 re-verify, store-readme roadmap.md line (P1-owned), child-plan clause reach to owner
 
 ## Todo
 
 - [x] Owner answers OQ1-OQ4 (2026-10-21); OQ1 and OQ4 entries written and committed with the plan
-- [ ] `clerk` records item 1's unrecorded bullet (Data)
+- [x] `clerk` records item 1's unrecorded bullet (Data)
 - [x] `executor` raises `VERSION` by one, runs the suite; `git-ops` commits plan and entries on
   `main`
-- [ ] Create worktree and branch `memory-stage4`; dev install under `supervisor-dev`; V7
-- [ ] P1 U1: researcher, planner, writer paths
-- [ ] P1 U2: curator migrate form, I2, I3, archive step, sweep glob
-- [ ] P1 U3: SKILL.md (I4, procedure list, prose), store-readme template
-- [ ] P1 U4: README, REVIEW.md, architecture.md
-- [ ] P1 glue: V5, V6, review, branch commit, dev install, V7
-- [ ] Build the fixture; V1 on the dev tag
-- [ ] P3: `curator migrate docs/` on this repo; owner reviews entries; branch commit
-- [ ] P3: supervisor switches to `.supervisor/working/plans/plan-memory-stage4.md`
-- [ ] P3: fix inbound references the report lists (outside the roadmap)
-- [ ] P2: `git mv` ROADMAP.md to `.supervisor/roadmap.md`; I5 format, pointers, Science artefacts,
+- [x] Create worktree and branch `memory-stage4`; dev install under `supervisor-dev`; V7
+- [x] P1 U1: researcher, planner, writer paths
+- [x] P1 U2: curator migrate form, I2, I3, archive step, sweep glob
+- [x] P1 U3: SKILL.md (I4, procedure list, prose), store-readme template
+- [x] P1 U4: README, REVIEW.md, architecture.md
+- [x] P1 glue: V5, V6, review, branch commit, dev install, V7 (dev install and V7 done in P1;
+  the owner then dropped the dev tag)
+- [x] Build the fixture; V1 on the dev tag (simulated curator; dev tag dropped)
+- [x] P3: `curator migrate docs/` on this repo; owner reviews entries; branch commit
+- [x] P3: supervisor switches to `.supervisor/working/plans/plan-memory-stage4.md`
+- [x] P3: fix inbound references the report lists (outside the roadmap) (none editable: the
+  only hits are in live `research-memory.md`, a dated record, and `.gitignore:9`, out of scope)
+- [x] P2: `git mv` ROADMAP.md to `.supervisor/roadmap.md`; I5 format, pointers, Science artefacts,
   Roadmap intake sentence
-- [ ] P2: SKILL.md 15-16, 102-106; curator-procedures 24-31; README 225; architecture 80
-- [ ] P2 glue: V5 (roadmap), V6, review, branch commit, dev install
-- [ ] P4: V1-V7 batch (V2 full program, V3 this repo, V4 sweep)
-- [ ] P4: dev-tag close-out; owner checks diff; branch commit
+- [x] P2: SKILL.md 15-16, 102-106; curator-procedures 24-31; README 225; architecture 80
+- [x] P2 glue: V5 (roadmap), V6, review, branch commit (dev install skipped: the owner dropped
+  the dev tag)
+- [x] P4: V1-V7 batch (V2 full program, V3 this repo, V4 sweep) (V1, V2, V4 by simulated runs
+  in fixture clones, V7 by `deploy --version` on the worktree; the owner dropped the dev tag)
+- [x] P4: dev-tag close-out; owner checks diff; branch commit (simulated curator; owner diff
+  check before landing)
 - [ ] P4: rebase, squash merge on `main`, `VERSION` raised by one, suite, commit
 - [ ] P4: `./deploy install`, `./deploy status`
 - [ ] P4: with confirmation push; uninstall dev tag; remove worktree; delete branch

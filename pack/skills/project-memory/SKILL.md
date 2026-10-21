@@ -13,12 +13,12 @@ The store is committed to the project and holds what future sessions must not re
 .supervisor/
   README.md                  static layout note, from templates/store-readme.md
   history.md                 append-only: one line per landed roadmap item or milestone
-  roadmap.md                 mid-term, one ordered file (Stage 4; ROADMAP.md until then)
+  roadmap.md                 mid-term, one ordered file
   memory/                    entries in force only
     decisions/ facts/ lessons/ goals/ conventions/    one folder per kind, one file per entry
   working/
     writing/                 per-document writer state
-    research/ plans/         short-term (Stage 4; in docs/ until then)
+    research/ plans/         short-term, by researcher and planner
   archive/                   mirrors the live tree; never read by default; no top-level files
     memory/<kind>/           superseded entries; goals met or dropped
     working/writing/ research/ plans/    spent state
@@ -46,6 +46,8 @@ superseding; `domain` is `code`, `writing`, `science` or `process`.
 - Paths inside the project are relative to the project root (the directory holding
   `.supervisor/`), never `~`-prefixed. References outside it are absolute and name the machine,
   scp style: `polaris:/lus/grand/projects/x/run42/`.
+- A `source:` path that no longer exists names a moved file: find the same name under
+  `.supervisor/working/` or `.supervisor/archive/`, else run `git log --all -- <path>`.
 - Supersede, never edit: write the replacement in `memory/<kind>/` with `supersedes: <archived
   path>`; then add `superseded by: <new path>` to the old file, `git add` it, and only then
   `git mv` it to `archive/memory/<kind>/`, so the edit is staged with the move. A finished goal
@@ -84,7 +86,8 @@ asks for a project directory instead). Nothing is ever written or deleted outsid
 ## Curation and writing
 
 - `curator` loads `${CLAUDE_SKILL_DIR}/references/curator-procedures.md` (close-out, idle-plan
-  sweep, record, remember, forget, make this a project, migrate, archive).
+  sweep, record, remember, forget, make this a project, migrate (writing rules or a legacy
+  `docs/` working set), archive).
 - Load `${CLAUDE_SKILL_DIR}/references/writing.md` before a writing task or a prose review.
 
 ## Retrieval and validation
@@ -101,6 +104,6 @@ asks for a project directory instead). Nothing is ever written or deleted outsid
 
 ## Horizons
 
-Goals are long-term (`memory/goals/`). The roadmap is mid-term: `.supervisor/roadmap.md` from
-Stage 4, the project's `ROADMAP.md` until then. Plans and research are short-term, in `docs/`
-until Stage 4 moves them to `working/`.
+Goals are long-term (`memory/goals/`). The roadmap is mid-term, one ordered file
+`.supervisor/roadmap.md` whose items cite their `decision` entries by path under `Decisions:`.
+Plans and research are short-term, in `working/`.

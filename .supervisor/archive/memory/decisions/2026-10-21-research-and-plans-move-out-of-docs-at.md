@@ -5,6 +5,7 @@ affects: [docs/]
 verified: 2026-10-21
 source: docs/archive/plan-memory-v2.md#scope-notes
 supersedes: 
+superseded by: .supervisor/memory/decisions/2026-10-21-research-and-plans-live-in-supervisor.md
 ---
 D3. At Stage 4 research and plans move from `docs/` to `.supervisor/working/research/` and
 `working/plans/` for new programs, plus a one-time migration of existing `docs/` and

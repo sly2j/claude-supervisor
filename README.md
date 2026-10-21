@@ -82,7 +82,7 @@ flowchart LR
 
 ## Larger Work
 
-Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `docs/` (`docs/plan-*.md`, `docs/research-*.md`), so you can read and annotate them between steps; finished ones move to `docs/archive/` with `git mv`.
+Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `.supervisor/working/` (`plans/plan-*.md`, `research/research-*.md`), so you can read and annotate them between steps; finished ones move to `.supervisor/archive/working/` with `git mv`.
 
 The planner breaks a plan into work packages when streams each need their own research, plan, or write stage. Plain parallel work stays a flat plan. Each package lists only the stages it needs (`research`, `plan`, `execute`, `write`) and depends only on the packages whose output it consumes. A package block (field rules in `pack/agents/planner.md`):
 
@@ -93,7 +93,7 @@ The planner breaks a plan into work packages when streams each need their own re
 - Deps: none
 - Stages: plan, execute
 - Status: plan
-- Artifacts: docs/plan-hooks-p9.md
+- Artifacts: .supervisor/working/plans/plan-hooks-p9.md
 ```
 
 The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package, and your answer re-runs that stage, also in a new session: the plan file holds the state. Its `## Log` section gets one line per lead run, with what was deferred and why, so a new session can tell you what ran and what is still open.
@@ -148,14 +148,14 @@ flowchart LR
 
 The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
 
-`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/writing/` for per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. It is created on the first write in a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory itself); elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project". It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. It is created on the first write in a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory itself); elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project". It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
 
 ## What's In The Pack
 
 Who handles what:
 - `supervisor`: your session; routes requests, briefs agents, and reports back
-- `researcher`: investigation, code tracing, literature; writes `docs/research-*.md`
-- `planner`: implementation plans in `docs/plan-*.md`
+- `researcher`: investigation, code tracing, literature; writes `.supervisor/working/research/research-*.md`
+- `planner`: implementation plans in `.supervisor/working/plans/plan-*.md`
 - `executor`: code, tests, config, agent definitions, git conflicts, Python environments
 - `writer`: scientific and technical prose, slide content, project docs
 - `clerk`: small, exact edits; runs a given command; records memory entries
@@ -220,9 +220,8 @@ pack/skills/        skills (deployed to <install dir>/skills)
 deploy              installer: install | update | status | list | uninstall | doctor | migrate
 tests/              deploy tests, pack lint, VERSION check
 docs/               architecture.md, deploy.md (deploy runbook)
-docs/archive/       finished plans and their research
 CLAUDE.md           instructions for Claude working in this repo
-ROADMAP.md          open work items
+.supervisor/        project memory; roadmap.md holds open work items
 VERSION             pack version
 ```
 

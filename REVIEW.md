@@ -25,7 +25,11 @@ Rules for reviewers of this repo: Anthropic Code Review and the pack's `critic`.
   a message or doc step that leaves the user stuck, a failing test, a word-cap violation.
 - SHOULD: a message without a next step, a doc that disagrees with the tool, a stale reference.
 - Do not report: line length and word counts under the caps (linted), anything under
-  `docs/archive/`, style in test fixtures.
+  `.supervisor/archive/`, style in test fixtures.
+- Do not report these `deploy` hardenings (a full review rejected them) unless a failure was
+  observed: quote escaping of launcher values (config dir, prefix, base URL, token path); a lock
+  on the `installs.json` registry; rejecting an empty `--target ""` or `--prefix ""` instead of
+  falling back to the default; UTF-8 BOM handling in frontmatter parsing.
 
 ## Evidence
 

@@ -2,10 +2,10 @@
 
 Run by `curator`. Entry format, paths and the supersede step are in SKILL.md. Run the idle-plan
 sweep on every run, after the brief's own procedure. The five-entry cap, unless the brief says
-otherwise, counts every step; when it would cut entries, leave the roadmap item or legacy file in
-place, skip step 7, and report what remains as `follow-up: curator close-out <plan path>` (or
-`curator migrate <path>`). Each `git mv` below uses plain `mv` instead without git, or for a move
-into `.supervisor/` when it is gitignored (SKILL.md).
+otherwise, counts every step; `migrate` is exempt. When the cap would cut entries, leave the
+roadmap item in place, skip step 7, and report what remains as
+`follow-up: curator close-out <plan path>`. Each `git mv` below uses plain `mv` instead without
+git, or for a move into `.supervisor/` when it is gitignored (SKILL.md).
 
 ## Close-out (`close-out <plan path>`)
 
@@ -25,11 +25,14 @@ into `.supervisor/` when it is gitignored (SKILL.md).
    `ROADMAP.md`.
    - Remove the items, or the stages of an item, whose scope the plan covered (named in its
      title, Goal or Scope Notes).
-   - For each removed item, record each "Decisions already made" bullet not yet in memory as one
-     `decision` entry (one entry per bullet) with `source: <roadmap path> item <n>, <date>`.
+   - For each removed item, record each legacy "Decisions already made" bullet not yet in memory
+     as one `decision` entry (one entry per bullet) with `source: <roadmap path> item <n>, <date>`.
    - Append one line to `.supervisor/history.md` per removed item or stage group, in the
-     SKILL.md format, high-level only. Create the file with the heading `# History` on first use.
-7. Archive step. `git mv` the plan, its child plans and its research to `docs/archive/`. Move the
+     SKILL.md format, high-level only, with the removed item's or stage's `Decisions:` paths (and
+     the paths of any entries just recorded) in its `decisions:` field. Create the file with the
+     heading `# History` on first use.
+7. Archive step. `git mv` the plan and its child plans to `.supervisor/archive/working/plans/`
+   and its research to `.supervisor/archive/working/research/`, keeping each file name. Move the
    draft state of the program's drafts to `.supervisor/archive/working/writing/`.
 
 A close-out of an unfinished plan (the answer to an idle-plan proposal) skips step 6 and marks no
@@ -37,11 +40,15 @@ goal `met`.
 
 ## Idle-plan sweep
 
-List each `docs/plan-*.md` whose last `## Log` line is dated more than 30 days ago. When its log
-is empty, use the plan's last commit date, `git log -1 --format=%cs -- <plan>` (file mtime
-without git). Report each as "archive or keep?" with both follow-ups: archive is a
+List each `.supervisor/working/plans/plan-*.md` whose last `## Log` line is dated more than 30
+days ago. When its log is empty, use the plan's last commit date,
+`git log -1 --format=%cs -- <plan>` (file mtime without git or when `.supervisor/` is
+gitignored). Report each as "archive or keep?" with both follow-ups: archive is a
 `curator close-out <plan>`; keep is a `clerk` brief appending `- <date> user: kept active` to the
 plan's `## Log`. Never move a file.
+
+Legacy proposal: when `docs/` holds `plan-*.md` or `research-*.md`, here or under `docs/archive/`,
+add `follow-up: curator migrate docs/` to the report.
 
 ## Record (`record <decision text> from <report>`)
 
@@ -67,6 +74,19 @@ When no project root exists, create `.supervisor/` with its README per SKILL.md 
 directory. Write no entries.
 
 ## Migrate (`migrate <path>`)
+
+For `migrate docs/`:
+- Live: `git mv` each `docs/plan-*.md` to `.supervisor/working/plans/` and each
+  `docs/research-*.md` to `.supervisor/working/research/`, same name. Write no entries.
+- Spent: for each `docs/archive/plan-*.md` and `docs/archive/research-*.md`, write one `decision`
+  or `fact` entry per one still in force (`## Approach`, `## Decisions`, `## Scope Notes`, decided
+  Open Questions, research conclusions), checking neighbours as in close-out step 3, with `source:
+  .supervisor/archive/working/<plans|research>/<name>#<section>`; then `git mv` the file there.
+  Move a file only after its entries exist. Propose lessons only.
+- Every other `docs/` file stays; remove `docs/archive/` once empty.
+- Report the moved paths, the entries written, and files outside `.supervisor/memory/`,
+  `.supervisor/archive/` and `history.md` that still name a moved file (grep by name), then
+  `recorded N`.
 
 For a legacy writing rules file, skipping Standing Rules and Session Decisions already migrated
 (check neighbours as in close-out step 3):

@@ -13,8 +13,9 @@ research artifact that `planner`, `executor`, or the user can act on without the
 
 ## Artifact
 
-- Default path: `docs/research-<topic>.md`. Use a caller-supplied path unchanged. Update an existing
-  topic file in place unless the caller asks for a new one.
+- Default path: `.supervisor/working/research/research-<topic>.md`; in a one-off directory
+  (`project-memory`), `research-<topic>.md` in the current directory. Use a caller-supplied path
+  unchanged. Update an existing topic file in place unless the caller asks for a new one.
 - Contents:
   - title and scope statement
   - findings, with concrete references: paths, symbols, line ranges, URLs, short excerpts

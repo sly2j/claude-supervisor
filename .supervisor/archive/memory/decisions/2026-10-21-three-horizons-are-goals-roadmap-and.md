@@ -5,6 +5,7 @@ affects: [ROADMAP.md, pack/skills/project-memory/SKILL.md]
 verified: 2026-10-21
 source: docs/archive/plan-memory-v2.md#approach
 supersedes: 
+superseded by: .supervisor/memory/decisions/2026-10-21-three-horizons-goals-roadmap-supervisor.md
 ---
 Long-term: `goal` entries in `memory/goals/`. Mid-term: the roadmap, one ordered file, `ROADMAP.md`
 now and `.supervisor/roadmap.md` from Stage 4, whose items name the goals they serve and cite

@@ -5,6 +5,7 @@ affects: [ROADMAP.md, pack/skills/project-memory/SKILL.md]
 verified: 2026-10-21
 source: user 2026-10-21
 supersedes:
+superseded by: .supervisor/memory/decisions/2026-10-21-three-horizons-goals-roadmap-supervisor.md
 ---
 User, verbatim: "OQ1 -> no keep it under .supervisor/roadmap.md as before. We will address later if the design turns out to be not necessary. Rationale: not that useful for external users."
 

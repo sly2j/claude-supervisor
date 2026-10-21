@@ -5,3 +5,6 @@
 - 2026-10-21 2.3 README clarity and provider neutrality (ROADMAP item 2); goals: none; plan: none; decisions: none
 - 2026-10-21 2.4 Branch and worktree versioning (ROADMAP item 1); goals: none; plan: none; decisions: none
 - 2026-10-21 2.4 deploy update: downgrade guard (ROADMAP item 2); goals: none; plan: none; decisions: none
+- 2026-10-21 2.8 lead-loop: stop after a clean minor round (roadmap item 2); goals: none; plan: none; decisions: none
+- 2026-10-21 2.8 critic: Opus at default effort (roadmap item 4); goals: none; plan: none; decisions: none
+- 2026-10-21 2.9 Persistence and long-term memory, Stage 4 of roadmap item 1 (working set out of docs/); goals: none; plan: .supervisor/archive/working/plans/plan-memory-stage4.md; decisions: .supervisor/archive/memory/decisions/2026-10-21-store-layout-is-memory-per-kind-working.md, .supervisor/memory/decisions/2026-10-21-store-layout-is-memory-per-kind-working-2.md, .supervisor/archive/memory/decisions/2026-10-21-research-and-plans-move-out-of-docs-at.md, .supervisor/memory/decisions/2026-10-21-research-and-plans-live-in-supervisor.md, .supervisor/memory/decisions/2026-10-21-three-horizons-goals-roadmap-supervisor.md, .supervisor/memory/decisions/2026-10-21-a-program-is-closed-out-on-its-feature-2.md, .supervisor/memory/decisions/2026-10-21-moved-sources-are-resolved-not-rewritten.md
