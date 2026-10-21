@@ -203,3 +203,38 @@
 - **Done when:** a scientific run leaves a stamped `artefacts/` subdirectory whose README states
   the goal and what was learned, with its outputs beside it; the suite passes.
 - **Pointers:** `docs/research-memory.md` section 8 item 7.
+
+### 3. README clarity and provider neutrality
+
+Make README less Claude-specific; reword the model-tier mentions so "Opus/Fable" reads as a
+capability level ("Opus/Fable-level", e.g. for `planner`) rather than a specific product, and
+remove confusion between the two names. Small, do early.
+
+### 4. Configurable model tiers for alternative providers
+
+Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
+third-party providers that implement the Anthropic API via API keys (deploy-time or settings-level
+mapping).
+
+### 5. Light path for small prose revisions
+
+A one-paragraph `revise` currently runs the full writer lead with writer–critic–scope-critic
+rounds. Add a quick-tier writing path or default to `Review: light` below a size threshold;
+reconsider whether scope-critic adds value for `writer` at all.
+
+### 6. lead-loop: stop after a clean minor round
+
+When a critic round returns only SHOULD/NIT findings and all are applied, do not run another
+critic round; re-review only after BLOCKING fixes or new material.
+
+### 7. Program logs for flat plans
+
+In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
+flat `## Todo` plans and child plans do not. Decide whether flat plans should log deferrals too
+(needs a supervisor clause; supervisor.md is at its word cap).
+
+### 8. Memory across branches and worktrees (future release)
+
+`.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
+state; define how conflicting or duplicate entries are reconciled when a feature is merged
+(supersede rules, curator pass at merge, or merge-time report).
