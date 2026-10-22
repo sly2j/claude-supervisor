@@ -121,14 +121,7 @@ the tiers, lists the provider's available models, and lets the user pick one per
 or by typing a name. `deploy` stays standard-library-only.
 Priority: normal. Effort: M.
 
-### 7. Memory across branches and worktrees (future release)
-
-`.supervisor/memory/` is versioned, so feature branches and worktrees can diverge in memory
-state; define how conflicting or duplicate entries are reconciled when a feature is merged
-(supersede rules, curator pass at merge, or merge-time report). Undecided.
-Priority: low — future release. Effort: L.
-
-### 8. Science artefacts (future release)
+### 7. Science artefacts (future release)
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
