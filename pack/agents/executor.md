@@ -64,4 +64,4 @@ Review with critic domain code, or agent-definition for agent and skill files.
 ## Final Output
 
 Return the lead-loop report, including plan checklist status and, per `repo-workflow`, the
-worktree, the branch, and the squash commit or why it did not merge.
+worktree, the branch, the squash commit or why it did not merge, and other worktrees found.

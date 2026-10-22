@@ -53,15 +53,24 @@ persisted:
 
 ## Branches And Worktrees
 
-- In a git project, each `executor` change set works in its own `git worktree` on a new branch cut
-  from the default branch. Name the branch like the repo's existing branches, else `<type>/<slug>`,
-  and place the worktree beside the checkout as `<repo>-wt-<slug>`. Quick-tier work (`clerk`,
-  `git-ops`), conflict resolution and environment repair stay in the current checkout.
+- In a git project, each `executor` change set works in its own `git worktree` at
+  `<toplevel>/.claude/worktrees/<slug>`, on a new branch cut from the default branch. Name the
+  branch like the repo's existing branches, else `<type>/<slug>`. Workers share the lead's
+  worktree, and only the lead changes git state in it. Quick-tier work (`clerk`, `git-ops`),
+  conflict resolution, environment repair and repos with submodules stay in the current checkout.
+- Before cutting a worktree, run `git worktree list`: resume in the one for your own slug, and
+  report the other linked worktrees as "other worktrees". If
+  `git check-ignore -q .claude/worktrees/<slug>` fails, append the line `/.claude/worktrees/` to
+  `$(git rev-parse --git-path info/exclude)`. Never edit `.gitignore` for this.
+- Clean up other worktrees only when the user asks, never with `--force`: commit uncommitted edits
+  on their branch as a `wip:` commit, `git worktree remove` the worktree, delete its branch
+  (`git branch -d`) only if `git log <default>..<branch>` is empty, then `git worktree prune`.
 - When the brief or the user explicitly says to work in place or in a named checkout or worktree,
   work and commit there, and merge only when asked.
-- Untracked setup the checks need (`.env`, local config, a venv, `node_modules`): copy small files
-  and link environments into the worktree, and ask when it is unclear what is needed. Check that
-  the tests import the worktree's code.
+- Untracked setup the checks need: copy small ignored files (`.env`, local config) into the
+  worktree. Never link a venv or `node_modules`; build them in the worktree with the project's tool
+  (`uv sync`, `npm ci`), and ask when it is unclear what is needed. Check that the tests import the
+  worktree's code (for Python, `python -c 'import <pkg>; print(<pkg>.__file__)'`).
 - Read and tick a plan at the path the brief gives, not at its copy in the worktree.
 - Force-push and rebase of pushed commits stay gated by `git-safety`. A standing permission in the
   repo's `CLAUDE.md` (for example `--force-with-lease` on feature branches after a rebase) counts as
@@ -81,20 +90,23 @@ one the user made (a user-made worktree), follows steps 2-5.
 2. In the worktree, `git rebase <default>`, then rerun the checks. On a conflict, follow
    `git-safety` (Conflicts).
 3. Find the checkout that has the default branch checked out (`git worktree list`). If there is
-   none, or it has staged changes outside `.supervisor/` or an operation in progress, stop:
-   leave the branch ready and report why. If `git merge-base --is-ancestor <default> <branch>`
-   fails, go back to step 2.
+   none, stop: leave the branch ready and report why. If it has staged changes outside
+   `.supervisor/` or an operation in progress, or git fails on a `.lock` file, wait a minute and
+   retry from step 2, at most three times, then stop the same way. If
+   `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
 4. There, `git merge --squash <branch>`; if git refuses because it would overwrite uncommitted
    changes only under `.supervisor/`, commit those first with `git add .supervisor` and
    `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, raise `VERSION` and
    add it to the pathspec, as this lands on the default branch), then go back to step 2; if it
-   names other paths, stop as in step 3. Otherwise `git add .supervisor`, so this checkout's
-   pending store changes join the squash commit. Bump `VERSION` if the repo uses the `X.y` scheme,
-   run the checks, and commit. Other unrelated uncommitted changes stay out of the commit. If the
-   checks fail, do not commit; report, leave the squash staged, and stop (keep the worktree and
-   branch).
-5. Remove the setup copies and links (a link with plain `rm <link>`, no `-r`, no trailing slash),
-   then `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
+   names other paths, stop: leave the branch ready and report. Otherwise `git add .supervisor`, so
+   this checkout's pending store changes join the squash commit. Bump `VERSION` if the repo uses
+   the `X.y` scheme, run the checks, and commit once
+   `git diff --cached --quiet <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit
+   takes this checkout's pending store changes) confirms the staged tree is the branch. Other
+   unrelated uncommitted changes stay out of the commit. If the checks or that test fail, do not
+   commit; report, leave the squash staged, and stop (keep the worktree and branch). Never move
+   the default branch with `update-ref` or `branch -f`.
+5. `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
    `git diff --quiet HEAD <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit took
    this checkout's pending store changes) confirms the commit holds the branch, delete it
    with `git branch -D`; this default is the user's request for that deletion.
