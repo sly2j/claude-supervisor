@@ -155,7 +155,7 @@ The bookkeeping between waves, `Amend parent:`, and the archive move are in [doc
 Who handles what:
 - `supervisor`: your session; routes requests, briefs agents, and reports back
 - `researcher`: investigation, code tracing, literature; writes `.supervisor/working/research/research-*.md`
-- `planner`: implementation plans in `.supervisor/working/plans/plan-*.md`
+- `planner`: decision-and-outline plans, questions first, in `.supervisor/working/plans/plan-*.md`
 - `executor`: code, tests, config, agent definitions, git conflicts, Python environments
 - `writer`: scientific and technical prose, slide content, project docs
 - `clerk`: small, exact edits; runs a given command; records memory entries

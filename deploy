@@ -974,8 +974,12 @@ def status_cmd(args: argparse.Namespace) -> int:
                 if args.source:
                     raise
         if src_files is None:
-            print("Source: %s (not available; %s --source <checkout>/pack to compare)" % (
-                manifest.get("source_dir"), "run ./deploy status" if getattr(args, "launcher", False) else "pass"))
+            hint = "pass"
+            if getattr(args, "launcher", False):
+                hint = "run ./deploy status --tag %s" % args.tag
+                if target != Path("~/.config/claude-" + args.tag).expanduser().resolve():
+                    hint += " --target %s" % target
+            print("Source: %s (not available; %s --source <checkout>/pack to compare)" % (manifest.get("source_dir"), hint))
         else:
             print("Source: %s" % manifest.get("source_dir"))
         try:

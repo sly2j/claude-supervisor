@@ -1363,6 +1363,14 @@ def test_launcher_status(remote, tmp_path):
     assert r.stdout.startswith("Target: %s\n" % sbx) and "Version: installed=" in r.stdout
 
 
+def test_launcher_status_hint_names_the_tag_without_source(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    shutil.rmtree(remote.clone / "pack")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "status")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "not available; run ./deploy status --tag t --source <checkout>/pack to compare)" in r.stdout
+
+
 def test_launcher_old_form_still_runs(remote, tmp_path):
     """A launcher written before 3.3 appends its selection; the shared tool copy still accepts that."""
     install_from_clone(remote, "--tag", "t")

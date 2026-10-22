@@ -4,7 +4,7 @@ summary: Launcher remaps Fable to Opus via ANTHROPIC_DEFAULT_FABLE_MODEL; instal
 affects: [deploy, docs/deploy.md, README.md, pack/agents/planner.md, pack/agents/writer.md]
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-install-lifecycle.md#approach
-supersedes:
+supersedes: .supervisor/archive/memory/decisions/2026-10-21-launcher-remaps-fable-to-opus-installed.md
 ---
 Deployed agent files say `model: fable` byte for byte as in `pack/`; there is no install-time rewrite. Each `claude-<tag>` launcher exports `ANTHROPIC_DEFAULT_FABLE_MODEL` set to the `OPUS_MODEL` constant in `deploy` (currently `claude-opus-5-5`), so the three Fable agents (`supervisor`, `planner`, `scope-critic`) and the prose `model: fable` dispatch overrides (`planner` to `critic`, `writer` to `writer-worker`) run on Opus. A `--fable` in any position before a `--` (first argument only until 3.2; owner, 2026-10-22) strips the flag and unsets the variable for that session, which runs them on Fable. Why: Fable is billed separately on some plans, so Opus is the default and Fable is a per-session choice.
 
@@ -12,4 +12,4 @@ Details that bind later changes. The value is a full model ID, not the `opus` al
 
 Rejected: `CLAUDE_CODE_SUBAGENT_MODEL` (it overrides every subagent, Haiku and Sonnet ones included, instead of remapping only `fable`); an install-time rewrite of agent files to `opus` plus an install `--fable` flag and manifest key (the earlier design, replaced by the launch-time switch).
 
-Reach: product; stated in docs/deploy.md:126 and deploy:47.
+Reach: product; stated in docs/deploy.md:129 and deploy:48.

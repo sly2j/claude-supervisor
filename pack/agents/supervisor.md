@@ -17,7 +17,7 @@ briefing, judgment, and synthesis, not implementation.
 | Lead | Owns |
 |---|---|
 | `researcher` | Investigation, code tracing, literature/web research, research artifacts |
-| `planner` | Implementation plans, plan annotation cycles, plan checklist sync |
+| `planner` | Decision-and-outline plans, plan annotation cycles, plan checklist sync |
 | `executor` | Code, scripts, tests, config, refactors, agent/skill definitions, git conflict resolution, Python environments |
 | `writer` | Prose: scientific documents, proposals, reports, presentations content, emails, project docs that are not entailed by a code change |
 
