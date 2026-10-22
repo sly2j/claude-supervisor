@@ -28,47 +28,7 @@ small lower-priority ones; an item that another needs comes before it.
 
 ### 1. Persistence and long-term memory (2.x)
 
-- **Goal:** carry decisions, run history and distilled knowledge across sessions, packages and
-  programs, in a committed project store that agents read just in time.
-- **Background:** the earlier gate (run the work-package flow on a real multi-package task) was
-  met by the install-lifecycle program
-  (`.supervisor/archive/working/plans/plan-install-lifecycle.md`, P1-P4 at L326-365). Gaps
-  observed there:
-  - Glue Todo items (commit + install for P1-P4: L422, L428, L433, L437) were left unticked
-    because installs were deferred; nothing records why.
-  - The pack has no memory today: no decision file, logbook or `## Assumptions` section exists,
-    and the supervisor's "memory files" clause names no files.
-- **Scope:**
-  - In: Stage 5 below, after v2.0 (Stages 1-3) and Stage 4, both shipped (see
-    `.supervisor/archive/working/plans/plan-memory-v2.md`).
-  - Out: a standalone RAID register; issues separate from Todo (both rejected); vector or graph
-    stores and external services (the pack stays service-free).
-- **Decisions:**
-  - `.supervisor/memory/decisions/2026-10-21-the-owner-confirms-open-decisions-at.md`
-  - `.supervisor/memory/decisions/2026-10-21-memory-work-was-developed-on-a-feature.md`
-  - `.supervisor/memory/decisions/2026-10-21-project-memory-lives-in-supervisor-in.md` (D1)
-  - `.supervisor/memory/decisions/2026-10-21-store-layout-is-memory-per-kind-working-2.md` (D2)
-  - `.supervisor/memory/decisions/2026-10-21-research-and-plans-live-in-supervisor.md` (D3)
-  - `.supervisor/memory/decisions/2026-10-21-a-sonnet-curator-curates-memory-clerk.md` (D4)
-  - `.supervisor/memory/decisions/2026-10-21-the-post-wave-clerk-records-mid-program.md` (D5)
-  - `.supervisor/memory/decisions/2026-10-21-expiry-flags-an-entry-when-its-affects.md` (D6)
-  - `.supervisor/memory/decisions/2026-10-21-memory-holds-decisions-then-facts.md` (D7)
-  - `.supervisor/memory/decisions/2026-10-21-writing-rules-are-conventions-per-draft.md` (D8)
-  - `.supervisor/memory/decisions/2026-10-21-stages-1-3-of-memory-land-together-as-v2.md` (D9)
-  - `.supervisor/memory/decisions/2026-10-21-no-retrieval-hooks-in-v2-0-add-one-only.md` (D10)
-  - `.supervisor/memory/decisions/2026-10-21-one-file-per-entry-kinds-decision-fact.md` (D11)
-  - `.supervisor/memory/decisions/2026-10-21-one-off-directories-persist-nothing-and.md`
-  - `.supervisor/memory/decisions/2026-10-21-no-supervisor-word-cap-raise-the-archive.md` (word cap)
-  - `.supervisor/memory/decisions/2026-10-21-agent-names-are-roles-quick-edit-became.md`
-  - `.supervisor/memory/decisions/2026-10-21-three-horizons-goals-roadmap-supervisor.md`
-- **Done when:** v2.0 (Stages 1-3) and Stage 4 shipped; see `.supervisor/history.md`. Stage 5
-  lands as a 2.x change set per its own done-when and is removed here when it lands.
-- **Pointers:** `.supervisor/working/research/research-memory.md` (sections 8-11: architecture,
-  staged proposal, D1-D11, risks); `.supervisor/archive/working/plans/plan-memory-v2.md` (the
-  v2.0 plan).
-
-Priority: high — active goal; finishes the memory feature; follows the small deploy items
-that make its dev cycle cleaner. Effort: L.
+Only Stage 5 remains; v2.0 (Stages 1-3) and Stage 4 shipped (see `.supervisor/history.md`).
 
 #### Stage 5 (conditional): Retrieval automation
 
@@ -80,6 +40,8 @@ that make its dev cycle cleaner. Effort: L.
 - **Dependencies:** v2.0.
 - **Decisions:**
   - `.supervisor/memory/decisions/2026-10-21-no-retrieval-hooks-in-v2-0-add-one-only.md` (D10)
+
+Priority: high. Effort: M.
 
 ### 2. Make room in supervisor.md
 

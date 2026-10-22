@@ -9,3 +9,4 @@ supersedes:
 The curator writes `goal` entries from `remember X` and from close-out, and moves them to
 `archive/memory/goals/` with `met:` or `dropped:` at close-out or on request. The clerk writes no
 goals, so the supervisor needs no extra clause (it is near its word cap).
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

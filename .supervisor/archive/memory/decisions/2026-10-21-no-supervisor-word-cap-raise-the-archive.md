@@ -10,3 +10,4 @@ The supervisor body stays under its 1000-word cap (991 words at the landing plan
 `clerk` archive clause is replaced by the curator clause; the Programs section absorbs the rest,
 including the five-word `Log:` hook. Rejected: a Main cap raise, supervisor-level grepping of
 memory, and extra Mode 2 rows.
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

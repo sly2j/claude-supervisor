@@ -11,3 +11,4 @@ supersedes:
 Why: discovery inside the critic also serves the supervisor's ad hoc reviews, which have no lead brief, and the same file is what Anthropic's Code Review reads. Rejected: having the lead pass `REVIEW.md` in the critic's brief (misses ad hoc reviews and adds a step to every lead); a checklist file inside the pack (`REVIEW.md` is a project file and is not word-capped). Consequence: `critic.md` carries one `Project rules` bullet; leads' briefs are unchanged.
 
 Reach: product; stated in pack/agents/critic.md:35.
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

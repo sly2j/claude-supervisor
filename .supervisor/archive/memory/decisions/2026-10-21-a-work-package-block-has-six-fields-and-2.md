@@ -13,3 +13,4 @@ Since 3.0 the schema, its Status values and the integration and child-plan shape
 Rejected as creep: a `pending`/`running` status pair, extra fields (owner, estimate, priority), extra status values (`ready`, `waiting`), a stage-to-lead table in `supervisor.md`, a status mirror in the plan's `## Todo` (duplicate state, two edits per transition), and a phrase lint for the section.
 
 Reach: product; stated in pack/skills/plan-writing/SKILL.md.
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

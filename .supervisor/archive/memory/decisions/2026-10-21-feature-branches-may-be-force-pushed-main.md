@@ -14,3 +14,4 @@ feature branch, as `git push --force-with-lease`, is therefore authorized withou
 practice only, so it lives here and not in `pack/` (the `git-safety` skill stays generic).
 Related: `.supervisor/memory/decisions/2026-10-21-memory-work-was-developed-on-a-feature.md`
 (the feature-branch and worktree flow, no `VERSION` edits on branches).
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

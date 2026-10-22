@@ -10,3 +10,4 @@ A new `Memory` tier row (`sonnet / high`, body cap 400, explicit tool allowlist,
 supervisor dispatching the curator at depth 1. Rejected: curator in the Worker row (Worker means
 lead-dispatched at depth 2) and a Mode 2 table row for it (about ten supervisor words; the Programs
 clause routes it).
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

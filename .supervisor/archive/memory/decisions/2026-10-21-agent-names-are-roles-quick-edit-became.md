@@ -9,3 +9,4 @@ supersedes:
 Agent names are roles. Stage 1 renamed `quick-edit` to `clerk` because the agent now records
 memory entries and log lines as well as small edits; `git-ops` keeps its name; the memory agent is
 `curator`. `deploy` removes the old managed `quick-edit.md` on upgrade unless edited locally.
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

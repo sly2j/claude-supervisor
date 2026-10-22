@@ -16,3 +16,4 @@ Rejected: rewriting `source:` lines (breaks supersede-never-edit); superseding t
 cite a moved file (churn with no new claim).
 
 Reach: product; stated in `pack/skills/project-memory/SKILL.md` (Entries).
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)

@@ -10,3 +10,4 @@ D9. Stages 1-3 (decision records, program state, curator close-out) land togethe
 squash merge of the feature branch that sets `VERSION` to `2.0`. Stages 4-5 follow as 2.x change
 sets, each per its own done-when. The research recommended Stages 1-2 as v2.0; the owner chose the
 larger release so the store ships with its curator.
+dropped: 2026-10-22 (memory audit: covered by pack/, CLAUDE.md or docs, or no longer a live claim)
