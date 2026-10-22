@@ -2,7 +2,7 @@
 domain: code
 summary: The pack is a stand-alone tool; entries here govern repo work only, so decide each rule's reach and write product behaviour into pack/ itself
 affects: [pack/]
-verified: 2026-10-21
+verified: 2026-10-22
 source: user 2026-10-21
 supersedes:
 ---

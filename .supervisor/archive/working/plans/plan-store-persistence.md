@@ -113,8 +113,11 @@ None.
 
 ## Log
 
+- 2026-10-22 planner: plan-store-persistence written, 1 review round, critic findings applied; deferred: none
+- 2026-10-22 executor: S1+S2 implemented, landed on main as caeb0b2 (v4.2), suite 383 passed, scenarios pass; deferred: curator recording D1-D6, push
+
 ## Todo
 
 - [x] S1 U1-U3, checkpoint, creation scenario
 - [x] S2 U1-U3, checkpoint, landing scenarios
-- [ ] Land with `VERSION` raised; `curator` records D1-D6
+- [x] Land with `VERSION` raised; `curator` records D1-D6

@@ -2,7 +2,7 @@
 domain: process
 summary: No retrieval hooks in v2.0; add one only after an observed retrieval failure
 affects: [pack/agents/supervisor.md]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#open-questions
 supersedes: 
 ---

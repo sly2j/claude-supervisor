@@ -2,7 +2,7 @@
 domain: process
 summary: Project memory lives in .supervisor/ in the repo and is committed
 affects: [pack/skills/project-memory/]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#scope-notes
 supersedes: 
 ---

@@ -16,3 +16,5 @@ store here; say *remember* to keep it`. Only `remember`, `make this a project` o
 creates the store, in the current directory (never `$HOME`). Scratch markers,
 `$CLAUDE_CONFIG_DIR/scratch`, retention and promotion are removed. Why: `~/.claude/` made every
 directory under `~` a project, and the ask-once flow cost more than it saved.
+
+superseded by: .supervisor/memory/decisions/2026-10-22-one-off-persists-nothing-curator-stores.md

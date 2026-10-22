@@ -2,7 +2,7 @@
 domain: process
 summary: Research and plans live in .supervisor/working/ and are archived to archive/working/; a legacy docs/ set moves with curator migrate
 affects: [pack/agents/researcher.md, pack/agents/planner.md, pack/skills/project-memory/references/curator-procedures.md]
-verified: 2026-10-21
+verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-memory-stage4.md#approach
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-in-v2-0-working-holds-only-writing.md, .supervisor/archive/memory/decisions/2026-10-21-research-and-plans-move-out-of-docs-at.md]
 ---

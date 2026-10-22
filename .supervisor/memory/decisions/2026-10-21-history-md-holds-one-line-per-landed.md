@@ -2,7 +2,7 @@
 domain: process
 summary: history.md holds one line per landed roadmap item; the roadmap holds only what is next
 affects: [pack/skills/project-memory/references/curator-procedures.md]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#approach
 supersedes: 
 ---

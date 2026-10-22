@@ -2,7 +2,7 @@
 domain: process
 summary: Expiry flags an entry when its affects paths change; no time-based archiving
 affects: [pack/skills/project-memory/]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#open-questions
 supersedes: 
 ---

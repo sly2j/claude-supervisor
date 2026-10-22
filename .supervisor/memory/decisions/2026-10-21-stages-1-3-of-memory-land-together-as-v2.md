@@ -2,7 +2,7 @@
 domain: process
 summary: Stages 1-3 of memory land together as v2.0; Stages 4-5 follow as 2.x
 affects: [VERSION]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#scope-notes
 supersedes: 
 ---

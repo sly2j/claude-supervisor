@@ -2,7 +2,7 @@
 domain: process
 summary: Moved sources are resolved, not rewritten; a missing source: is found by name under working/ or archive/, else git log --all
 affects: [pack/skills/project-memory/SKILL.md]
-verified: 2026-10-21
+verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-memory-stage4.md#approach
 supersedes:
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: Deploy does not escape quotes in launcher values or lock the registry; reviewers do not flag either
 affects: [deploy]
-verified: 2026-10-21
+verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-full-review.md#findings
 supersedes:
 ---

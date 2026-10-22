@@ -2,7 +2,7 @@
 domain: process
 summary: One file per entry; kinds decision, fact, lesson, goal, convention; no index file
 affects: [pack/skills/project-memory/]
-verified: 2026-10-21
+verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#scope-notes
 supersedes: 
 ---
