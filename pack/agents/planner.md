@@ -5,6 +5,7 @@ model: fable
 skills:
   - lead-loop
   - plan-writing
+  - repo-workflow
 color: cyan
 ---
 

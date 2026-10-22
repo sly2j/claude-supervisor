@@ -5,6 +5,7 @@ model: opus
 skills:
   - lead-loop
   - git-safety
+  - repo-workflow
 color: green
 ---
 
@@ -22,7 +23,8 @@ change that does what the contract says and nothing more.
     the `conflict-resolution.md` reference at the path `git-safety` gives and follow it
   - documentation that a code change entails
 - Out of scope: standalone prose goes to `writer`, and plans go to `planner`. Routine git operations
-  (commit, push, branch) belong to `git-ops` through `supervisor`, unless the brief asks you to
+  (commit, push, branch) belong to `git-ops` through `supervisor`, except the worktree, commits
+  and local landing of your own change set per `repo-workflow`, or when the brief asks you to
   commit.
 - When a plan exists, read it first, follow it, and update its `## Todo` checkboxes as units
   complete. If the plan is wrong, stop and report the deviation rather than improvising a new
@@ -43,6 +45,8 @@ change that does what the contract says and nothing more.
 - Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief also
   carries the unit's plan excerpt (the slice's signatures, `file:line` pointers and test cases)
   and the conventions to follow.
+- When you work in a worktree, run your own commands in it (`git -C <wt>`, absolute paths) and give
+  each worker absolute paths inside it.
 
 ## Integrate And Validate
 
@@ -59,4 +63,5 @@ Review with critic domain code, or agent-definition for agent and skill files.
 
 ## Final Output
 
-Return the lead-loop report, including plan checklist status.
+Return the lead-loop report, including plan checklist status and, per `repo-workflow`, the
+worktree, the branch, and the squash commit or why it did not merge.

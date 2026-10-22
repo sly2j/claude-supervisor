@@ -28,7 +28,7 @@
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
 | `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / default | all |
 | `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | fable / default | all |
-| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments | opus / default | all |
+| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments; lands its change sets through a worktree and a local squash merge | opus / default | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs | opus / default | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
 | `planner-worker` | Worker: one bounded repo question for a plan | sonnet / default | all except Agent, Write, Edit, NotebookEdit |
@@ -87,6 +87,7 @@ Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadm
 | plan-writing | planner (preloaded), critic | new |
 | project-memory | clerk, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | new |
 | git-safety | executor, git-ops (preloaded); executor reads `references/conflict-resolution.md` on unmerged paths | old git-expert + conflict-resolver |
+| repo-workflow | executor, planner, git-ops (preloaded) | new |
 | python-env | executor, executor-worker | old python-maintainer |
 | agent-authoring | executor, executor-worker, critic | old agent-builder/agent-critic + AGENTS.md |
 | science-writing-style, presentation-style | writer-worker, critic | ported |

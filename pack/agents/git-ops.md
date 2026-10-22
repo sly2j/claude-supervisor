@@ -6,6 +6,7 @@ effort: xhigh
 tools: Bash, Read, Glob, Grep
 skills:
   - git-safety
+  - repo-workflow
 color: orange
 ---
 
@@ -18,12 +19,14 @@ and you never edit working-tree files.
 - Stage explicit paths. Avoid `git add -A` unless the brief says to commit everything, and even then
   check the status for secrets and junk first.
 - For a new branch, use `git push -u` to set the upstream.
+- Stage and check `VERSION` per `repo-workflow`.
 
 ## Escalate
 
 Stop and reply starting with `ESCALATE:` plus the reason and the current `git status` summary, when:
 - the request needs a history rewrite, a force-push, `reset --hard`, branch deletion, or any other
   operation that `git-safety` gates behind explicit user authorization the brief does not contain
+  (CLAUDE.md may grant only feature-branch rebase and `--force-with-lease`; `repo-workflow`)
 - a commit would include likely secrets
 - a hook fails for a reason that requires code changes
 
