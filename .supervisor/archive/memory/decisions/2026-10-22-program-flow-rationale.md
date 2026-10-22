@@ -5,6 +5,7 @@ affects: [pack/agents/planner.md, pack/agents/supervisor.md, pack/skills/plan-wr
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-wbs.md; .supervisor/archive/working/plans/plan-planner-lighter-plans.md; .supervisor/archive/working/plans/plan-memory-v2.md; owner 2026-10-21
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-planner-decides-when-to-split-into.md, .supervisor/archive/memory/decisions/2026-10-21-planner-asks-questions-first-only-when-the.md, .supervisor/archive/memory/decisions/2026-10-21-the-supervisor-runs-work-packages-as-a.md, .supervisor/archive/memory/decisions/2026-10-21-a-program-is-closed-out-on-its-feature-2.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-supervisor-runs-packages-in-waves.md, .supervisor/memory/decisions/2026-10-22-close-out-a-program-on-its-branch.md
 ---
 Behaviour is in `pack/agents/planner.md` (`## Work Packages`, `## Questions First`),
 `pack/agents/supervisor.md` and `docs/architecture.md`; this keeps the why and rejected options.

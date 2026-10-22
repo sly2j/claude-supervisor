@@ -5,6 +5,7 @@ affects: [pack/skills/project-memory/, pack/skills/repo-workflow/SKILL.md, pack/
 verified: 2026-10-22
 source: docs/archive/plan-memory-v2.md#scope-notes (D1, D13); .supervisor/archive/working/plans/plan-store-persistence.md#decisions (D1-D7); user 2026-10-21 and 2026-10-22
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-project-memory-lives-in-supervisor-in.md, .supervisor/archive/memory/decisions/2026-10-22-worktree-store-is-the-branchs-memory.md, .supervisor/archive/memory/decisions/2026-10-22-only-curator-creates-the-store.md, .supervisor/archive/memory/decisions/2026-10-22-supervisor-makes-the-project-first.md, .supervisor/archive/memory/decisions/2026-10-22-one-off-persists-nothing-curator-stores.md, .supervisor/archive/memory/decisions/2026-10-22-every-commit-stages-pending-store.md, .supervisor/archive/memory/decisions/2026-10-22-landing-squash-carries-pending-store.md, .supervisor/archive/memory/decisions/2026-10-22-store-conflicts-keep-both-sides.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-only-curator-creates-the-store.md
 ---
 Behaviour is in the pack (`project-memory` Committing the store and Projects and one-offs,
 `repo-workflow` Store changes and landing, `git-safety` conflict-resolution, `curator.md`,

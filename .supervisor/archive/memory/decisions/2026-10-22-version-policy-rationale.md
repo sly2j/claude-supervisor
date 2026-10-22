@@ -5,6 +5,7 @@ affects: [VERSION, CLAUDE.md, tests/test_version.py, docs/deploy.md]
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-versioning.md
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-version-is-bumped-by-hand-one-line-no.md, .supervisor/archive/memory/decisions/2026-10-21-the-version-bump-is-enforced-by-a-test.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-no-version-tags-hooks-or-release-process.md
 ---
 The rules are in `CLAUDE.md` and `tests/test_version.py`; this keeps the owner's choices and why.
 Repo work only; deployed projects are untouched.

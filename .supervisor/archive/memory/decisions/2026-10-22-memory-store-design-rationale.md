@@ -5,6 +5,7 @@ affects: [pack/skills/project-memory/, pack/agents/curator.md, pack/agents/write
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-memory-v2.md, .supervisor/archive/working/plans/plan-memory-stage4.md, user 2026-10-18 and 2026-10-21
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-store-layout-is-memory-per-kind-working-2.md, .supervisor/archive/memory/decisions/2026-10-21-folders-hold-fixed-properties-labels.md, .supervisor/archive/memory/decisions/2026-10-21-one-file-per-entry-kinds-decision-fact.md, .supervisor/archive/memory/decisions/2026-10-21-memory-holds-decisions-then-facts.md, .supervisor/archive/memory/decisions/2026-10-21-history-md-holds-one-line-per-landed.md, .supervisor/archive/memory/decisions/2026-10-21-three-horizons-goals-roadmap-supervisor.md, .supervisor/archive/memory/decisions/2026-10-21-research-and-plans-live-in-supervisor.md, .supervisor/archive/memory/decisions/2026-10-21-expiry-flags-an-entry-when-its-affects.md, .supervisor/archive/memory/decisions/2026-10-21-writing-rules-are-conventions-per-draft.md, .supervisor/archive/memory/decisions/2026-10-21-writer-state-is-one-file-per-draft-keyed.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-roadmap-stays-at-supervisor-roadmap-md.md
 ---
 Behaviour is in `pack/skills/project-memory/`; this keeps the why and the rejected options.
 

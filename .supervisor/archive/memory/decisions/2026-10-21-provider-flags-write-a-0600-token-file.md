@@ -5,6 +5,7 @@ affects: [deploy, docs/deploy.md]
 verified: 2026-10-21
 source: .supervisor/archive/working/plans/plan-sandboxed-install.md#scope-notes
 supersedes:
+superseded by: docs/deploy.md
 ---
 For a proxy or gateway, sandbox `install` accepts `--base-url URL` and one of `--token-file PATH` or `--token VALUE` (mutually exclusive in argparse; `--global` rejects all three). The token goes to `<dir>/token` (mode 0600, via a temp file that starts 0600) and the launcher exports exactly `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` (the latter read from that file at run time). A new sandbox dir is created 0700 unconditionally, because it also holds login state and history.
 

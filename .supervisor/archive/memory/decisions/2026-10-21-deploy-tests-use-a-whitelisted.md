@@ -5,6 +5,7 @@ affects: [tests/test_deploy.py, tests/]
 verified: 2026-10-21
 source: .supervisor/archive/working/plans/plan-full-review.md#approach
 supersedes:
+superseded by: tests/test_deploy.py
 ---
 The `deploy` test harness runs subprocesses with an environment built from a whitelist (`PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`) plus explicit extras, never a copy of the developer's environment, because `CLAUDE_CODE_*`, `GIT_*` and `XDG_*` variables leak in and change behavior (notably the doctor tests). Tests run against a temp HOME. A `stub_claude(bin_dir, version)` helper writes an executable `claude` that answers `--version` and records other arguments, so `doctor` is testable on PATH without a real Claude Code.
 
