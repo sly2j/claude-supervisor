@@ -226,3 +226,7 @@ VERSION             pack version
 ```
 
 To edit the pack, follow [CLAUDE.md](CLAUDE.md).
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
