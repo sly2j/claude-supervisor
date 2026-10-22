@@ -148,7 +148,7 @@ flowchart LR
 
 The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
 
-`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it and makes its first commit, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it and makes its first commit, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. After a wave, the `clerk` appends each binding answer or decision to the plan's `## Log` as a `decision:` line, `curator` writes the memory entries, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
 
 ## Branches, Worktrees And Versions
 
@@ -172,7 +172,7 @@ Who handles what:
 - `planner`: decision-and-outline plans, questions first, in `.supervisor/working/plans/plan-*.md`
 - `executor`: code, tests, config, agent definitions, git conflicts, Python environments; works in a worktree and lands its change sets locally
 - `writer`: scientific and technical prose, slide content, project docs
-- `clerk`: small, exact edits; runs a given command; records memory entries
+- `clerk`: small, exact edits; runs a given command; appends `decision:` lines to a plan's `## Log`
 - `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups
