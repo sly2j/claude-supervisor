@@ -11,3 +11,5 @@ Agent depth stays supervisor, lead, worker, and the plan tree stays two levels. 
 Why: depth is bounded structurally rather than by a counter, and the single serialised writer avoids write contention on the parent plan. Integration work is itself a package, so the loop handles one kind of thing.
 
 Reach: product; stated in pack/agents/planner.md:70-72 and docs/architecture.md:60.
+
+superseded by: .supervisor/memory/decisions/2026-10-21-plans-never-nest-child-plans-have-no-2.md

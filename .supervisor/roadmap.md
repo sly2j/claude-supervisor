@@ -34,9 +34,6 @@ small lower-priority ones; an item that another needs comes before it.
   met by the install-lifecycle program
   (`.supervisor/archive/working/plans/plan-install-lifecycle.md`, P1-P4 at L326-365). Gaps
   observed there:
-  - The mid-program `--prefix` decision (`## Decisions` item 6, L408-415) survives only in the
-    archived plan's ad hoc `## Decisions`; `pack/agents/planner.md` lists no such section, and
-    `pack/agents/supervisor.md:66-69,88` passes decisions only inside briefs and re-runs.
   - Glue Todo items (commit + install for P1-P4: L422, L428, L433, L437) were left unticked
     because installs were deferred; nothing records why.
   - The pack has no memory today: no decision file, logbook or `## Assumptions` section exists,

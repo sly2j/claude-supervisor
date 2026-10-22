@@ -11,3 +11,5 @@ A package block has exactly six fields: Goal, Owns (disjoint across packages), D
 Rejected as creep: a `pending`/`running` status pair, extra fields (owner, estimate, priority), extra status values (`ready`, `waiting`), a stage-to-lead table in `supervisor.md`, a status mirror in the plan's `## Todo` (duplicate state, two edits per transition), and a phrase lint for the section.
 
 Reach: product; stated in pack/agents/planner.md:52-69.
+
+superseded by: .supervisor/memory/decisions/2026-10-21-a-work-package-block-has-six-fields-and-2.md

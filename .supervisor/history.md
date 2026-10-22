@@ -14,3 +14,4 @@
 - 2026-10-21 2.15 planner: child plans need approval only on a major design decision (owner decision); goals: none; plan: none; decisions: .supervisor/memory/decisions/2026-10-21-planner-decides-when-to-split-into.md
 - 2026-10-21 2.16 planner: fix word cap overrun from 2.15; goals: none; plan: none; decisions: none
 - 2026-10-21 2.17 planner: plans may name a major release, never a minor version (owner decision); goals: none; plan: none; decisions: none
+- 2026-10-21 3.0 planner: lighter plans via plan-writing skill, questions first, vertical slices; goals: none; plan: .supervisor/archive/working/plans/plan-planner-lighter-plans.md; decisions: .supervisor/memory/decisions/2026-10-21-plan-format-lives-in-the-plan-writing-skill.md, .supervisor/memory/decisions/2026-10-21-planner-asks-questions-first-only-when-the.md, .supervisor/memory/decisions/2026-10-21-a-work-package-block-has-six-fields-and-2.md
