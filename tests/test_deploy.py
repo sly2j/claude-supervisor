@@ -438,7 +438,10 @@ def fable_stub(tmp_path: Path) -> dict:
     (["--fable"], {}, ["unset"]),
     (["--fable", "-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["unset", "-p", "x"]),
     (["-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["OPUS", "-p", "x"]),
-    (["x", "--fable"], {}, ["OPUS", "x", "--fable"]),
+    (["x", "--fable"], {}, ["unset", "x"]),
+    (["--resume", "--fable", "-p", "a b", "--fable"], {}, ["unset", "--resume", "-p", "a b"]),
+    (["-p", "x", "--", "--fable"], {}, ["OPUS", "-p", "x", "--", "--fable"]),
+    (["--fable", "--", "--fable"], {}, ["unset", "--", "--fable"]),
 ])
 def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, monkeypatch):
     assert run(pack, target, "install").returncode == 0

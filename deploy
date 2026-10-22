@@ -57,7 +57,7 @@ Usage: claude-%(tag)s [COMMAND [OPTIONS]] | [CLAUDE ARGS...]
   uninstall [--yes] [--dry-run]        delete this sandbox, its launcher and its login
   list                                 list every registered install
   --version                            show the installed pack version and the claude version
-  --fable                              run this session on Fable instead of Opus
+  --fable                              run this session on Fable instead of Opus (any position)
   -h, --help                           show this help
 
 install, status and doctor run from your checkout: ./deploy <command> --tag %(tag)s
@@ -91,7 +91,11 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
     if has_token:
         lines.append("ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN"
                      % target)
-    lines.append("if [ \"$1\" = --fable ]; then shift; unset ANTHROPIC_DEFAULT_FABLE_MODEL")
+    # --fable counts anywhere before a "--"; every other argument keeps its place
+    lines += ["f=; e=", "for a do", "  shift",
+              '  [ -z "$e" ] && case $a in --) e=1;; --fable) f=1; continue;; esac',
+              '  set -- "$@" "$a"', "done"]
+    lines.append("if [ -n \"$f\" ]; then unset ANTHROPIC_DEFAULT_FABLE_MODEL")
     lines.append("else ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
     lines.append('exec claude "$@"')
     return "\n".join(lines) + "\n"

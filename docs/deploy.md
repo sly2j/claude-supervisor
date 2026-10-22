@@ -73,7 +73,7 @@ claude-supervisor --version           # pack and claude versions
 claude-supervisor -h                  # the launcher's own help
 ```
 
-The launcher checks only its first argument. `update`, `uninstall` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`); `--version` and `-h`/`--help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
+For commands, the launcher checks only its first argument. `update`, `uninstall` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`); `--version` and `-h`/`--help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
@@ -81,7 +81,7 @@ The launcher checks only its first argument. `update`, `uninstall` and `list` ru
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run ./deploy install from your checkout` and exits 1.
 - `-h` / `--help` prints the launcher's commands, its tag and config dir, and a note that `install`, `status` and `doctor` run from the checkout.
 - `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
-- `claude-<tag> --fable ...` (first argument only) runs that session on Fable; see Fable Or Opus.
+- `--fable`, in any position before a `--`, runs that session on Fable; see Fable Or Opus.
 - `--global` installs have no launcher; use the deploy tool.
 
 ## Update
@@ -123,7 +123,7 @@ claude-supervisor-dev update     # pulls the pushed my-feature branch
 
 ## Fable Or Opus
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans, so each launcher exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`, which makes those agents and dispatch overrides run on Opus. `claude-<tag> --fable ...` strips the flag, unsets the variable and runs that session on Fable. The flag counts only as the first argument.
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans, so each launcher exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`, which makes those agents and dispatch overrides run on Opus. `claude-<tag> ... --fable` strips the flag, unsets the variable and runs that session on Fable. The flag counts in any position before a `--`; the other arguments reach `claude` in their order.
 
 The value is a full model ID, the `OPUS_MODEL` constant in `deploy`. When a new Opus ships, update the constant and re-run `install` to regenerate the launchers.
 
