@@ -176,7 +176,7 @@ The full inventory, with models, effort, workers, reviewers, and internal skills
 ./deploy update                 # clone the install's branch from the recorded remote and reinstall
 ./deploy update --all           # every registered install
 claude-supervisor update        # claude update first, then this sandbox's pack
-./deploy status                 # installed files, version, remote, and branch
+./deploy status                 # installed files, version, remote, and branch (or: claude-supervisor status)
 ./deploy list                   # every registered install: version, branch, commit, launcher
 claude-supervisor --version     # pack and claude versions; -h lists launcher commands
 ./deploy uninstall --dry-run    # show what would be removed

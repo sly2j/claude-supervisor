@@ -68,20 +68,23 @@ Use this only for a proxy or gateway; omit it to use a normal login. Install cop
 claude-supervisor update              # claude update, then this sandbox's pack
 claude-supervisor update --all        # every install in this launcher's prefix
 claude-supervisor uninstall           # delete this sandbox
+claude-supervisor status              # this sandbox's version and file states
 claude-supervisor list                # every install in this launcher's prefix
-claude-supervisor --version           # pack and claude versions
-claude-supervisor -h                  # the launcher's own help
+claude-supervisor --version           # pack and claude versions (or -v)
+claude-supervisor -h                  # the launcher's own help (or --help, help)
 ```
 
-For commands, the launcher checks only its first argument. `update`, `uninstall` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`); `--version` and `-h`/`--help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update` and `claude-supervisor --resume` still reach `claude`. Replace `supervisor` with your `--tag`.
+For commands, the launcher checks only its first argument. `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. `--fable` counts in any position before a `--`, also with a command, where it has no effect. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run ./deploy install from your checkout` and exits 1.
-- `-h` / `--help` prints the launcher's commands, its tag and config dir, and a note that `install`, `status` and `doctor` run from the checkout.
-- `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
+- `status` reports this install as `deploy status` does; when the recorded source dir is gone, it suggests `./deploy status --source <checkout>/pack` to compare.
+- `-h` / `--help` / `help` prints the launcher's commands, its tag and config dir, and a note that `install` and `doctor` run from the checkout.
+- `-v` / `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
 - `--fable`, in any position before a `--`, runs that session on Fable; see Fable Or Opus.
+- If `claude` is not on `PATH`, a session start prints `claude-<tag>: claude not found on PATH; install Claude Code, then retry` and exits 127.
 - `--global` installs have no launcher; use the deploy tool.
 
 ## Update

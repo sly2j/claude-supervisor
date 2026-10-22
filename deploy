@@ -46,44 +46,48 @@ MANIFEST_RECOVERY = ("restore it from a backup, or delete it and re-run ./deploy
 REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 # Fable agents run on this Opus model unless the launcher gets --fable; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
+LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status")
 
 
 LAUNCHER_HELP = """\
 claude-%(tag)s: Claude Code with the claude-supervisor pack
 Tag: %(tag)s   Config dir: %(target)s
 
-Usage: claude-%(tag)s [COMMAND [OPTIONS]] | [CLAUDE ARGS...]
+Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
   update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
   uninstall [--yes] [--dry-run]        delete this sandbox, its launcher and its login
+  status                               show this install's version and file states
   list                                 list every registered install
-  --version                            show the installed pack version and the claude version
-  --fable                              run this session on Fable instead of Opus (any position)
-  -h, --help                           show this help
+  -v, --version                        show the installed pack version and the claude version
+  --fable                              run this session on Fable instead of Opus
+  -h, --help, help                     show this help
 
-install, status and doctor run from your checkout: ./deploy <command> --tag %(tag)s
+A command, -h or -v counts only as the first argument; --fable counts anywhere before a --.
+install and doctor run from your checkout: ./deploy <command> --tag %(tag)s
 Any other arguments go unchanged to claude (see claude --help).
 """
 
 
 def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
     d = state_dir(prefix) / "deploy"
+    # --fable counts anywhere before a "--"; every other argument keeps its place
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
+             "f=; e=", "for a do", "  shift",
+             '  [ -z "$e" ] && case $a in --) e=1;; --fable) f=1; continue;; esac',
+             '  set -- "$@" "$a"', "done",
              'case "$1" in',
-             "-h|--help) cat <<'EOF'",
+             "-h|--help|help) cat <<'EOF'",
              LAUNCHER_HELP % {"tag": tag, "target": target} + "EOF",
              "  exit 0;;",
-             "--version)",
+             "-v|--version)",
              "  v=$(sed -n 's/^  \"pack_version\": \"\\([^\"]*\\)\".*/\\1/p' '%s/%s' 2>/dev/null)" % (target, MANIFEST_NAME),
              "  printf 'claude-supervisor %%s (claude-%s, %%s)\\n' \"${v:-unknown}\" '%s'" % (tag, target),
              '  if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi',
              "  exit 0;;",
-             "update|uninstall|list)",
+             "update|uninstall|list|status)",
              "  d='%s'" % d,
              '  [ -x "$d" ] || { echo "claude-%s: $d missing; run ./deploy install from your checkout" >&2; exit 1; }' % tag,
-             "  s=$1; shift",
-             "  [ \"$s\" = list ] && exec \"$d\" list \"$@\" --prefix '%s'" % prefix,
-             # the fixed flags come last, so argparse ignores a user's --tag/--target/--prefix
-             "  exec \"$d\" \"$s\" \"$@\" --prefix '%s' --tag '%s' --target '%s' --launcher;;" % (prefix, tag, target),
+             "  exec \"$d\" --launcher '%s' '%s' '%s' \"$@\";;" % (prefix, tag, target),
              "esac",
              "CLAUDE_CONFIG_DIR='%s'; export CLAUDE_CONFIG_DIR" % target]
     if base_url:
@@ -91,12 +95,10 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
     if has_token:
         lines.append("ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN"
                      % target)
-    # --fable counts anywhere before a "--"; every other argument keeps its place
-    lines += ["f=; e=", "for a do", "  shift",
-              '  [ -z "$e" ] && case $a in --) e=1;; --fable) f=1; continue;; esac',
-              '  set -- "$@" "$a"', "done"]
     lines.append("if [ -n \"$f\" ]; then unset ANTHROPIC_DEFAULT_FABLE_MODEL")
     lines.append("else ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
+    lines.append('command -v claude >/dev/null 2>&1 || '
+                 '{ echo "claude-%s: claude not found on PATH; install Claude Code, then retry" >&2; exit 127; }' % tag)
     lines.append('exec claude "$@"')
     return "\n".join(lines) + "\n"
 
@@ -972,7 +974,8 @@ def status_cmd(args: argparse.Namespace) -> int:
                 if args.source:
                     raise
         if src_files is None:
-            print("Source: %s (not available; pass --source <checkout>/pack to compare)" % manifest.get("source_dir"))
+            print("Source: %s (not available; %s --source <checkout>/pack to compare)" % (
+                manifest.get("source_dir"), "run ./deploy status" if getattr(args, "launcher", False) else "pass"))
         else:
             print("Source: %s" % manifest.get("source_dir"))
         try:
@@ -1547,13 +1550,18 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="deploy",
-        description="Install, inspect and remove the claude-supervisor pack in a Claude Code config dir.",
-        epilog="Target: sandbox ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
-               "or --global for ~/.claude.")
-    p.add_argument("--version", action=VersionAction, help="show the pack version and the claude version")
+def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
+    """The deploy CLI; with launcher_tag, the subset a claude-TAG launcher runs, fixed to that install."""
+    if launcher_tag:
+        p = argparse.ArgumentParser(prog="claude-" + launcher_tag,
+                                    epilog="Acts on this install only; run ./deploy from your checkout for others.")
+    else:
+        p = argparse.ArgumentParser(
+            prog="deploy",
+            description="Install, inspect and remove the claude-supervisor pack in a Claude Code config dir.",
+            epilog="Target: sandbox ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
+                   "or --global for ~/.claude.")
+        p.add_argument("--version", action=VersionAction, help="show the pack version and the claude version")
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True
 
@@ -1561,6 +1569,8 @@ def build_parser() -> argparse.ArgumentParser:
                    "(default: ~/.local)")
 
     def common(sp: argparse.ArgumentParser, source: bool = True) -> None:
+        if launcher_tag:
+            return
         sp.add_argument("--tag", help="sandbox tag: launcher claude-TAG (default: supervisor)")
         sp.add_argument("--target", metavar="DIR", help="sandbox dir (default: ~/.config/claude-TAG)")
         sp.add_argument("--global", dest="use_global", action="store_true",
@@ -1569,7 +1579,12 @@ def build_parser() -> argparse.ArgumentParser:
         if source:
             sp.add_argument("--source", metavar="DIR", help="pack dir (default: <repo>/pack)")
 
-    sp = sub.add_parser("install", help="install or update the pack (idempotent)",
+    def add_parser(name: str, **kwargs) -> argparse.ArgumentParser:
+        if launcher_tag and name not in LAUNCHER_COMMANDS:
+            return argparse.ArgumentParser(add_help=False)  # not reachable from a launcher
+        return sub.add_parser(name, **kwargs)
+
+    sp = add_parser("install", help="install or update the pack (idempotent)",
                         description="Copy agents and skills into the target, reconcile against the manifest, "
                                     "and set settings.json agent = supervisor.")
     common(sp)
@@ -1588,17 +1603,18 @@ def build_parser() -> argparse.ArgumentParser:
     tok.add_argument("--token", metavar="VALUE", help="like --token-file, from a value (stays in shell history)")
     sp.set_defaults(func=install_cmd)
 
-    sp = sub.add_parser("status", help="show installed files and their state",
+    sp = add_parser("status", help="show installed files and their state",
                         description="Show manifest info and per-file state (ok/modified/missing/outdated).")
     common(sp)
     sp.set_defaults(func=status_cmd)
 
-    sp = sub.add_parser("list", help="list every registered install",
+    sp = add_parser("list", help="list every registered install",
                         description="Show each registered install with its pack version, branch, commit and launcher.")
-    sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
+    if not launcher_tag:
+        sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
     sp.set_defaults(func=list_cmd)
 
-    sp = sub.add_parser("uninstall", help="remove the pack",
+    sp = add_parser("uninstall", help="remove the pack",
                         description="Remove unmodified managed files, restore settings agent, delete the manifest. "
                                     "Locally modified files are kept unless --force. Sandbox installs (default): deletes the "
                                     "whole sandbox dir and its launcher. --global: removes only pack files.")
@@ -1610,7 +1626,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=uninstall_cmd)
 
-    sp = sub.add_parser("update", help="update registered installs from the git remote",
+    sp = add_parser("update", help="update registered installs from the git remote",
                         description="Shallow-clone the branch recorded at install time (main if none) from the "
                                     "recorded remote and re-run install from that clone with each install's "
                                     "recorded options. Exits 3 when that branch is gone from the remote.")
@@ -1623,7 +1639,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=update_cmd)
 
-    sp = sub.add_parser("migrate", help="move a pack installed in ~/.claude to the default sandbox",
+    sp = add_parser("migrate", help="move a pack installed in ~/.claude to the default sandbox",
                         description="Remove the pack from ~/.claude (settings.json and edited files are backed "
                                     "up first), install the default sandbox and its launcher, and check that "
                                     "DIR/bin is on PATH.")
@@ -1632,7 +1648,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
     sp.set_defaults(func=migrate_cmd)
 
-    sp = sub.add_parser("doctor", help="check the environment and the install",
+    sp = add_parser("doctor", help="check the environment and the install",
                         description="Print PASS/WARN/FAIL checks. Exits 1 if any check FAILs.")
     common(sp, source=False)
     sp.set_defaults(func=doctor_cmd)
@@ -1640,7 +1656,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    args = build_parser().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    fixed = None
+    if argv[:1] == ["--launcher"] and len(argv) >= 4:  # claude-TAG: --launcher PREFIX TAG TARGET COMMAND ...
+        fixed, argv = argv[1:4], argv[4:]
+        own = [a for a in argv if a.split("=")[0] in ("--tag", "--target", "--prefix", "--global")]
+        if own:
+            eprint("claude-%s: %s is fixed by this launcher; run ./deploy from your checkout "
+                   "to act on another install" % (fixed[1], own[0].split("=")[0]))
+            return 2
+    args = build_parser(fixed[1] if fixed else None).parse_args(argv)
+    if fixed:
+        args.prefix, args.tag, args.target = fixed
+        args.use_global, args.source, args.launcher = False, None, True
     try:
         return args.func(args)
     except DeployError as exc:

@@ -795,7 +795,7 @@ def stub_env(tmp_path: Path, with_claude: bool = True) -> dict:
             "HOME": str(tmp_path)}
 
 
-@pytest.mark.parametrize("flag", ["-h", "--help"])
+@pytest.mark.parametrize("flag", ["-h", "--help", "help"])
 def test_launcher_help(pack, target, tmp_path, flag):
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     sbx, launcher = sandbox_paths(tmp_path, "t")
@@ -813,13 +813,17 @@ def test_launcher_version(pack, target, tmp_path, version, shown):
         version_file(pack, version)
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     sbx, launcher = sandbox_paths(tmp_path, "t")
-    r = run_launcher(launcher, stub_env(tmp_path), "--version")
-    assert r.returncode == 0, r.stderr
-    assert r.stdout.splitlines() == ["claude-supervisor %s (claude-t, %s)" % (shown, sbx),
-                                     "claude: 2.1.300 (Claude Code)"]
+    for flag in ("--version", "-v"):
+        r = run_launcher(launcher, stub_env(tmp_path), flag)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.splitlines() == ["claude-supervisor %s (claude-t, %s)" % (shown, sbx),
+                                         "claude: 2.1.300 (Claude Code)"]
     r = run_launcher(launcher, stub_env(tmp_path, with_claude=False), "--version")
     assert r.returncode == 0, r.stderr
     assert r.stdout.splitlines()[1:] == ["claude: not found"]
+    r = run_launcher(launcher, stub_env(tmp_path, with_claude=False), "-p", "x")
+    assert r.returncode == 127
+    assert r.stderr == "claude-t: claude not found on PATH; install Claude Code, then retry\n"
     assert not (tmp_path / "bin" / "claude.argv").exists()
 
 
@@ -1316,22 +1320,60 @@ def test_launcher_missing_tool_copy(remote, tmp_path):
     assert snapshot(tmp_path / ".config") == before
 
 
-@pytest.mark.parametrize("cmd", ["update", "uninstall"])
-def test_launcher_ignores_user_selection(remote, tmp_path, cmd):
-    for tag in ("t", "other"):
-        install_from_clone(remote, "--tag", tag)
-    (t, _), (other, _) = sandbox_paths(tmp_path, "t"), sandbox_paths(tmp_path, "other")
-    push_change(remote, "v10 own")
-    before = snapshot(other)
-    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path),
-                     cmd, "--tag", "other", "--target", str(other), "--prefix", str(tmp_path / "px"), "--yes")
+@pytest.mark.parametrize("cmd, flag", [
+    ("update", ["--tag", "other"]), ("uninstall", ["--target=/x"]), ("update", ["--global"]),
+    ("list", ["--prefix", "/x"]), ("status", ["--tag", "t"]),
+])
+def test_launcher_rejects_user_selection(remote, tmp_path, cmd, flag):
+    install_from_clone(remote, "--tag", "t")
+    roots = [tmp_path / ".config", tmp_path / ".local"]
+    before = [snapshot(p) for p in roots]
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), cmd, *flag, "--yes")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert r.stderr == "claude-t: %s is fixed by this launcher; run ./deploy from your checkout " \
+        "to act on another install\n" % flag[0].split("=")[0]
+    assert [snapshot(p) for p in roots] == before
+
+
+@pytest.mark.parametrize("args", [["--fable", "update", "--yes"], ["update", "--fable", "--yes"]])
+def test_launcher_fable_with_command(remote, tmp_path, args):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    push_change(remote, "v11 fable")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), *args)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert snapshot(other) == before and claude_launcher(tmp_path, "other").is_file()
-    assert str(other) in registry(tmp_path) and not (tmp_path / "px").exists()
-    if cmd == "update":
-        assert "v10 own" in helper_text(t)
-    else:
-        assert not t.exists() and str(t) not in registry(tmp_path)
+    assert "v11 fable" in helper_text(sbx)
+
+
+def test_launcher_command_help_and_errors(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    launcher, env = claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path)
+    r = run_launcher(launcher, env, "update", "--help")
+    assert r.returncode == 0 and r.stdout.startswith("usage: claude-t update ")
+    assert "--tag" not in r.stdout and "--prefix" not in r.stdout
+    r = run_launcher(launcher, env, "update", "-n")
+    assert r.returncode == 2 and "claude-t: error: unrecognized arguments: -n" in r.stderr
+
+
+def test_launcher_status(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "status")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.startswith("Target: %s\n" % sbx) and "Version: installed=" in r.stdout
+
+
+def test_launcher_old_form_still_runs(remote, tmp_path):
+    """A launcher written before 3.3 appends its selection; the shared tool copy still accepts that."""
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = sandbox_paths(tmp_path, "t")
+    push_change(remote, "v12 old form")
+    r = subprocess.run([sys.executable, str(remote.state / "deploy"), "update", "--yes", "--prefix",
+                        str(tmp_path / ".local"), "--tag", "t", "--target", str(sbx), "--launcher"],
+                       capture_output=True, text=True, env=launcher_env(remote, tmp_path), timeout=120,
+                       stdin=subprocess.DEVNULL)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "v12 old form" in helper_text(sbx)
 
 
 # branches: install records one, update follows it
