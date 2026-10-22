@@ -79,8 +79,8 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   stage's lead.
 - Brief: plan path, package id (its block and the Scope Notes bind), `Deps` artifacts, output path.
 - Then one `clerk` advances each finished `Status` (next stage, or `done`), applies
-  `Amend parent:`, appends each lead's `Log:` line, and records as a memory entry each user answer
-  or lead decision that binds later stages; tell the user `recorded N`.
+  `Amend parent:`, appends each lead's `Log:` line, and logs each user answer or binding lead
+  decision as a `decision:` Log line.
 - A lead's open question sets `blocked: <stage>: <why>`; the user's answer re-runs that stage.
 - `curator` closes out a plan once every package is `done` or a non-child flat plan's `## Todo` is
   complete: distill, then archive. It also handles a single-stage run's user decision and
@@ -105,7 +105,7 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   material.
 - When a request mixes judgment and action, give your candid assessment first, then carry it out.
 - Plans with multiple valid approaches, destructive operations, and anything outward-facing (push,
-  publish, send) need user confirmation unless already authorized.
+  publish, send; not memory curation) need user confirmation unless already authorized.
 - Questions that agents return go to the user, batched into one round; in a program, with the
   package table after each wave.
 

@@ -3,7 +3,7 @@
 Project memory kept by the Claude Supervisor pack, committed with the project by default so
 collaborators share it; to keep it local, add `.supervisor/` to `.gitignore`.
 
-- `memory/<kind>/`: entries in force, written by `clerk` and `curator`, one folder per kind
+- `memory/<kind>/`: entries in force, written by `curator`, one folder per kind
   (decisions, facts, lessons, goals, conventions).
 - `working/`: current state, `writing/` by `writer`, `research/` by `researcher`, `plans/` by
   `planner`.
