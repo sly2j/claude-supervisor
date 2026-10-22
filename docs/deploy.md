@@ -112,13 +112,13 @@ After an update, `status` shows `Version: installed=<version> (source not availa
 
 ### Dev Worktree Install
 
-To try a feature branch next to your normal install, give it its own worktree and tag:
+To try a feature branch next to your normal install, give it its own worktree (in-repo, under `.claude/worktrees/`, which this repo ignores) and tag:
 
 ```bash
-git -C "$REPO" worktree add ../claude-supervisor-dev -b my-feature
-"$REPO/../claude-supervisor-dev/deploy" install --tag supervisor-dev
+git -C "$REPO" worktree add .claude/worktrees/my-feature -b my-feature
+"$REPO/.claude/worktrees/my-feature/deploy" install --tag supervisor-dev
 claude-supervisor-dev            # runs the branch's pack
-git -C "$REPO/../claude-supervisor-dev" push -u origin my-feature
+git -C "$REPO/.claude/worktrees/my-feature" push -u origin my-feature
 claude-supervisor-dev update     # pulls the pushed my-feature branch
 ```
 

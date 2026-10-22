@@ -69,6 +69,10 @@ The supervisor picks the mode. An explicit user choice ("quick", "full") wins. O
 
 Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE` (operation, both sides, conflicted files with hunk counts and mechanical flags). The supervisor sends easy conflicts to `executor` with `Review: light`, and hard ones through `researcher` -> `planner` -> user approval -> `executor`.
 
+## Git Work
+
+In a git project, each `executor` change set works in its own worktree at `<toplevel>/.claude/worktrees/<slug>` on a new branch; its workers share the lead's worktree, and only the lead changes git state in it. The lead lands the branch locally with a squash merge into the checkout holding the default branch, and never pushes. Quick-tier work, conflict resolution, environment repair and repos with submodules stay in the current checkout. Other worktrees are reported and cleaned up only on request. No version is created or bumped unless the repo opts in (`X.y` scheme, asked until `CLAUDE.md` records an answer). Outside a project nothing is persisted. Rules: `pack/skills/repo-workflow/SKILL.md`; user view: [README](../README.md#branches-worktrees-and-versions).
+
 ## Models And Cost
 
 The full assignment is in the [Agents](#agents) table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. Every agent runs at default effort except the Haiku quick tier, which runs at xhigh. Planner overrides the critic to Fable for plan reviews, and writer can override writer-worker to Fable when the user asks for the strongest drafter. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. Deployed agents keep `model: fable`; the sandbox launcher maps Fable to Opus unless started with `--fable` (see `docs/deploy.md`).
@@ -77,7 +81,7 @@ A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and t
 
 ## Memory
 
-Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadmap.md`), and short-term plans. The store `.supervisor/` holds `memory/<kind>/` (entries in force), `working/` (research, plans, per-document writer state), `archive/`, and `history.md` (one line per landed item). Folders carry fixed properties (an entry's kind), labels carry changing ones, and the archive mirrors the live tree. The `clerk` records, the `curator` curates, and `writer` owns `working/writing/`. Leads read matching entries at contract time, `scout` reads for the supervisor, and workers never read. Entries are claims to validate before use; a change supersedes the old entry and moves it to `archive/`. Only the `curator` creates the store and commits it; a worktree's store is its branch's memory, committed on the branch and landed with it. The curator writes at most five new entries per run, except when migrating a legacy layout. Outside a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting `$HOME` or its ancestors; a git toplevel outranks anything above it) nothing is stored until the user opts in ("remember X", "make this a project", or a close-out).
+Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadmap.md`), and short-term plans. The store `.supervisor/` holds `memory/<kind>/` (entries in force), `working/` (research, plans, per-document writer state), `archive/`, and `history.md` (one line per landed item). Folders carry fixed properties (an entry's kind), labels carry changing ones, and the archive mirrors the live tree. The `clerk` records, the `curator` curates, and `writer` owns `working/writing/`. Leads read matching entries at contract time, `scout` reads for the supervisor, and workers never read. Entries are claims to validate before use; a change supersedes the old entry and moves it to `archive/`. Only the `curator` creates the store and makes its first commit. Off the default branch, whoever writes store files commits them (`chore(memory): <what>`, no `VERSION` change); on the default branch they ride with the next commit in that checkout. A worktree's store is its branch's memory, landed with the branch. The curator writes at most five new entries per run, except when migrating a legacy layout. Outside a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting `$HOME` or its ancestors; a git toplevel outranks anything above it) nothing is stored until the user opts in ("remember X", "make this a project", or a close-out).
 
 ## Skills
 
@@ -87,11 +91,11 @@ Three horizons: long-term `goal` entries, a mid-term roadmap (`.supervisor/roadm
 | plan-writing | planner (preloaded), critic | new |
 | project-memory | clerk, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | new |
 | git-safety | executor, git-ops (preloaded); executor reads `references/conflict-resolution.md` on unmerged paths | old git-expert + conflict-resolver |
-| repo-workflow | executor, planner, git-ops (preloaded) | new |
-| python-env | executor, executor-worker | old python-maintainer |
+| repo-workflow | executor, planner, git-ops (preloaded); referenced by project-memory and curator | new |
+| python-env | executor, executor-worker (loaded on demand) | old python-maintainer |
 | agent-authoring | executor, executor-worker, critic | old agent-builder/agent-critic + AGENTS.md |
-| science-writing-style, presentation-style | writer-worker, critic | ported |
-| document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, user | ported (meeting-summary merges the old summarizer) |
+| science-writing-style, presentation-style | writer (picks), writer-worker, critic | ported |
+| document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, writer (names in briefs), user | ported (meeting-summary merges the old summarizer) |
 | project-backup | user | ported |
 
 Anthropic's document skills (docx, pdf, pptx, xlsx) and Claude Code built-ins (web search, `/code-review`, `/security-review`) replace the old `docx`, `pdf`, `pptx`, `xlsx`, `ddgr`, and `code-reviewer`.

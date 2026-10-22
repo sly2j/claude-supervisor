@@ -1,8 +1,8 @@
 # claude-supervisor
 
-claude-supervisor is an independent project. It is not affiliated with or endorsed by Anthropic.
-
 A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One agent, the supervisor, reads every request and decides who handles it. It answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to a team that splits it across parallel agents and reviews the result before it reaches you.
+
+*claude-supervisor is an independent project, not affiliated with or endorsed by Anthropic.*
 
 ## Quick Start
 
@@ -148,7 +148,21 @@ flowchart LR
 
 The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
 
-`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. It is created on the first write in a project (a git repo, or a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory itself); elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project". It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it and makes its first commit, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. The `clerk` records each binding answer or decision after a wave, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+
+## Branches, Worktrees And Versions
+
+The `repo-workflow` skill sets the defaults for git projects. Your repo's `CLAUDE.md` (plain prose, no config file) and the brief override them.
+
+- **Worktrees:** each `executor` change set works in its own worktree at `<repo>/.claude/worktrees/<slug>`, on a new branch cut from the default branch (named like the repo's existing branches, else `<type>/<slug>`). Its workers share it. If the path is not already ignored, `/.claude/worktrees/` is appended to `.git/info/exclude`; `.gitignore` is never edited for this.
+- **Stays in place:** quick-tier work (`clerk`, `git-ops`), conflict resolution, environment repair, and repos with submodules use the current checkout. So does work where you say "work in place" or name a checkout or worktree; it merges only when you ask.
+- **Landing:** when the checks pass, the branch is rebased on the default branch and squash-merged locally as one commit, then the worktree and branch are removed. If the default checkout stays busy or is missing, the branch is left ready and reported. Nothing is pushed. Pending `.supervisor/` changes ride along with commits.
+- **Leftovers:** other worktrees are reported, and cleaned up only when you ask (never forced; unmerged branches are kept).
+- **Environments:** small ignored files such as `.env` are copied into the worktree. Virtual environments and `node_modules` are built per worktree, never linked.
+- **Versions:** nothing creates, bumps, or tags a version unless the brief or `CLAUDE.md` says so, and a repo with its own scheme keeps it. A project with no versioning and no `CLAUDE.md` line is asked, until `CLAUDE.md` records an answer, whether to adopt the `repo-workflow` `X.y` scheme. Yes adds "Versioning: uses the repo-workflow X.y scheme." to `CLAUDE.md` and creates `VERSION` at `1.0`; no adds "Versioning: none; do not ask." Under `X.y`, y rises once per change set that lands on the default branch, and X rises on a major change.
+- **Force-push:** a `CLAUDE.md` line can grant `--force-with-lease` on feature branches after a rebase. It never covers the default branch, which is force-pushed only when you name it.
+
+Outside a project (see the `.supervisor/` paragraph above) nothing is persisted: no worktree, no version, no question.
 
 ## What's In The Pack
 
@@ -156,7 +170,7 @@ Who handles what:
 - `supervisor`: your session; routes requests, briefs agents, and reports back
 - `researcher`: investigation, code tracing, literature; writes `.supervisor/working/research/research-*.md`
 - `planner`: decision-and-outline plans, questions first, in `.supervisor/working/plans/plan-*.md`
-- `executor`: code, tests, config, agent definitions, git conflicts, Python environments
+- `executor`: code, tests, config, agent definitions, git conflicts, Python environments; works in a worktree and lands its change sets locally
 - `writer`: scientific and technical prose, slide content, project docs
 - `clerk`: small, exact edits; runs a given command; records memory entries
 - `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
@@ -221,8 +235,10 @@ deploy              installer: install | update | status | list | uninstall | do
 tests/              deploy tests, pack lint, VERSION check
 docs/               architecture.md, deploy.md (deploy runbook)
 CLAUDE.md           instructions for Claude working in this repo
+REVIEW.md           review rules for this repo
 .supervisor/        project memory; roadmap.md holds open work items
 VERSION             pack version
+LICENSE             Apache License 2.0
 ```
 
 To edit the pack, follow [CLAUDE.md](CLAUDE.md).
