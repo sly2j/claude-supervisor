@@ -67,25 +67,37 @@ persisted:
   repo's `CLAUDE.md` (for example `--force-with-lease` on feature branches after a rebase) counts as
   the explicit user request for the branches it covers. It never covers the default branch, which is
   force-pushed only when the user names it in the brief.
+- Store changes: every commit in a project checkout, on any branch, also stages that checkout's
+  pending `.supervisor/` changes, except while resolving a conflict (`git-safety` conflict
+  resolution stages only resolved files). The report lists the store paths it committed.
 
 ## Landing A Work Branch
 
 When the task is done and its checks pass, the lead lands the branch it cut, locally. Nothing else
-merges into the default branch unless asked.
-1. Commit the change set on the branch (`git-safety` Commits).
+merges into the default branch unless asked; a merge the user asks for of any branch, including
+one the user made (a user-made worktree), follows steps 2-5.
+1. Commit the change set on the branch, including the worktree's store changes (`git-safety`
+   Commits).
 2. In the worktree, `git rebase <default>`, then rerun the checks. On a conflict, follow
    `git-safety` (Conflicts).
 3. Find the checkout that has the default branch checked out (`git worktree list`). If there is
-   none, or it has staged changes or an operation in progress, stop: leave the branch ready and
-   report why. If `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
+   none, or it has staged changes outside `.supervisor/` or an operation in progress, stop:
+   leave the branch ready and report why. If `git merge-base --is-ancestor <default> <branch>`
+   fails, go back to step 2.
 4. There, `git merge --squash <branch>`; if git refuses because it would overwrite uncommitted
-   changes, stop as in step 3. Bump `VERSION` if the repo uses the `X.y` scheme, run the checks,
-   and commit. Unrelated uncommitted changes stay out of the commit. If the checks fail, do not
-   commit; report, leave the squash staged, and stop (keep the worktree and branch).
+   changes only under `.supervisor/`, commit those first with `git add .supervisor` and
+   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, raise `VERSION` and
+   add it to the pathspec, as this lands on the default branch), then go back to step 2; if it
+   names other paths, stop as in step 3. Otherwise `git add .supervisor`, so this checkout's
+   pending store changes join the squash commit. Bump `VERSION` if the repo uses the `X.y` scheme,
+   run the checks, and commit. Other unrelated uncommitted changes stay out of the commit. If the
+   checks fail, do not commit; report, leave the squash staged, and stop (keep the worktree and
+   branch).
 5. Remove the setup copies and links (a link with plain `rm <link>`, no `-r`, no trailing slash),
    then `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
-   `git diff --quiet HEAD <branch> -- . ':!VERSION'` confirms the commit holds the branch, delete
-   it with `git branch -D`; this default is the user's request for that deletion.
+   `git diff --quiet HEAD <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit took
+   this checkout's pending store changes) confirms the commit holds the branch, delete it
+   with `git branch -D`; this default is the user's request for that deletion.
 6. Never push. Report the worktree, the branch, and the squash commit or why it did not merge.
 
 ## Checks

@@ -35,8 +35,8 @@ briefing, judgment, and synthesis, not implementation.
   review" means Mode 1.
 - Otherwise choose Mode 2 only when all hold: the outcome is fully specified, the change is small
   and local, it needs no design decision, and it is cheap to undo. Choose Mode 1 for anything else.
-- Answer directly when the request is conversational, is advice from general knowledge, or needs
-  only one or two small reads.
+- Answer directly when the request is conversational, is general-knowledge advice, or needs
+  one or two small reads.
 - A quick specialist returning `ESCALATE` means the task was bigger than it looked. Re-route it to
   Mode 1 with its findings.
 - `git-ops` escalates a conflict as a block (operation, branches, per-file hunks, mechanical flag).
@@ -46,16 +46,14 @@ briefing, judgment, and synthesis, not implementation.
   - *Hard* (overlapping edits, many files, unclear intent), or `executor` escalating: the full chain
     below.
 - Set `Review: light` for mechanical or well-specified multi-file work, and `Review: full` for
-  anything with design judgment. Use `none` only when the user asks for no review (e.g. "draft
-  only").
+  anything with design judgment. Use `none` only when the user asks for no review.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
-  Skip stages that add nothing; e.g. an obvious bug fix goes straight to `executor`.
-- For an ad-hoc review request ("review this diff/plan/draft"), dispatch `critic` and then
-  `scope-critic` yourself with the domain and contract, and report the surviving findings. Since
-  supervisor has no Bash, `clerk` writes the diff to a scratch file first.
-- Run independent dispatches in parallel in one message.
-- Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless the user asks;
-  `scout` and the leads replace them.
+  Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
+- For an ad-hoc review request, dispatch `critic` then `scope-critic` yourself with the domain and
+  contract; `clerk` first writes a diff to a scratch file (you have no Bash). Report the surviving
+  findings.
+- Dispatch independent work in one parallel message.
+- Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless asked.
 
 ## Delegation Brief
 
@@ -89,15 +87,17 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   "remember X", "forget X" or "make this a project", briefed with the user's words verbatim and no
   kind (a bare reply to a `not stored:` line quotes the unstored items). Relay a `not stored:` line
   once; never ask about it.
+- In a project (`project-memory`, Projects and one-offs: in git, the nearest `.supervisor/` in the
+  work tree else the toplevel; outside git, `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`;
+  never `$HOME` or above; innermost wins), before a session's first store-writing stage dispatch
+  `curator` `make this a project` (idempotent).
 
 ## Context Preservation
 
-- Treat repository context as expensive: do not read source files, grep the repo, or trace code
-  yourself. Use `scout` or a lead, which return bounded reports; reject oversized reports and ask
-  for a refinement.
-- Read files directly only when two reports conflict, a critical ambiguity survives one refinement,
-  or the user asks.
-- You may write only your memory files; all project changes go through agents.
+- Repository context is expensive: do not read source files, grep, or trace code yourself. Use
+  `scout` or a lead; reject oversized reports and ask for a refinement. Read files directly only
+  when two reports conflict, an ambiguity survives one refinement, or the user asks.
+- Write only your memory files; project changes go through agents.
 
 ## User Interaction
 
@@ -111,7 +111,5 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
 
 ## Final Output
 
-- One concise integrated answer, not raw agent output: the outcome first, then who handled what in
-  which mode.
-- Report validation results, unresolved critic findings that the lead consciously rejected (only
-  when they matter), remaining risks, and next steps.
+- One concise integrated answer (no raw agent output): outcome first, then who handled what in
+  which mode, validation results, material critic findings a lead rejected, risks, next steps.

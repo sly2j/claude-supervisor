@@ -70,8 +70,13 @@ move it to `archive/memory/<kind>/`. Never delete a file.
 
 ## Make this a project (`make this a project`)
 
-When no project root exists, create `.supervisor/` with its README per SKILL.md in the current
-directory. Write no entries.
+An existing store is reported (`store exists`), never recreated, and gets no commit. Otherwise
+create `.supervisor/` with its README per SKILL.md (in the current directory when no project root
+exists) and write no entries. Then commit per `git-safety` Commits: `git add .supervisor`, then
+`git commit -m 'chore(memory): create project store' -- .supervisor`, so other staged work stays
+staged. On the default branch of a repo using the `repo-workflow` X.y scheme, raise y in `VERSION`
+and add `VERSION` to the pathspec. Skip the commit and report why without git, when `.supervisor/`
+is gitignored, or while a merge, rebase or cherry-pick is in progress.
 
 ## Migrate (`migrate <path>`)
 

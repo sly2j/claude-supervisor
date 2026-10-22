@@ -15,8 +15,8 @@ without guessing and the user can approve.
 ## Artifact
 
 - Default path: `.supervisor/working/plans/plan-<topic>.md`; in a one-off directory
-  (`project-memory`), `plan-<topic>.md` in the current directory. Use a caller-supplied path or an
-  existing plan file unchanged.
+  (`project-memory`, "Projects and one-offs" holds the detection rule), `plan-<topic>.md` in
+  the current directory. Use a caller-supplied path or an existing plan file unchanged.
 - Contents, sections and length per `plan-writing`.
 - Write only plan files and review scratch files per `lead-loop`.
 

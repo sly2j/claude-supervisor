@@ -19,5 +19,10 @@ yourself.
 8. Run `git status` to confirm the final state. If the user asks to abort, use the matching
    `--abort`.
 
+Store conflicts (`.supervisor/`): `history.md` and a plan's `## Log` keep both sides' lines. Other
+store files combine per step 3. One entry changed differently on both sides keeps the
+default-branch text, and the report names the branch text with `follow-up: curator`. Never drop an
+entry file.
+
 Report each conflicted file and how it was resolved (kept, combined, or discarded). Never silently
 drop changes.

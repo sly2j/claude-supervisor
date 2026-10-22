@@ -106,6 +106,9 @@ For each critic finding, combine the two reviews:
 
 ## 7. Report to supervisor
 
+A lead that wrote store files off the default branch commits them first (`project-memory`,
+Committing the store).
+
 Report within these bounds, in this order:
 - **Outcome**: done, cap, or blocked, plus a summary normally under 800 words.
 - **Fan-out**: units dispatched per wave (for example, `wave 1: 4, wave 2: 1`); when N is 0 or 1,
