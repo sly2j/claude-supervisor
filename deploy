@@ -32,6 +32,7 @@ LEGACY_MANIFEST_NAME = ".claude-agents-manifest.json"
 LEGACY_LOCK_NAME = ".claude-agents.lock"
 MANIFEST_VERSION = 1
 DEFAULT_AGENT = "supervisor"
+ATTRIBUTION_COMMIT = "Co-Authored-By: Claude Supervisor"
 MIN_CLAUDE_VERSION = (2, 1, 293)
 REPO_ROOT = Path(__file__).resolve().parent
 JUNK_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".swx", "~", ".orig", ".rej")
@@ -599,6 +600,29 @@ def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple
         % (current, DEFAULT_AGENT)
 
 
+def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
+    """Decide what to do with settings['attribution']['commit'] (sandbox installs only).
+
+    Never replaces a value the pack did not set. Returns (new_settings or None, record fields, message).
+    """
+    managed = bool(prev.get("managed_attribution_commit"))
+    attr = settings.get("attribution")
+    if attr is not None and not isinstance(attr, dict):
+        return None, {"managed_attribution_commit": False}, \
+            "attribution is %r; not changed" % (attr,)
+    current = (attr or {}).get("commit")
+    if current == ATTRIBUTION_COMMIT:
+        return None, {"managed_attribution_commit": managed}, \
+            "attribution.commit already %r" % ATTRIBUTION_COMMIT
+    if current is not None:
+        return None, {"managed_attribution_commit": False}, \
+            "attribution.commit is %r; not changed" % (current,)
+    new = dict(settings)
+    new["attribution"] = dict(attr or {}, commit=ATTRIBUTION_COMMIT)
+    return new, {"managed_attribution_commit": True}, \
+        "set attribution.commit = %r" % ATTRIBUTION_COMMIT
+
+
 # --------------------------------------------------------------------------- registry
 
 def state_dir(prefix: Path) -> Path:
@@ -863,6 +887,12 @@ def install_cmd(args: argparse.Namespace) -> int:
         try:
             settings = load_settings(target)
             new_settings, settings_rec, settings_msg = plan_settings(args, settings, settings_rec)
+            if not args.use_global:
+                attr_settings, attr_rec, attr_msg = plan_attribution(
+                    new_settings or settings, manifest.get("settings") or {})
+                settings_rec = dict(settings_rec, **attr_rec)
+                settings_msg += "; " + attr_msg
+                new_settings = attr_settings or new_settings
             if new_settings is not None:
                 if args.dry_run:
                     settings_msg = "would " + settings_msg
@@ -1017,6 +1047,8 @@ def status_cmd(args: argparse.Namespace) -> int:
         settings = load_settings(target)
         rec = (manifest or {}).get("settings") or {}
         print("Settings agent: %r%s" % (settings.get("agent"), " (managed)" if rec.get("managed_agent_key") else ""))
+        if rec.get("managed_attribution_commit"):
+            print("Settings attribution.commit: %r (managed)" % (settings.get("attribution") or {}).get("commit"))
     except DeployError as exc:
         print("Settings: %s" % exc)
     return 0

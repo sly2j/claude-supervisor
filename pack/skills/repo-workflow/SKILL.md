@@ -44,12 +44,13 @@ persisted:
   rises, and y resets to 0, when a major change lands; the user, `CLAUDE.md` or the plan says what
   is major.
 - The agent that lands a change set on the default branch bumps `VERSION` with it, before running
-  the checks: the lead in its squash commit, or the editing agent for a direct commit (`clerk` only
-  when its brief says so), never every worker.
+  the checks: the lead in its squash commit, the editing agent for a direct Mode 1 commit, and
+  `git-ops` for a Mode 2 commit. `curator` and `clerk` never commit; `clerk` edits `VERSION` only
+  when its brief says so. Never every worker.
 - Work on other branches leaves `VERSION` alone; the change is bumped when it lands on the default
   branch.
-- `git-ops` stages a modified `VERSION` with the commit. On the default branch it escalates instead
-  of committing when `git diff --cached --stat -- VERSION` is empty.
+- `git-ops` stages a modified `VERSION` with the commit. On the default branch, when
+  `git diff HEAD --stat -- VERSION` is empty, it raises y itself before committing.
 
 ## Branches And Worktrees
 

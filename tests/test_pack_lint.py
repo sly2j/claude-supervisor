@@ -224,3 +224,20 @@ def test_body_line_length(path):
         elif not fenced and not stripped.startswith("|") and len(line) > MAX_LINE:
             long.append("%s:%d (%d)" % (path.relative_to(ROOT), n, len(line)))
     assert not long, "lines over %d chars:\n%s" % (MAX_LINE, "\n".join(long))
+
+
+@pytest.mark.parametrize("name", ["curator", "clerk"])
+def test_memory_agents_never_commit(name):
+    text = (PACK / "agents" / ("%s.md" % name)).read_text(encoding="utf-8")
+    assert "git commit" not in text, "%s must not run git commit; git-ops commits" % name
+    assert "never commit" in text.lower(), "%s must state it never commits" % name
+
+
+def test_curator_procedures_have_no_git_commit():
+    path = PACK / "skills" / "project-memory" / "references" / "curator-procedures.md"
+    assert "git commit" not in path.read_text(encoding="utf-8")
+
+
+def test_git_ops_loads_git_safety():
+    skills = frontmatter(PACK / "agents" / "git-ops.md").get("skills") or []
+    assert {"git-safety", "repo-workflow"} <= set(skills)

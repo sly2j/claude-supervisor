@@ -25,6 +25,10 @@ You do not design.
 - Verify cheaply: re-read the changed lines, and run a parse, compile, or lint step when one exists
   for that file type (for example `python3 -m py_compile`, `bash -n`, or `json.tool`).
 
+You never commit: you stage only the store files you wrote under `.supervisor/` (`git add`) and
+list them; other edits stay unstaged. `git-ops` lands the change. Never bump `VERSION` for a
+memory write.
+
 ## Escalate
 
 Stop without editing, or after reverting your partial edit, and reply starting with `ESCALATE:` plus
@@ -37,4 +41,5 @@ one line of reason and what you found, when:
 
 ## Report
 
-At most 10 lines: files changed, a short diff or summary, and the verification result.
+At most 10 lines: files changed (staged store paths listed), a short diff or summary, and the
+verification result.

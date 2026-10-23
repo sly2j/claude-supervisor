@@ -36,13 +36,14 @@ The store is committed to the project and holds what future sessions must not re
 
 ## Committing the store
 
-`curator` creates the store and commits it per `curator-procedures.md` (Make this a project).
+`curator` creates the store and stages it per `curator-procedures.md` (Make this a project).
 
 A linked worktree's `.supervisor/` is its branch's memory and lands with the branch (git merges
-it; see `repo-workflow` landing). Off the default branch, whoever writes store files (a lead,
-`curator`, `clerk`, `writer`) ends its run with a pathspec commit of them, `chore(memory): <what>`,
-per `git-safety` Commits, with no `VERSION` change. On the default branch, store changes ride with
-the next commit in that checkout (`repo-workflow` Store changes).
+it; see `repo-workflow` landing). Off the default branch, a lead or `writer` that writes store
+files ends its run with a pathspec commit of them, `chore(memory): <what>`, per `git-safety`
+Commits, with no `VERSION` change. `curator` and `clerk` never commit: they stage and report the
+staged paths, and supervisor dispatches `git-ops` to commit. On the default branch, store changes
+ride with the next commit in that checkout (`repo-workflow` Store changes).
 
 ## Entries
 
