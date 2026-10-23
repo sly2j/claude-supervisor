@@ -16,7 +16,7 @@ persisted:
 - Only the read-only defaults apply: work in the current checkout (no worktree, no merge), create,
   bump or tag no version, never force-push the default branch, run the checks the repo names.
 - Ask no versioning question. Never create or write `CLAUDE.md`, `VERSION` or a changelog for this
-  skill; a new `CLAUDE.md` would itself turn the directory into a project.
+  skill.
 
 ## Versioning
 
@@ -35,7 +35,7 @@ persisted:
   No: add "Versioning: none; do not ask."
   ```
   Never ask once `CLAUDE.md` records an answer.
-- Whoever is briefed with the answer writes that one line to `CLAUDE.md` at the project root and,
+- Whoever is briefed with the answer writes that line to the project root's `CLAUDE.md` and,
   on yes, creates `VERSION`.
 
 ## The X.y Scheme
@@ -73,9 +73,8 @@ persisted:
   worktree's code (for Python, `python -c 'import <pkg>; print(<pkg>.__file__)'`).
 - Read and tick a plan at the path the brief gives, not at its copy in the worktree.
 - Force-push and rebase of pushed commits stay gated by `git-safety`. A standing permission in the
-  repo's `CLAUDE.md` (for example `--force-with-lease` on feature branches after a rebase) counts as
-  the explicit user request for the branches it covers. It never covers the default branch, which is
-  force-pushed only when the user names it in the brief.
+  repo's `CLAUDE.md` counts as the explicit user request for the branches it covers. It never
+  covers the default branch, which is force-pushed only when the user names it in the brief.
 - Store changes: every commit in a project checkout, on any branch, also stages that checkout's
   pending `.supervisor/` changes, except while resolving a conflict. The report lists the store
   paths it committed.
@@ -94,8 +93,12 @@ nowhere else; report.
 ## Landing A Work Branch
 
 When the task is done and its checks pass, the lead lands the branch it cut, locally. Nothing else
-merges into the default branch unless asked; a merge the user asks for of any branch, including
-a user-made worktree's, follows steps 2-5.
+merges into the default branch unless asked; a requested merge of any branch, including a
+user-made worktree's, follows steps 2-5.
+
+A plan's branch lands only after its `curator` close-out runs on the branch, so the squash carries
+the store changes; until then the lead leaves it ready and reports.
+
 1. Commit the change set on the branch, including the worktree's store changes (`git-safety`
    Commits).
 2. In the worktree, `git rebase <default>`, then rerun the checks. On a conflict, follow
@@ -110,11 +113,11 @@ a user-made worktree's, follows steps 2-5.
    `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, with a `VERSION` bump
    in the pathspec), then go back to step 2; if it
    names other paths, stop: leave the branch ready and report. Otherwise `git add .supervisor`, so
-   this checkout's pending store changes join the squash commit. Bump `VERSION` if the repo uses
+   this checkout's pending store changes join the squash. Bump `VERSION` if the repo uses
    the `X.y` scheme, run the checks, and commit once
    `git diff --cached --quiet <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit
-   takes this checkout's pending store changes) confirms the staged tree is the branch. Other
-   unrelated uncommitted changes stay out of the commit. If the checks or that test fail, do not
+   takes those store changes) confirms the staged tree is the branch. Unrelated
+   uncommitted changes stay out of the commit. If the checks or that test fail, do not
    commit; report, leave the squash staged, and stop (keep the worktree and branch). Never move
    the default branch with `update-ref` or `branch -f`.
 5. `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
