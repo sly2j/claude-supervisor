@@ -45,7 +45,7 @@ LAUNCHER_MARKER = "# managed by claude-supervisor"
 MANIFEST_RECOVERY = ("restore it from a backup, or delete it and re-run ./deploy install "
                      "(existing files then need --overwrite-local)")
 REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
-# Fable agents run on this Opus model unless the launcher gets --fable; change it with each Opus release.
+# Fable agents run on this Opus model when the launcher gets --fable-is-opus; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
 LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status")
 
@@ -60,10 +60,10 @@ Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
   status                               show this install's version and file states
   list                                 list every registered install
   -v, --version                        show the installed pack version and the claude version
-  --fable                              run this session on Fable instead of Opus
+  --fable-is-opus                      run Fable-tier agents on Opus this session
   -h, --help, help                     show this help
 
-A command, -h or -v counts only as the first argument; --fable counts anywhere before a --.
+A command, -h or -v counts only as the first argument; --fable-is-opus counts anywhere before a --.
 install and doctor run from your checkout: ./deploy <command> --tag %(tag)s
 Any other arguments go unchanged to claude (see claude --help).
 """
@@ -71,11 +71,12 @@ Any other arguments go unchanged to claude (see claude --help).
 
 def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
     d = state_dir(prefix) / "deploy"
-    # --fable counts anywhere before a "--"; every other argument keeps its place
+    # --fable-is-opus (and the retired --fable) count anywhere before a "--"; every other argument keeps its place
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
-             "f=; e=", "for a do", "  shift",
-             '  [ -z "$e" ] && case $a in --) e=1;; --fable) f=1; continue;; esac',
+             "o=; g=; e=", "for a do", "  shift",
+             '  [ -z "$e" ] && case $a in --) e=1;; --fable-is-opus) o=1; continue;; --fable) g=1; continue;; esac',
              '  set -- "$@" "$a"', "done",
+             'if [ -n "$g" ]; then echo "claude-%s: --fable is now the default; use --fable-is-opus to run Fable-tier agents on Opus" >&2; fi' % tag,
              'case "$1" in',
              "-h|--help|help) cat <<'EOF'",
              LAUNCHER_HELP % {"tag": tag, "target": target} + "EOF",
@@ -96,8 +97,7 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
     if has_token:
         lines.append("ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN"
                      % target)
-    lines.append("if [ -n \"$f\" ]; then unset ANTHROPIC_DEFAULT_FABLE_MODEL")
-    lines.append("else ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
+    lines.append("if [ -n \"$o\" ]; then ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
     lines.append('command -v claude >/dev/null 2>&1 || '
                  '{ echo "claude-%s: claude not found on PATH; install Claude Code, then retry" >&2; exit 127; }' % tag)
     lines.append('exec claude "$@"')

@@ -23,7 +23,7 @@ Then, in either case:
 ```bash
 "$REPO/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
 "$REPO/deploy" install --dry-run
-"$REPO/deploy" install       # sandbox ~/.config/claude-supervisor + launcher (fable agents run on Opus; see Fable Or Opus)
+"$REPO/deploy" install       # sandbox ~/.config/claude-supervisor + launcher (fable agents run on Fable unless the environment says otherwise; see Fable Or Opus)
 "$REPO/deploy" status
 "$REPO/deploy" doctor        # should now report no FAIL
 ```
@@ -75,7 +75,7 @@ claude-supervisor --version           # pack and claude versions (or -v)
 claude-supervisor -h                  # the launcher's own help (or --help, help)
 ```
 
-For commands, the launcher checks only its first argument, after removing `--fable`. `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. `--fable` counts in any position before a `--`, also with a command, where it has no effect. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
+For commands, the launcher checks only its first argument, after removing `--fable-is-opus`. `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. `--fable-is-opus` counts in any position before a `--`, also with a command, where it has no effect. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this sandbox (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
@@ -84,7 +84,7 @@ For commands, the launcher checks only its first argument, after removing `--fab
 - `status` reports this install as `deploy status` does; when the recorded source dir is gone, it suggests `./deploy status --tag <tag> --source <checkout>/pack`, with `--target <dir>` added for an install made with `--target`, to compare.
 - `-h` / `--help` / `help` prints the launcher's commands, its tag and config dir, and a note that `install` and `doctor` run from the checkout.
 - `-v` / `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
-- `--fable`, in any position before a `--`, runs that session on Fable; see Fable Or Opus.
+- `--fable-is-opus`, in any position before a `--`, runs that session with Fable mapped to Opus; see Fable Or Opus.
 - If `claude` is not on `PATH`, a session start prints `claude-<tag>: claude not found on PATH; install Claude Code, then retry` and exits 127.
 - `--global` installs have no launcher; use the deploy tool.
 
@@ -127,7 +127,7 @@ claude-supervisor-dev update     # pulls the pushed my-feature branch
 
 ## Fable Or Opus
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans, so each launcher exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`, which makes those agents and dispatch overrides run on Opus. `claude-<tag> ... --fable` strips the flag, unsets the variable and runs that session on Fable. The flag counts in any position before a `--`; the other arguments reach `claude` in their order.
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for Fable, and `planner` and `writer` also name `model: fable` in their dispatch instructions. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans. By default the launcher leaves `ANTHROPIC_DEFAULT_FABLE_MODEL` alone: if it is unset, those agents and dispatch overrides run on Fable; if your environment defines it (for example `export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in a shell profile), that value is respected. `claude-<tag> ... --fable-is-opus` strips the flag and exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` for that session, overriding the environment. The flag counts in any position before a `--`; the other arguments reach `claude` in their order. The old `--fable` flag is gone: the launcher strips it, prints a one-line notice on stderr and continues.
 
 The value is a full model ID, the `OPUS_MODEL` constant in `deploy`. When a new Opus ships, update the constant and re-run `install` to regenerate the launchers.
 
@@ -141,7 +141,7 @@ export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5
 { "env": { "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-opus-5-5" } }
 ```
 
-A sandbox created later copies `~/.claude/settings.json`, and there the settings value overrides `--fable`, so use the shell-profile form if you also use sandboxes.
+A sandbox created later copies `~/.claude/settings.json`, and there a settings value applies to every session, whatever the shell environment or `--fable-is-opus` say. The shell-profile form also reaches the launchers of existing sandboxes.
 
 Global installs made before 1.14 had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
 

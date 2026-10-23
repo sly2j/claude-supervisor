@@ -502,16 +502,19 @@ def fable_stub(tmp_path: Path) -> dict:
     return {"PATH": "%s:/usr/bin:/bin" % (tmp_path / "bin"), "HOME": str(tmp_path)}
 
 
+ENV = "ANTHROPIC_DEFAULT_FABLE_MODEL"
+LEGACY = "claude-supervisor: --fable is now the default; use --fable-is-opus to run Fable-tier agents on Opus\n"
+
+
 @pytest.mark.parametrize("args, caller, expect", [
-    (["-p", "x"], {}, ["OPUS", "-p", "x"]),
-    (["--fable", "-p", "x"], {}, ["unset", "-p", "x"]),
-    (["--fable"], {}, ["unset"]),
-    (["--fable", "-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["unset", "-p", "x"]),
-    (["-p", "x"], {"ANTHROPIC_DEFAULT_FABLE_MODEL": "mine"}, ["OPUS", "-p", "x"]),
-    (["x", "--fable"], {}, ["unset", "x"]),
-    (["--resume", "--fable", "-p", "a b", "--fable"], {}, ["unset", "--resume", "-p", "a b"]),
-    (["-p", "x", "--", "--fable"], {}, ["OPUS", "-p", "x", "--", "--fable"]),
-    (["--fable", "--", "--fable"], {}, ["unset", "--", "--fable"]),
+    (["-p", "x"], {}, ["unset", "-p", "x"]),
+    (["-p", "x"], {ENV: "mine"}, ["mine", "-p", "x"]),
+    (["--fable-is-opus", "-p", "x"], {ENV: "mine"}, ["OPUS", "-p", "x"]),
+    (["--fable-is-opus"], {}, ["OPUS"]),
+    (["x", "--fable-is-opus"], {}, ["OPUS", "x"]),
+    (["--resume", "--fable-is-opus", "-p", "a b", "--fable-is-opus"], {}, ["OPUS", "--resume", "-p", "a b"]),
+    (["-p", "x", "--", "--fable-is-opus"], {}, ["unset", "-p", "x", "--", "--fable-is-opus"]),
+    (["--fable-is-opus", "--", "--fable-is-opus"], {}, ["OPUS", "--", "--fable-is-opus"]),
 ])
 def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, monkeypatch):
     assert run(pack, target, "install").returncode == 0
@@ -522,6 +525,20 @@ def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, mon
     r = run_launcher(launcher, dict(fable_stub(tmp_path), **caller), *args)
     assert r.returncode == 0, r.stderr
     assert r.stdout.splitlines() == [opus if e == "OPUS" else e for e in expect]
+    assert r.stderr == ""
+
+
+@pytest.mark.parametrize("args, expect, note", [
+    (["--fable", "-p", "x"], ["unset", "-p", "x"], LEGACY),
+    (["-p", "x", "--", "--fable"], ["unset", "-p", "x", "--", "--fable"], ""),
+])
+def test_launcher_legacy_fable_flag(pack, target, tmp_path, args, expect, note):
+    assert run(pack, target, "install").returncode == 0
+    _, launcher = sandbox_paths(tmp_path, "supervisor")
+    r = run_launcher(launcher, fable_stub(tmp_path), *args)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines() == expect
+    assert r.stderr == note
 
 
 @pytest.mark.parametrize("dry", [[], ["--dry-run"]])
@@ -1405,7 +1422,7 @@ def test_launcher_rejects_user_selection(remote, tmp_path, cmd, flag):
     assert [snapshot(p) for p in roots] == before
 
 
-@pytest.mark.parametrize("args", [["--fable", "update", "--yes"], ["update", "--fable", "--yes"]])
+@pytest.mark.parametrize("args", [["--fable-is-opus", "update", "--yes"], ["update", "--fable-is-opus", "--yes"]])
 def test_launcher_fable_with_command(remote, tmp_path, args):
     install_from_clone(remote, "--tag", "t")
     sbx, _ = sandbox_paths(tmp_path, "t")

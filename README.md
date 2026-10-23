@@ -43,7 +43,7 @@ Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. Ins
 
 A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind, and so do MCP servers and `~/.claude.json` state. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`. `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for the top model tier, Fable-level: the strongest and costliest (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable can be billed separately, so the launcher runs these agents on Opus by default. `claude-supervisor --fable` runs that session on Fable. A `--global` install has no launcher and runs them on Fable; see [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for the top model tier, Fable-level: the strongest and costliest (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable can be billed separately. These agents run on Fable unless `ANTHROPIC_DEFAULT_FABLE_MODEL` is set in your environment, which the launcher respects; `claude-supervisor --fable-is-opus` runs that session on Opus. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
@@ -61,7 +61,7 @@ Just ask for what you want. The supervisor picks the path:
 
 To choose yourself, say "quick" or "just do it" for a quick specialist, or "full", "thorough", or "with review" for a lead.
 
-Ask for the strongest drafter ("best possible") and `writer` drafts at the Fable level. This has an effect only where Fable is not remapped to Opus: a session started with `--fable`, or a `--global` install without `ANTHROPIC_DEFAULT_FABLE_MODEL`.
+Ask for the strongest drafter ("best possible") and `writer` drafts at the Fable level. This has an effect only where Fable is not remapped to Opus: when `ANTHROPIC_DEFAULT_FABLE_MODEL` is unset and the session was not started with `--fable-is-opus`.
 
 ## How It Works
 
@@ -223,7 +223,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 | `another deploy is running` | Wait for it to finish, then re-run |
 | `is not registered under prefix X` | Run `./deploy install` once (pass `--prefix` if you installed with one) |
 | `cannot read branch` | Check network access and credentials |
-| Claude Code asks to bill Fable separately | You launched with `--fable`; launch without it. For a `--global` install, set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
+| Claude Code asks to bill Fable separately | Fable is now the default. Launch with `--fable-is-opus`, or set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in your shell profile or `settings.json` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout
