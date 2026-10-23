@@ -6,7 +6,7 @@ user-invocable: false
 
 # Repo Workflow
 
-The brief and the repo's `CLAUDE.md` (plain prose; there is no config file) override these defaults.
+The brief and the repo's `CLAUDE.md` (plain prose, not a config file) override these defaults.
 
 ## Projects only
 
@@ -23,8 +23,8 @@ persisted:
 - Never create, bump or tag a version, or write a changelog entry, unless the brief or `CLAUDE.md`
   says to.
 - A repo that already versions its own way (a version field in `pyproject.toml` or `package.json`,
-  release tags, a maintained `CHANGELOG`) keeps its scheme. Do not change or bump it unless told to,
-  and say in the report when a change may need a bump.
+  release tags, a maintained `CHANGELOG`) keeps its scheme; say in the report when a change may need
+  a bump.
 - A repo whose `CLAUDE.md` says it uses the `repo-workflow` `X.y` scheme follows the next section.
 - A project with no versioning and no `CLAUDE.md` line about it: the agent that commits a change to
   the default branch commits it unversioned and ends its report with this one question, verbatim:
@@ -47,8 +47,7 @@ persisted:
   the checks: the lead in its squash commit, the editing agent for a direct Mode 1 commit, and
   `git-ops` for a Mode 2 commit. `curator` and `clerk` never commit; `clerk` edits `VERSION` only
   when its brief says so. Never every worker.
-- Work on other branches leaves `VERSION` alone; the change is bumped when it lands on the default
-  branch.
+- Other branches leave `VERSION` alone.
 - `git-ops` stages a modified `VERSION` with the commit. On the default branch, when
   `git diff HEAD --stat -- VERSION` is empty, it raises y itself before committing.
 
@@ -78,14 +77,25 @@ persisted:
   the explicit user request for the branches it covers. It never covers the default branch, which is
   force-pushed only when the user names it in the brief.
 - Store changes: every commit in a project checkout, on any branch, also stages that checkout's
-  pending `.supervisor/` changes, except while resolving a conflict (`git-safety` conflict
-  resolution stages only resolved files). The report lists the store paths it committed.
+  pending `.supervisor/` changes, except while resolving a conflict. The report lists the store
+  paths it committed.
+
+## Sync With Origin
+
+In any repo, project or not, before any commit or merge into the default branch, run
+`git fetch origin` in its checkout. Skip the pull when there is no `origin` remote, it has no
+`<default>` branch, or `git merge-base --is-ancestor origin/<default> HEAD` succeeds. If
+`git branch -r --contains <c>` lists another remote for a commit `<c>` in `origin/<default>..HEAD`,
+stop and report (`git-safety` gate). Otherwise run `git pull --rebase --autostash origin <default>`
+and stage after it (`--autostash` may unstage). On a conflict, follow `git-safety` (Conflicts). When
+pushing to several remotes, push to all in one step, `origin` first; if origin rejects, push
+nowhere else; report.
 
 ## Landing A Work Branch
 
 When the task is done and its checks pass, the lead lands the branch it cut, locally. Nothing else
 merges into the default branch unless asked; a merge the user asks for of any branch, including
-one the user made (a user-made worktree), follows steps 2-5.
+a user-made worktree's, follows steps 2-5.
 1. Commit the change set on the branch, including the worktree's store changes (`git-safety`
    Commits).
 2. In the worktree, `git rebase <default>`, then rerun the checks. On a conflict, follow
@@ -93,12 +103,12 @@ one the user made (a user-made worktree), follows steps 2-5.
 3. Find the checkout that has the default branch checked out (`git worktree list`). If there is
    none, stop: leave the branch ready and report why. If it has staged changes outside
    `.supervisor/` or an operation in progress, or git fails on a `.lock` file, wait a minute and
-   retry from step 2, at most three times, then stop the same way. If
-   `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
+   retry from step 2, at most three times, then stop the same way. There, sync with origin (Sync
+   With Origin). If `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
 4. There, `git merge --squash <branch>`; if git refuses because it would overwrite uncommitted
    changes only under `.supervisor/`, commit those first with `git add .supervisor` and
-   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, raise `VERSION` and
-   add it to the pathspec, as this lands on the default branch), then go back to step 2; if it
+   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, with a `VERSION` bump
+   in the pathspec), then go back to step 2; if it
    names other paths, stop: leave the branch ready and report. Otherwise `git add .supervisor`, so
    this checkout's pending store changes join the squash commit. Bump `VERSION` if the repo uses
    the `X.y` scheme, run the checks, and commit once
@@ -108,9 +118,9 @@ one the user made (a user-made worktree), follows steps 2-5.
    commit; report, leave the squash staged, and stop (keep the worktree and branch). Never move
    the default branch with `update-ref` or `branch -f`.
 5. `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
-   `git diff --quiet HEAD <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit took
-   this checkout's pending store changes) confirms the commit holds the branch, delete it
-   with `git branch -D`; this default is the user's request for that deletion.
+   `git diff --quiet HEAD <branch> -- . ':!VERSION'` (with `':!.supervisor'` as in step 4)
+   confirms the commit holds the branch, delete it with `git branch -D`; this default is the user's
+   request for that deletion.
 6. Never push. Report the worktree, the branch, and the squash commit or why it did not merge.
 
 ## Checks

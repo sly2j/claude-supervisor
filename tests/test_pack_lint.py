@@ -241,3 +241,11 @@ def test_curator_procedures_have_no_git_commit():
 def test_git_ops_loads_git_safety():
     skills = frontmatter(PACK / "agents" / "git-ops.md").get("skills") or []
     assert {"git-safety", "repo-workflow"} <= set(skills)
+
+
+@pytest.mark.parametrize("rel", ["skills/repo-workflow/SKILL.md", "agents/git-ops.md"])
+def test_default_branch_syncs_with_origin(rel):
+    """Agents that land on the default branch first rebase onto origin (user decision 2026-10-23)."""
+    text = (PACK / rel).read_text(encoding="utf-8")
+    assert "git fetch origin" in text and "pull --rebase" in text, rel
+    assert "`origin` first" in text, "%s must push to origin before other remotes" % rel

@@ -4,9 +4,9 @@ summary: curator and clerk never commit; git-ops is the only Mode 2 committer, d
 affects: [pack/agents/curator.md, pack/agents/clerk.md, pack/agents/git-ops.md, pack/agents/supervisor.md, pack/skills/project-memory/, pack/skills/git-safety/, pack/skills/repo-workflow/SKILL.md, deploy]
 verified: 2026-10-23
 source: user 2026-10-23 ("should curator and clerk be doing commits in the first place? That's git-ops job"; approved the proposal: "yes, that sounds good")
-supersedes: [.supervisor/archive/memory/decisions/2026-10-22-store-lives-in-the-branch-curator-commits.md]
+supersedes: [.supervisor/archive/memory/decisions/2026-10-23-only-git-ops-commits-memory-writes.md, .supervisor/archive/memory/decisions/2026-10-22-store-lives-in-the-branch-curator-commits.md]
 ---
-Reach: product behaviour, written into `pack/` by executor in the next change set; this entry keeps the decision and why for repo work.
+Reach: product behaviour, written into `pack/` by executor (done in commit 4576a93, v4.11); this entry keeps the decision and why for repo work.
 
 Decided (owner sjoosten):
 - `curator` and `clerk` never commit. They write and stage files under `.supervisor/` and report what changed.
