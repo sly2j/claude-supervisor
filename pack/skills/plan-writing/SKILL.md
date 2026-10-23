@@ -29,7 +29,10 @@ Every plan, child plans included, has these sections:
 - `## Work Packages` (rules below), when the work splits into packages
 - `## Open Questions` for decisions that belong to the user, never hidden assumptions
 - `## Log`: one line per lead dispatch (date, package or lead, outcome, deferrals and why), from
-  the lead's report, appended by `clerk`; leave it empty
+  the lead's report, appended by `clerk`; leave it empty. It also holds decision lines, one per
+  user answer or binding lead decision, in the exact format
+  `- YYYY-MM-DD decision: <text>; source: <user | lead>`, appended by `clerk` as briefed and
+  reaching memory only through curator close-out
 - a granular `## Todo` checklist
 
 A first pass holds `## Goal`, `## Approach`, `## Decisions`, `## Open Questions` (each with a

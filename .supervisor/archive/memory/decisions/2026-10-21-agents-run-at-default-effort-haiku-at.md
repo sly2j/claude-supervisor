@@ -5,6 +5,7 @@ affects: [pack/agents, pack/skills/agent-authoring/SKILL.md, docs/architecture.m
 verified: 2026-10-21
 source: user 2026-10-21
 supersedes:
+superseded by: pack/skills/agent-authoring/SKILL.md
 ---
 The owner said: "use models (Opus/Fable/Sonnet) everywhere at default level, only make Haiku run
 at xhigh". Since 2.11 no Opus, Fable or Sonnet agent sets `effort:` in its frontmatter, so it runs

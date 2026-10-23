@@ -5,6 +5,7 @@ affects: [deploy, docs/deploy.md, README.md]
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-sandboxed-install.md, plan-install-lifecycle.md, plan-versioning.md, plan-opus-default.md (same dir); user 2026-10-21
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-sandbox-installs-are-the-default.md, .supervisor/archive/memory/decisions/2026-10-21-sandbox-uninstall-needs-a-manifest.md, .supervisor/archive/memory/decisions/2026-10-21-installs-are-standalone-of-the-deploy.md, .supervisor/archive/memory/decisions/2026-10-21-update-clones-the-recorded-remote-and.md, .supervisor/archive/memory/decisions/2026-10-21-a-per-prefix-installsjson-registry-maps.md, .supervisor/archive/memory/decisions/2026-10-21-prefix-scopes-the-launcher-and-registry.md, .supervisor/archive/memory/decisions/2026-10-21-a-new-sandbox-is-seeded-once-from-an.md, .supervisor/archive/memory/decisions/2026-10-21-pack-version-is-read-from-version-beside.md, .supervisor/archive/memory/decisions/2026-10-21-no-plan-or-model-detection-opus-is-the.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-install-target-comes-from-flags-only.md, .supervisor/memory/decisions/2026-10-22-installs-never-need-the-source-checkout.md, .supervisor/memory/decisions/2026-10-22-no-plan-or-model-detection-ever.md
 ---
 Behaviour is in `deploy` and `docs/deploy.md` (checked against `deploy`, 2026-10-22); this keeps the
 why, the rejected options and the consequences.

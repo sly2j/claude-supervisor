@@ -5,6 +5,7 @@ affects: [deploy]
 verified: 2026-10-22
 source: .supervisor/archive/working/plans/plan-full-review.md#findings
 supersedes:
+superseded by: REVIEW.md
 ---
 A full review of `deploy` considered and rejected several hardenings; a later reviewer would raise them again. In force:
 - Launcher values (config dir, prefix, base URL, token path) are written inside plain single quotes without escaping. Real values carry no quote characters, and several tests pin the quoted form.

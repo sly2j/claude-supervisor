@@ -7,6 +7,12 @@ description: Layout, entry format and retrieval rules for a project's committed 
 
 The store is committed to the project and holds what future sessions must not rediscover.
 
+- Memory holds extra information only, and every entry has a real cost: it earns its place by
+  passing the recording test (Curation and writing).
+- The store is the agents' memory. The user decides substance (what binds, what to remember or
+  forget, which lessons hold) and never reviews entry text or approves an individual change.
+- Curation is internal housekeeping, reported as counts per outcome and the kinds of cuts.
+
 ## Layout
 
 ```
@@ -41,9 +47,9 @@ The store is committed to the project and holds what future sessions must not re
 A linked worktree's `.supervisor/` is its branch's memory and lands with the branch (git merges
 it; see `repo-workflow` landing). Off the default branch, a lead or `writer` that writes store
 files ends its run with a pathspec commit of them, `chore(memory): <what>`, per `git-safety`
-Commits, with no `VERSION` change. `curator` and `clerk` never commit: they stage and report the
-staged paths, and supervisor dispatches `git-ops` to commit. On the default branch, store changes
-ride with the next commit in that checkout (`repo-workflow` Store changes).
+Commits, with no `VERSION` change. `curator` and `clerk` never commit: they stage and report
+paths, and supervisor dispatches `git-ops`. On the default branch, store changes ride with the
+next commit in that checkout (`repo-workflow` Store changes).
 
 ## Entries
 
@@ -64,7 +70,11 @@ superseding; `domain` is `code`, `writing`, `science` or `process`.
   path>`; then add `superseded by: <new path>` to the old file, `git add` it, and only then
   `git mv` it to `archive/memory/<kind>/`, so the edit is staged with the move. A finished goal
   moves the same way with `met: YYYY-MM-DD` or `dropped: YYYY-MM-DD` instead. Only `verified:`, or
-  `supersedes:` on the newer of two merged entries, changes on a file that stays in `memory/`.
+  `supersedes:` on the newer of two entries recording one decision, changes on a file that stays
+  in `memory/`.
+- Retire an entry the delivered work now encodes with nothing extra left: add `superseded by:
+  <artifact path>` to it, `git add` it, then `git mv` it to `archive/memory/<kind>/`, writing no
+  replacement. Retires are not new entries.
 - Without git, or when `.supervisor/` is gitignored
   (`git check-ignore -q <project root>/.supervisor`), archive moves use plain `mv`; skip `git add`
   and `git mv`.
@@ -99,9 +109,21 @@ asks for a project directory instead). Nothing is ever written or deleted outsid
 ## Curation and writing
 
 - `curator` loads `${CLAUDE_SKILL_DIR}/references/curator-procedures.md` (close-out, idle-plan
-  sweep, record, remember, forget, make this a project, migrate (writing rules or a legacy
-  `docs/` working set), archive).
+  sweep, audit, record, remember, forget, make this a project, migrate (writing rules or a
+  legacy `docs/` working set), archive).
 - Load `${CLAUDE_SKILL_DIR}/references/writing.md` before a writing task or a prose review.
+- Recording test: write an entry only if all four hold.
+  - (a) It binds work after the current plan closes. Stage order, release grouping, the branch
+    the work ran on, and who confirms at which stage are one-offs and fail.
+  - (b) The delivered work (code, docs, config, tests, prose deliverables, the project's
+    instructions file) does not encode it. If it does, the entry holds only what the work lacks
+    (rationale, rejected options, user preferences, facts the work cannot show), with the encoding
+    file in `affects:`; with nothing extra left, the candidate is a no-op.
+  - (c) The body gives the choice and its why, not behaviour the `affects:` files show.
+  - (d) If an entry on the same decision, rule or fact exists, supersede it instead of adding a
+    sibling.
+
+  Each entry justifies its own place; entries are never merged or grouped.
 
 ## Retrieval and validation
 
@@ -118,7 +140,8 @@ asks for a project directory instead). Nothing is ever written or deleted outsid
 ## Horizons
 
 Goals are long-term (`memory/goals/`). The roadmap is mid-term, one ordered file
-`.supervisor/roadmap.md` whose items cite their `decision` entries by path under `Decisions:`.
+`.supervisor/roadmap.md` whose items cite by path, under `Decisions:`, only the `decision`
+entries that still bind; an item's Background states only the current gap.
 Items may name a major release (`2.x`, `3.0`), a stage or a package, never a minor version:
 minor numbers move with every commit.
 Plans and research are short-term, in `working/`.

@@ -6,4 +6,6 @@ verified: YYYY-MM-DD
 source: <plan or research path, or user YYYY-MM-DD>
 supersedes:
 ---
-What was decided, found, or aimed for. Why (drivers, rejected options). Consequences.
+The choice, found fact or aim in one or two sentences.
+Why: drivers and rejected options.
+Behaviour stays in the `affects:` files; do not restate it.

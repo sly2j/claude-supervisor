@@ -5,6 +5,7 @@ affects: [deploy, docs/deploy.md, README.md]
 verified: 2026-10-22
 source: .supervisor/archive/working/research/research-sandboxed-install.md; .supervisor/archive/working/plans/plan-install-lifecycle.md; user 2026-10-22
 supersedes: [.supervisor/archive/memory/decisions/2026-10-21-the-launcher-is-a-marked-0755-script.md, .supervisor/archive/memory/decisions/2026-10-21-launcher-subcommands-use-first-arg-2.md, .supervisor/archive/memory/decisions/2026-10-21-launcher-remaps-fable-to-opus-installed-2.md, .supervisor/archive/memory/decisions/2026-10-21-global-installs-get-a-note-not-an-opus.md]
+superseded by: .supervisor/memory/decisions/2026-10-22-fable-remapped-by-launcher-env-var.md
 ---
 Behaviour is in `deploy` (`launcher_text`, `LAUNCHER_HELP`, `OPUS_MODEL`) and `docs/deploy.md`
 (checked against `deploy`, 2026-10-22); this keeps the why, tradeoffs and rejected options.
