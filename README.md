@@ -1,6 +1,6 @@
 # Supervisor for Claude
 
-Supervisor for Claude is a workflow pack that provides multi-agent task orchestration for [Claude Code](https://code.claude.com/docs). It is centered around a single supervisor agent that dynamically dispatches tasks based on scope and complexity. The supervisor answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to multi-agent worker teams. These teams execute the work in parallel where possible and iterate with critic agents that review it for quality and scope.
+Supervisor for Claude is a workflow pack that provides multi-agent task orchestration for [Claude Code](https://code.claude.com/docs). It is centered around a single supervisor agent that dispatches tasks based on scope and complexity. The supervisor answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to multi-agent worker teams. These teams execute the work in parallel where possible and iterate with critic agents that review it for quality and scope.
 
 *Supervisor for Claude is an independent project, not affiliated with or endorsed by Anthropic.*
 
@@ -8,9 +8,7 @@ Supervisor for Claude is a workflow pack that provides multi-agent task orchestr
 
 Supervisor for Claude is built for long-horizon software and scientific-research tasks: complex, multi-session work that benefits from a research-plan-execute loop and persistent short- and long-term memory. For smaller one-off tasks, plain `claude` is likely more effective.
 
-Supervisor for Claude installs by default into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, separate from your default `claude` environment. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. Supervisor for Claude supports multiple independent profiles, and a global install into `~/.claude` if you really want to.
-
-- **Parallel work:** during planning, complex work is split into work packages that run in parallel waves.
+- **Parallel work:** a plan splits large jobs into independent pieces (work packages) that run side by side (waves).
 - **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
 ## Quick Start
@@ -39,23 +37,20 @@ Notes:
 - If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
 - To let Claude install it instead, run `claude` inside the clone and say *"deploy this pack"*; it follows [docs/deploy.md](docs/deploy.md).
 
-## Choosing An Install
-
-| Install | Where | Start it with |
-|---|---|---|
-| `./deploy install` | Profile in `~/.config/claude-supervisor` | `claude-supervisor` |
-| `./deploy install --tag <t>` | Another profile, `~/.config/claude-<t>` | `claude-<t>` |
-| `./deploy install --global` | `~/.claude`, no launcher (not recommended) | plain `claude` |
-
-- A profile has its own login, settings, and history, and plain `claude` stays plain Claude Code.
-- A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
-- With `--global` (not recommended), plain `claude` becomes the supervisor.
-- `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
-- `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
-
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
-
 ## Using It
+
+The pack is one supervisor, four leads for larger work, their workers, two reviewers, and a few quick specialists. Who handles what:
+- `supervisor`: your session; routes requests, briefs agents, and reports back
+- `researcher`: investigation, code tracing, literature; writes `.supervisor/working/research/research-*.md`
+- `planner`: decision-and-outline plans, questions first, in `.supervisor/working/plans/plan-*.md`
+- `executor`: code, tests, config, agent definitions, git conflicts, Python environments; works in a worktree and lands its change sets locally
+- `writer`: scientific and technical prose, slide content, project docs
+- `researcher-worker`, `planner-worker`, `executor-worker`, `writer-worker`: the parallel workers a lead dispatches; you never call them yourself
+- `critic`, `scope-critic`: review a lead's result, for quality and, when needed, for scope creep
+- `clerk`: small, exact edits; runs a given command
+- `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
+- `git-ops`: routine git with guardrails
+- `scout`: read-only lookups
 
 Just ask for what you want. The supervisor picks the path:
 
@@ -64,20 +59,27 @@ Just ask for what you want. The supervisor picks the path:
 | Conversation, general advice, one or two small reads | The supervisor answers directly | Nothing to delegate |
 | Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `clerk`, `git-ops`, or `scout` | Cheapest path, no review loop |
 | Anything else in one area of work | One lead (`researcher`, `planner`, `executor`, or `writer`) with workers and review | Design judgment gets reviewed |
-| Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor`, skipping stages that add nothing | You approve the plan before code is written |
+| Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor` | You approve the plan before code is written |
 | Streams that each need their own research, plan, or write stage | Work packages, run in waves | Independent streams run in parallel |
 | "review this diff/plan/draft" | Reviewers only, no edits | You asked for a review |
 | A quick specialist finds the task bigger than it looked | Re-routed to one lead, with the specialist's findings | The quick path no longer fits |
 
 To choose yourself, say "quick" or "just do it" for a quick specialist, or "full", "thorough", or "with review" for a lead.
 
-Ask for the strongest drafter ("best possible") and `writer` drafts at the Fable level. This has an effect only where Fable is not remapped to Opus: when `ANTHROPIC_DEFAULT_FABLE_MODEL` is unset and the session was not started with `--fable-is-opus`.
+Ask for the "best possible" draft and `writer` uses Fable for the drafting itself.
+
+Skills you run yourself:
+- `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
+- `/project-backup`: timestamped, verified zip backup with retention
+- `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
+
+The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
 
 ## How It Works
 
-**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and, when the review has findings above NIT or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). A project can add a REVIEW.md at the repo root (and in subdirectories) with review-only rules; critic applies it after the brief's contract and before its own defaults. Details are in [docs/architecture.md](docs/architecture.md).
+**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
 
-**Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a fast-tier (Haiku-level) specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
+**The quick path** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
 
 ```mermaid
 flowchart LR
@@ -92,21 +94,11 @@ flowchart LR
 
 ## Larger Work
 
-Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `.supervisor/working/` (`plans/plan-*.md`, `research/research-*.md`), so you can read and annotate them between steps; finished ones move to `.supervisor/archive/working/` with `git mv`.
+Larger work runs as a chain: `researcher` -> `planner` -> your approval -> `executor`. The supervisor skips any stage that adds nothing; a bug with an obvious fix goes straight to `executor`. Plans and research land in your project's `.supervisor/working/` (`plans/plan-*.md`, `research/research-*.md`), so you can read and annotate them between steps; finished ones move to `.supervisor/archive/working/`.
 
-The planner breaks a plan into work packages when streams each need their own research, plan, or write stage. Plain parallel work stays a flat plan. Each package lists only the stages it needs (`research`, `plan`, `execute`, `write`) and depends only on the packages whose output it consumes. A package block (field rules in the `plan-writing` skill):
+A plan splits a large job into work packages when its streams each need their own research, plan, or write stage; plain parallel work stays a flat plan. Each package lists only the stages it needs and depends only on the packages whose output it consumes.
 
-```
-### P9: deploy hook
-- Goal: deploy installs the hook; done when `./deploy doctor` reports it
-- Owns: `deploy`, tests/test_deploy.py
-- Deps: none
-- Stages: plan, execute
-- Status: plan
-- Artifacts: .supervisor/working/plans/plan-hooks-p9.md
-```
-
-The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package, and your answer re-runs that stage, also in a new session: the plan file holds the state. Its `## Log` section gets one line per lead run, with what was deferred and why, so a new session can tell you what ran and what is still open.
+The supervisor runs packages in waves. Each wave runs, all at once, the next stage of every unblocked package whose dependencies are done. After each wave you see a status table of every package and the questions the leads raised. A question blocks its package until you answer, in this session or a later one; the plan file holds the state and a log of what ran and what is still open.
 
 A chain, where each package consumes the one before it: six stages, six waves.
 
@@ -156,7 +148,7 @@ flowchart LR
   P3e ~~~ P6e
 ```
 
-The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
+The mechanics (package fields, `Amend parent:`, the log, the archive move) are in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop).
 
 ## Persistence And Memory
 
@@ -166,49 +158,37 @@ This is separate from Claude Code's own memory. Your user `CLAUDE.md` and auto m
 
 The memory model:
 
-- **Layout:** `memory/<kind>/` holds one file per entry; `working/` holds research, plans and per-document writer state; `archive/` mirrors both; `history.md` lists what landed; `.supervisor/README.md` explains the layout.
+- **Layout:** long-term memory is `memory/<kind>/`, one file per entry, with `history.md` listing what landed; short-term memory is `working/`, which holds research, plans and per-document writer state; `archive/` mirrors both; `.supervisor/README.md` explains the layout.
 - **Entry kinds:** decisions, facts, goals, conventions, and lessons. A lesson is recorded only after you approve it.
-- **Three horizons:** long-term goals in `memory/goals/`, a mid-term `roadmap.md`, and short-term plans and research in `working/`.
-- **Superseding:** entries are not edited in place; a changed decision gets a new entry and the old one moves to `archive/`, so the history stays readable.
-- **How agents use it:** a lead reads the entries that match its task when it starts. After each wave, `clerk` logs your binding answers in the plan's `## Log`, and `curator` turns them into entries when the plan closes.
-- **`curator`:** maintains the store. It creates the store, closes out finished plans, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
-- **Your controls:** say "remember X", "forget X", or "make this a project".
-- **Where it applies:** a project is a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` in it or above it (your home directory does not count). Elsewhere nothing is stored and nothing is asked.
-- **Committed by default:** add `.supervisor/` to `.gitignore` to keep it local. A worktree's store belongs to its branch and lands with it.
+- **Goal horizons:** long-term goals in `memory/goals/`, a mid-term `roadmap.md`, and short-term plans and research in `working/`.
+- **Superseding:** a changed decision gets a new entry and the old one moves to `archive/`.
+- **How agents use it:** A lead agent retrieves relevant memories when it starts. The `clerk` agent logs user-provided information into the short-term memory (a plan's `## Log`). The `curator` agent turns short-term memory into long-term memory entries.
+- **`curator`:** The `curator` agent maintains the memory store by archiving short-term memories, keeping roadmaps up to date, flagging stale short-term memories, and curating the long-term memory store.
+- **Your controls:** You can tell supervisor to "remember X", to "forget X", or to "make this a project".
+- **Where it applies:** Memories are only stored when supervisor considers the working folder part of a project. A project is auto-detected when the folder is inside a git repository, or when it, or a folder above it, holds `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or when you tell supervisor to make the folder a project. Your home directory never counts, either way.
+- **Committed by default:** `.supervisor/` is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. Add `.supervisor/` to `.gitignore` and the store stays local: it works only on your machine and collaborators do not see it.
 
 ## Branches, Worktrees And Versions
 
-The `repo-workflow` skill sets the defaults for git projects. Your repo's `CLAUDE.md` (plain prose, no config file) and the brief override them.
-
-- **Worktrees:** each `executor` change set works in its own worktree at `<repo>/.claude/worktrees/<slug>`, on a new branch cut from the default branch (named like the repo's existing branches, else `<type>/<slug>`). Its workers share it. If the path is not already ignored, `/.claude/worktrees/` is appended to `.git/info/exclude`; `.gitignore` is never edited for this.
-- **Stays in place:** quick-tier work (`clerk`, `git-ops`), conflict resolution, environment repair, and repos with submodules use the current checkout. So does work where you say "work in place" or name a checkout or worktree; it merges only when you ask.
-- **Landing:** when the checks pass, the branch is rebased on the default branch and squash-merged locally as one commit, then the worktree and branch are removed. If the default checkout stays busy or is missing, the branch is left ready and reported. Nothing is pushed. Pending `.supervisor/` changes ride along with commits.
-- **Leftovers:** other worktrees are reported, and cleaned up only when you ask (never forced; unmerged branches are kept).
-- **Environments:** small ignored files such as `.env` are copied into the worktree. Virtual environments and `node_modules` are built per worktree, never linked.
-- **Versions:** nothing creates, bumps, or tags a version unless the brief or `CLAUDE.md` says so, and a repo with its own scheme keeps it. A project with no versioning and no `CLAUDE.md` line is asked, until `CLAUDE.md` records an answer, whether to adopt the `repo-workflow` `X.y` scheme. Yes adds "Versioning: uses the repo-workflow X.y scheme." to `CLAUDE.md` and creates `VERSION` at `1.0`; no adds "Versioning: none; do not ask." Under `X.y`, y rises once per change set that lands on the default branch, and X rises on a major change.
-- **Force-push:** a `CLAUDE.md` line can grant `--force-with-lease` on feature branches after a rebase. It never covers the default branch, which is force-pushed only when you name it.
+In a git repo, `executor` works on its own branch in a worktree under `<repo>/.claude/worktrees/` and, when the checks pass, lands it locally as one squash commit. Nothing is pushed. Quick edits, conflict resolution, environment repair, and repos with submodules work in the current checkout, as does anything you ask to run "in place". No version is created or bumped unless your repo opts in; a repo with no versioning is asked once, and the answer is recorded in `CLAUDE.md`. A sentence in your repo's `CLAUDE.md` overrides any of these; there is no config file. Branch naming, the ignore rule for the worktree path, environment files, leftover worktrees, and force-push grants are in [docs/architecture.md](docs/architecture.md#git-work).
 
 Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothing is persisted: no worktree, no version, no question.
 
-## What's In The Pack
+## Choosing An Install
 
-Who handles what:
-- `supervisor`: your session; routes requests, briefs agents, and reports back
-- `researcher`: investigation, code tracing, literature; writes `.supervisor/working/research/research-*.md`
-- `planner`: decision-and-outline plans, questions first, in `.supervisor/working/plans/plan-*.md`
-- `executor`: code, tests, config, agent definitions, git conflicts, Python environments; works in a worktree and lands its change sets locally
-- `writer`: scientific and technical prose, slide content, project docs
-- `clerk`: small, exact edits; runs a given command; appends `decision:` lines to a plan's `## Log`
-- `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
-- `git-ops`: routine git with guardrails
-- `scout`: read-only lookups
+| Install | Where | Start it with |
+|---|---|---|
+| `./deploy install` | Profile in `~/.config/claude-supervisor` | `claude-supervisor` |
+| `./deploy install --tag <t>` | Another profile, `~/.config/claude-<t>` | `claude-<t>` |
+| `./deploy install --global` | `~/.claude`, no launcher (not recommended) | plain `claude` |
 
-Skills you run yourself:
-- `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
-- `/project-backup`: timestamped, verified zip backup with retention
-- `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
+- Supervisor for Claude installs by default into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, login, settings, and history, separate from your default `claude` environment. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start.
+- A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
+- With `--global` (not recommended), plain `claude` becomes the supervisor.
+- `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
+- `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Maintaining An Install
 
@@ -239,7 +219,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 |---|---|
 | `claude-supervisor: command not found` | Add `~/.local/bin` (or `<prefix>/bin` for a `--prefix` install) to `PATH` |
 | Agents don't show in `/agents` | Start a new `claude-supervisor` (or `claude-<tag>`) session. Run `./deploy status` |
-| Leads do the work themselves instead of fanning out | Run `./deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
+| One agent does everything itself instead of delegating | Run `./deploy doctor`. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` may be below 2 |
 | Every agent runs on the same model | `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set. `doctor` reports it |
 | `install` reports "locally modified; kept" | Expected: your edit in the install dir wins. Use `--overwrite-local` to take the pack version (the old file is backed up) |
 | `exists but is not managed by this pack` (`install` or `update`) | A file with that name, such as your own agent or skill seeded from `~/.claude`, shadows a pack name. Rename yours, or run `./deploy install --overwrite-local` from your checkout to replace it; `update` never does |
