@@ -5,6 +5,7 @@ affects: [pack/agents/curator.md, pack/agents/clerk.md, pack/agents/git-ops.md, 
 verified: 2026-10-24
 source: user 2026-10-23 ("should curator and clerk be doing commits in the first place? That's git-ops job"; approved the proposal: "yes, that sounds good")
 supersedes: [.supervisor/archive/memory/decisions/2026-10-23-only-git-ops-commits-memory-writes.md, .supervisor/archive/memory/decisions/2026-10-22-store-lives-in-the-branch-curator-commits.md]
+superseded by: .supervisor/memory/decisions/2026-10-24-git-ops-not-curator-or-clerk-commits.md
 ---
 Reach: product behaviour, written into `pack/` by executor (done in commit 4576a93, v4.11); this entry keeps the decision and why for repo work.
 

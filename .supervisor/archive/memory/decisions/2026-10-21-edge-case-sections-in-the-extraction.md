@@ -5,6 +5,7 @@ affects: [pack/skills/document-extraction/SKILL.md, pack/skills/email-extraction
 verified: 2026-10-21
 source: .supervisor/archive/working/plans/plan-full-review.md#open-questions
 supersedes:
+superseded by: .supervisor/memory/decisions/2026-10-24-edge-cases-sections-of-the-extraction.md
 ---
 During the full review, clauses that read as anticipated-failure rules or restate earlier rules were candidates for deletion. The user approved deleting the ones in the planner, scope-critic, lead-loop and conflict-resolution files, but reverted the deletion of the `Edge cases` sections of `document-extraction` and `email-extraction`: they stay as they are. A reviewer must not flag them as pure restatements.
 
