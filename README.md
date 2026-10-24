@@ -35,9 +35,10 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 
 For other options, see [Choosing An Install](#choosing-an-install).
 
-A sandbox is a private config dir, not a security sandbox. If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
-
-Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
+Notes:
+- The sandbox is a private config dir, not a security sandbox.
+- If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
+- To let Claude install it instead, run `claude` inside the clone and say *"deploy this pack"*; it follows [docs/deploy.md](docs/deploy.md).
 
 ## Choosing An Install
 
@@ -53,7 +54,7 @@ Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*.
 - `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
 - `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call; this does not work for global installs, which have no launcher. To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
@@ -160,7 +161,7 @@ The bookkeeping between waves, `Amend parent:`, and the archive move are in [doc
 
 ## Persistence And Memory
 
-Claude Code's built-in memory (your user `CLAUDE.md` and auto memory) keeps personal preferences and anything that applies across projects. Supervisor for Claude adds an auditable per-project memory in `.supervisor/`, which helps collaboration on larger projects.
+Claude Code's built-in memory (your user `CLAUDE.md` and auto memory) keeps personal preferences; auto memory is per repository and stays on your machine. Supervisor for Claude adds an auditable per-project memory in `.supervisor/`, committed with the project, which helps collaboration on larger projects.
 
 `.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. After a wave, the `clerk` appends each binding answer or decision to the plan's `## Log` as a `decision:` line, `curator` writes the memory entries, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
 
@@ -237,7 +238,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 | `another deploy is running` | Wait for it to finish, then re-run |
 | `is not registered under prefix X` | Run `./deploy install` once (pass `--prefix` if you installed with one) |
 | `cannot read branch` | Check network access and credentials |
-| Claude Code asks to bill Fable separately | Fable is now the default. Launch with `--fable-is-opus`, or set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in your shell profile or `settings.json` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
+| Claude Code asks to bill Fable separately | Fable is the default. Launch with `--fable-is-opus`, or set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in your shell profile or `settings.json` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
 
 ## Repository Layout

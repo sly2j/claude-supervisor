@@ -167,8 +167,6 @@ Global installs made before 1.14 had those files rewritten to `opus`; the next p
 
 The three environment variables are checked both in the shell environment and in the `env` block of the target's `settings.json`. Doctor exits 1 if any row is FAIL; WARN rows do not change the exit code.
 
-Anthropic's document skills are recommended for docx, pdf, pptx, and xlsx work, but doctor does not check for them. Inside a claude-supervisor session, run `/plugin marketplace add anthropics/skills`, then install `document-skills`.
-
 ## Uninstall
 
 ```bash
