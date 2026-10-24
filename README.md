@@ -11,7 +11,7 @@ Supervisor for Claude is built for long-horizon software and scientific-research
 Supervisor for Claude installs by default as a sandbox separate from your default `claude` environment, which keeps the two apart. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. Supervisor for Claude supports multiple independent sandboxes, and a global install into `~/.claude` if you really want to.
 
 - **Parallel work:** during planning, complex work is split into work packages that run in parallel waves.
-- **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Larger Work](#larger-work).
+- **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
 ## Quick Start
 
@@ -33,13 +33,11 @@ claude-supervisor    # log in once; type /agents to see the pack
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
 
-To skip the sandbox, run `./deploy install --global` instead: it installs into `~/.claude` with no launcher, and plain `claude` becomes the supervisor. For other options, see [Choosing An Install](#choosing-an-install).
+For other options, see [Choosing An Install](#choosing-an-install).
 
 A sandbox is a private config dir, not a security sandbox. If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
-
-Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. Inside a claude-supervisor session, run `/plugin marketplace add anthropics/skills` and install `document-skills`.
 
 ## Choosing An Install
 
@@ -47,11 +45,15 @@ Recommended: Anthropic's document skills for docx, pdf, pptx, and xlsx work. Ins
 |---|---|---|
 | `./deploy install` | Sandbox in `~/.config/claude-supervisor` | `claude-supervisor` |
 | `./deploy install --tag <t>` | Another sandbox, `~/.config/claude-<t>` | `claude-<t>` |
-| `./deploy install --global` | `~/.claude`, no launcher | plain `claude` |
+| `./deploy install --global` | `~/.claude`, no launcher (not recommended) | plain `claude` |
 
-A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code. Its first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, and plugins stay behind, and so do MCP servers and `~/.claude.json` state. With `--global`, plain `claude` becomes the supervisor. `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`. `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
+- A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code.
+- A sandbox's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
+- With `--global` (not recommended), plain `claude` becomes the supervisor.
+- `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
+- `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
-Three agents (`supervisor`, `planner`, `scope-critic`) are written for the top model tier, Fable-level: the strongest and costliest (see [Models And Cost](docs/architecture.md#models-and-cost)). Fable can be billed separately. These agents run on Fable unless `ANTHROPIC_DEFAULT_FABLE_MODEL` is set in your environment, which the launcher respects; `claude-supervisor --fable-is-opus` runs that session on Opus. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Three agents (`supervisor`, `planner`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call; this does not work for global installs, which have no launcher. To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
 ## Using It
 
@@ -156,6 +158,10 @@ flowchart LR
 
 The bookkeeping between waves, `Amend parent:`, and the archive move are in [docs/architecture.md](docs/architecture.md).
 
+## Persistence And Memory
+
+Claude Code's built-in memory (your user `CLAUDE.md` and auto memory) keeps personal preferences and anything that applies across projects. Supervisor for Claude adds an auditable per-project memory in `.supervisor/`, which helps collaboration on larger projects.
+
 `.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. After a wave, the `clerk` appends each binding answer or decision to the plan's `## Log` as a `decision:` line, `curator` writes the memory entries, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
 
 ## Branches, Worktrees And Versions
@@ -170,7 +176,7 @@ The `repo-workflow` skill sets the defaults for git projects. Your repo's `CLAUD
 - **Versions:** nothing creates, bumps, or tags a version unless the brief or `CLAUDE.md` says so, and a repo with its own scheme keeps it. A project with no versioning and no `CLAUDE.md` line is asked, until `CLAUDE.md` records an answer, whether to adopt the `repo-workflow` `X.y` scheme. Yes adds "Versioning: uses the repo-workflow X.y scheme." to `CLAUDE.md` and creates `VERSION` at `1.0`; no adds "Versioning: none; do not ask." Under `X.y`, y rises once per change set that lands on the default branch, and X rises on a major change.
 - **Force-push:** a `CLAUDE.md` line can grant `--force-with-lease` on feature branches after a rebase. It never covers the default branch, which is force-pushed only when you name it.
 
-Outside a project (see the `.supervisor/` paragraph above) nothing is persisted: no worktree, no version, no question.
+Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothing is persisted: no worktree, no version, no question.
 
 ## What's In The Pack
 
