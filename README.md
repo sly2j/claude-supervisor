@@ -4,6 +4,15 @@ A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). O
 
 *Supervisor for Claude is an independent project, not affiliated with or endorsed by Anthropic.*
 
+## What It's For
+
+Supervisor for Claude is built for long-horizon software and scientific-research tasks: work that spans several sessions and moves through investigation, design, code, and papers or proposals. For smaller tasks, plain `claude` is more effective, so use it instead.
+
+The default sandbox install keeps the two apart. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. A `--global` install makes plain `claude` the supervisor instead.
+
+- **Parallel work:** during planning, complex work is split into work packages that run in parallel waves.
+- **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Larger Work](#larger-work).
+
 ## Quick Start
 
 Requirements:
