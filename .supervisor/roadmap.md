@@ -102,3 +102,14 @@ Priority: normal. Effort: M.
 - **Pointers:** `.supervisor/working/research/research-memory.md` section 8 item 7.
 
 Priority: low — deferred by the owner 2026-10-21 to a future release. Effort: L.
+
+### 8. Re-measure harness efficiency (from late November 2026)
+
+Once a few weeks of v6.0 sessions exist, run `python3 -I tools/audit/audit.py` and compare with
+`.supervisor/memory/facts/2026-10-24-efficiency-baseline-for-drift.md`. Tune the scope-critic skip
+condition and the executor single-unit rule on the numbers. Output is never committed.
+Decisions:
+- `.supervisor/memory/decisions/2026-10-24-scope-critic-skips-on-nit-only-rounds.md`
+- `.supervisor/memory/decisions/2026-10-24-efficiency-scripts-are-opt-in-tooling.md`
+
+Priority: low — opt-in check, not before late November 2026. Effort: S.
