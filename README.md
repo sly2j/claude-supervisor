@@ -160,9 +160,21 @@ The bookkeeping between waves, `Amend parent:`, and the archive move are in [doc
 
 ## Persistence And Memory
 
-Claude Code's built-in memory (your user `CLAUDE.md` and auto memory) keeps personal preferences; auto memory is per repository and stays on your machine. Supervisor for Claude adds an auditable per-project memory in `.supervisor/`, committed with the project, which helps collaboration on larger projects.
+Supervisor for Claude keeps a per-project memory store in `.supervisor/`, committed with the repo. Agents read it when they start work and keep it current as they go, so decisions, facts, conventions and lessons survive across sessions, show up in `git log`, can be reviewed in a pull request, and reach your collaborators. On a project that runs for weeks, this keeps last week's decisions and a researcher's findings from being lost or rediscovered.
 
-`.supervisor/` is committed project memory: `memory/<kind>/` entries (decisions, facts, goals, conventions, approved lessons), `working/` for research, plans and per-document writer state, an `archive/` that mirrors both, `history.md` for what landed, and a `README.md` that explains the layout. Only `curator` creates it, in a project (a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above, never counting your home directory or anything above it). Elsewhere nothing is stored and nothing is asked until you say "remember X" or "make this a project", or a close-out runs. A worktree's store is its branch's memory and lands with the branch. It is committed by default; add `.supervisor/` to `.gitignore` to keep it local. After a wave, the `clerk` appends each binding answer or decision to the plan's `## Log` as a `decision:` line, `curator` writes the memory entries, and leads read matching entries at start. Say "remember X" or "forget X". The `curator` distills finished programs, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+This is separate from Claude Code's own memory. Your user `CLAUDE.md` and auto memory hold personal preferences; auto memory is per repository but lives on your machine, so collaborators never see it. `.supervisor/` holds what the project itself needs to remember.
+
+The memory model:
+
+- **Layout:** `memory/<kind>/` holds one file per entry; `working/` holds research, plans and per-document writer state; `archive/` mirrors both; `history.md` lists what landed; `.supervisor/README.md` explains the layout.
+- **Entry kinds:** decisions, facts, goals, conventions, and lessons. A lesson is recorded only after you approve it.
+- **Three horizons:** long-term goals in `memory/goals/`, a mid-term `roadmap.md`, and short-term plans and research in `working/`.
+- **Superseding:** entries are not edited in place; a changed decision gets a new entry and the old one moves to `archive/`, so the history stays readable.
+- **How agents use it:** a lead reads the entries that match its task when it starts. After each wave, `clerk` logs your binding answers in the plan's `## Log`, and `curator` turns them into entries when the plan closes.
+- **`curator`:** maintains the store. It creates the store, closes out finished plans, trims landed items from the roadmap, flags plans idle for 30 days, and proposes lessons for your approval.
+- **Your controls:** say "remember X", "forget X", or "make this a project".
+- **Where it applies:** a project is a git repo, or outside git a directory with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` in it or above it (your home directory does not count). Elsewhere nothing is stored and nothing is asked.
+- **Committed by default:** add `.supervisor/` to `.gitignore` to keep it local. A worktree's store belongs to its branch and lands with it.
 
 ## Branches, Worktrees And Versions
 
