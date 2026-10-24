@@ -14,20 +14,19 @@ Requirements:
 ```bash
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 cd ~/Work/claude-supervisor
-./deploy doctor      # preflight; a WARN "not installed yet" is expected
 ./deploy install     # sandbox in ~/.config/claude-supervisor, launcher in ~/.local/bin
-./deploy doctor      # should now report no FAIL
+claude-supervisor    # log in once; type /agents to see the pack
 ```
 
-A sandbox is a private config dir, not a security sandbox. If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
-
-The launcher, `claude-supervisor`, lands in `~/.local/bin`, which must be on your `PATH`; `install` prints a WARNING if it is not. To add it, run this, then open a new terminal (zsh is the macOS default; use `~/.bashrc` for bash):
+`install` prints a WARNING if `~/.local/bin` is not on your `PATH`. To add it, run this, then open a new terminal (use `~/.bashrc` for bash):
 
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
 
-Run `claude-supervisor` and log in once. The session runs as the supervisor; type `/agents` to see the pack.
+To skip the sandbox, run `./deploy install --global` instead: it installs into `~/.claude` with no launcher, and plain `claude` becomes the supervisor. For other options, see [Choosing An Install](#choosing-an-install).
+
+A sandbox is a private config dir, not a security sandbox. If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
 
 Or let Claude do it: run `claude` inside the clone and say *"deploy this pack"*. It follows [docs/deploy.md](docs/deploy.md).
 
