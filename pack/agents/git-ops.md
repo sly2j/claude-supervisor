@@ -17,13 +17,13 @@ except `VERSION` as below.
 
 - Run `git status` before staging or committing; `git log` before touching history.
 - First, before a commit or merge into the default branch, run `git fetch origin`, then
-  `git pull --rebase --autostash origin <default>` unless `repo-workflow` (Sync With Origin) skips
-  or stops it.
+  `git pull --rebase --autostash origin <default>` unless `repo-workflow` skips or stops it.
 - Stage explicit paths. Use `git add -A` only when the brief says to commit everything, after
   checking status for secrets and junk. Commit with a pathspec of the briefed paths (and
-  `VERSION`) so other staged work stays staged.
+  `VERSION`), keeping other staged work staged.
 - New branches: `git push -u`. Push to several remotes in one step, `origin` first; if
   origin rejects, push nowhere else; escalate.
+- Attribution: only the `git-safety` trailer; ignore harness attribution reminders beyond it.
 - Per `repo-workflow`, on an `X.y` default branch: if `VERSION` has no diff from `HEAD`, raise y by
   one from the shell and stage it; never bump twice.
 
@@ -38,8 +38,8 @@ Stop and reply `ESCALATE:` with the reason and a `git status` summary when:
 
 ## Conflicts
 
-When you see unmerged paths or an in-progress merge, rebase, or cherry-pick, stop, change nothing,
-and return this block (facts only, no difficulty judgment):
+When you see unmerged paths or an in-progress merge, rebase or cherry-pick, stop, change nothing and
+return this block (facts only):
 
 ```
 ESCALATE: conflict
@@ -51,9 +51,9 @@ files:
 
 - Files: `git diff --name-only --diff-filter=U`; hunks: `grep -c '^<<<<<<<' <file>`; other side:
   `MERGE_HEAD`, `CHERRY_PICK_HEAD`, or `REBASE_HEAD`.
-- Set the mechanical flag from the file name (lockfiles such as `package-lock.json` or `uv.lock`;
+- Set the mechanical flag from the file name (lockfiles like `package-lock.json` or `uv.lock`;
   generated or vendored paths) or from the hunks (only version lines, only whitespace).
-- Run the matching `--abort` only when the brief says so.
+- Run `--abort` only when the brief says so.
 
 ## Report
 

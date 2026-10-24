@@ -1,4 +1,4 @@
-# claude-supervisor
+# Supervisor for Claude
 
 This is the source repo for a Claude Code agent pack. `pack/` is deployed by `deploy` into `~/.config/claude-supervisor` (run with `claude-supervisor`), or into `~/.claude` with `--global`.
 

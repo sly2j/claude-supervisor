@@ -116,9 +116,10 @@ def test_fresh_install(pack, target):
     assert set(m["files"]) == {"agents/supervisor.md", "agents/helper.md",
                                "skills/demo/SKILL.md", "skills/demo/scripts/run.sh"}
     assert m["settings"] == {"managed_agent_key": True, "previous_agent": None,
-                             "managed_attribution_commit": True}
+                             "managed_attribution_commit": True, "managed_attribution_pr": True,
+                             "managed_attribution_session_url": True}
     assert m["source_commit"] is None and m["source_dirty"] is None  # the temp pack is not in a repo
-    assert settings(target) == {"agent": "supervisor", "attribution": {"commit": "Co-Authored-By: Claude Supervisor"}}
+    assert settings(target) == {"agent": "supervisor", "attribution": ATTR_ALL}
 
 
 def test_idempotent_rerun(pack, target):
@@ -210,19 +211,32 @@ def test_existing_agent_not_overwritten(pack, target):
     assert manifest(target)["settings"]["previous_agent"] == "mine"
 
 
-ATTR_COMMIT = "Co-Authored-By: Claude Supervisor"
+ATTR_COMMIT = "Co-Authored-By: Supervisor for Claude"
+ATTR_ALL = {"commit": ATTR_COMMIT, "pr": "", "sessionUrl": False}
 
 
 def test_attribution_update_merges_and_keeps_other_keys(pack, target):
     target.mkdir()
     (target / "settings.json").write_text(json.dumps({"attribution": {"pr": "mine"}, "model": "opus"}))
     assert run(pack, target, "install").returncode == 0
-    assert settings(target)["attribution"] == {"pr": "mine", "commit": ATTR_COMMIT}
+    assert settings(target)["attribution"] == {"pr": "mine", "commit": ATTR_COMMIT, "sessionUrl": False}
     r = run(pack, target, "install")
     assert r.returncode == 0
-    assert settings(target) == {"attribution": {"pr": "mine", "commit": ATTR_COMMIT}, "model": "opus",
+    assert settings(target) == {"attribution": {"pr": "mine", "commit": ATTR_COMMIT, "sessionUrl": False}, "model": "opus",
                                 "agent": "supervisor"}
-    assert manifest(target)["settings"]["managed_attribution_commit"] is True
+    rec = manifest(target)["settings"]
+    assert rec["managed_attribution_commit"] is True and rec["managed_attribution_session_url"] is True
+    assert rec["managed_attribution_pr"] is False  # the user's pr is kept and not ours
+
+
+def test_attribution_session_url_user_value_kept(pack, target):
+    target.mkdir()
+    (target / "settings.json").write_text(json.dumps({"attribution": {"sessionUrl": True}}))
+    r = run(pack, target, "install")
+    assert r.returncode == 0
+    assert settings(target)["attribution"] == {"sessionUrl": True, "commit": ATTR_COMMIT, "pr": ""}
+    assert manifest(target)["settings"]["managed_attribution_session_url"] is False
+    assert "attribution.sessionUrl is True; not changed" in r.stdout
 
 
 def test_attribution_user_values_not_clobbered(pack, target):
@@ -230,13 +244,30 @@ def test_attribution_user_values_not_clobbered(pack, target):
     (target / "settings.json").write_text(json.dumps({"attribution": {"commit": "mine"}}))
     r = run(pack, target, "install")
     assert r.returncode == 0
-    assert settings(target)["attribution"] == {"commit": "mine"}
+    assert settings(target)["attribution"] == {"commit": "mine", "pr": "", "sessionUrl": False}
     assert manifest(target)["settings"]["managed_attribution_commit"] is False
     assert "attribution.commit is 'mine'" in r.stdout
     (target / "settings.json").write_text(json.dumps({"attribution": False}))
     assert run(pack, target, "install").returncode == 0
     assert settings(target)["attribution"] is False
     assert manifest(target)["settings"]["managed_attribution_commit"] is False
+
+
+def test_attribution_legacy_pack_value_replaced(pack, target):
+    # An earlier pack trailer is replaced only when the manifest says the pack set it.
+    run(pack, target, "install")
+    (target / "settings.json").write_text(json.dumps(
+        dict(settings(target), attribution={"commit": "Co-Authored-By: Claude Supervisor"})))
+    assert run(pack, target, "install").returncode == 0
+    assert settings(target)["attribution"] == {"commit": ATTR_COMMIT, "pr": "", "sessionUrl": False}
+    assert manifest(target)["settings"]["managed_attribution_commit"] is True
+    m = manifest(target)
+    m["settings"]["managed_attribution_commit"] = False
+    (target / MANIFEST).write_text(json.dumps(m))
+    (target / "settings.json").write_text(json.dumps(
+        dict(settings(target), attribution={"commit": "Co-Authored-By: Claude Supervisor"})))
+    assert run(pack, target, "install").returncode == 0
+    assert settings(target)["attribution"]["commit"] == "Co-Authored-By: Claude Supervisor"
 
 
 def test_attribution_sandbox_uninstall_deletes_dir(pack, target):
@@ -252,8 +283,16 @@ def test_attribution_old_manifest_still_installs(pack, target):
     m["settings"] = {"managed_agent_key": True, "previous_agent": None}
     (target / MANIFEST).write_text(json.dumps(m))
     assert run(pack, target, "install").returncode == 0
-    assert settings(target)["attribution"] == {"commit": ATTR_COMMIT}
-    assert manifest(target)["settings"]["managed_attribution_commit"] is False  # not ours to remove
+    assert settings(target)["attribution"] == ATTR_ALL
+    rec = manifest(target)["settings"]
+    assert [rec[k] for k in ("managed_attribution_commit", "managed_attribution_pr",
+                             "managed_attribution_session_url")] == [False] * 3  # not ours to remove
+    # A key absent under an old manifest is set and marked managed.
+    (target / "settings.json").write_text(json.dumps({"agent": "supervisor", "attribution": {"commit": ATTR_COMMIT}}))
+    assert run(pack, target, "install").returncode == 0
+    assert settings(target)["attribution"] == ATTR_ALL
+    rec = manifest(target)["settings"]
+    assert rec["managed_attribution_pr"] is True and rec["managed_attribution_session_url"] is True
 
 
 def test_attribution_global_untouched(pack, global_target):
@@ -261,7 +300,7 @@ def test_attribution_global_untouched(pack, global_target):
     (global_target / "settings.json").write_text(json.dumps({"attribution": {"pr": "mine"}}))
     assert run(pack, global_target, "install").returncode == 0
     assert settings(global_target)["attribution"] == {"pr": "mine"}
-    assert "managed_attribution_commit" not in manifest(global_target)["settings"]
+    assert not [k for k in manifest(global_target)["settings"] if k.startswith("managed_attribution")]
     assert run(pack, global_target, "uninstall", "--yes").returncode == 0
     assert settings(global_target) == {"attribution": {"pr": "mine"}}
     assert run(pack, global_target, "install").returncode == 0
@@ -393,7 +432,7 @@ def test_symlinked_settings_survive_install(pack, target, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (target / "settings.json").is_symlink()
     assert json.loads(real.read_text()) == {"model": "opus", "env": {"A": "1"}, "agent": "supervisor",
-                                          "attribution": {"commit": "Co-Authored-By: Claude Supervisor"}}
+                                          "attribution": ATTR_ALL}
     assert real.stat().st_mode & 0o777 == 0o644
     assert not list(real.parent.glob(".tmp-*"))
 
@@ -798,7 +837,7 @@ def test_sandbox_seeds_from_global_once(pack, global_target, target, tmp_path):
     for rel in ("agents/mine.md.bak-1", "skills/synced/x.md", "skills/.trash/y.md",
                 "plugins/p.json", "history.jsonl"):
         assert not (sbx / rel).exists(), rel
-    assert settings(sbx) == {"theme": "dark", "agent": "supervisor", "attribution": {"commit": "Co-Authored-By: Claude Supervisor"}}
+    assert settings(sbx) == {"theme": "dark", "agent": "supervisor", "attribution": ATTR_ALL}
     assert manifest(sbx)["settings"]["managed_agent_key"] is True
 
     (global_target / "CLAUDE.md").write_text("global v2")

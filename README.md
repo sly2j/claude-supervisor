@@ -1,8 +1,8 @@
-# claude-supervisor
+# Supervisor for Claude
 
 A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One agent, the supervisor, reads every request and decides who handles it. It answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to a team that splits it across parallel agents and reviews the result before it reaches you.
 
-*claude-supervisor is an independent project, not affiliated with or endorsed by Anthropic.*
+*Supervisor for Claude is an independent project, not affiliated with or endorsed by Anthropic.*
 
 ## Quick Start
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the claude-supervisor pack into a Claude Code config dir (default: sandbox ~/.config/claude-supervisor).
+"""Deploy the Supervisor for Claude pack into a Claude Code config dir (default: sandbox ~/.config/claude-supervisor).
 
 Subcommands: install | update | status | list | uninstall | migrate | doctor.  Run `deploy <cmd> --help`.
 
@@ -32,7 +32,14 @@ LEGACY_MANIFEST_NAME = ".claude-agents-manifest.json"
 LEGACY_LOCK_NAME = ".claude-agents.lock"
 MANIFEST_VERSION = 1
 DEFAULT_AGENT = "supervisor"
-ATTRIBUTION_COMMIT = "Co-Authored-By: Claude Supervisor"
+ATTRIBUTION_COMMIT = "Co-Authored-By: Supervisor for Claude"
+LEGACY_ATTRIBUTION_COMMITS = ("Co-Authored-By: Claude Supervisor",)  # earlier pack values, replaced when managed
+# (sub-key, pack value, manifest flag, earlier pack values); pr "" and sessionUrl False suppress harness attribution
+ATTRIBUTION_KEYS = (
+    ("commit", ATTRIBUTION_COMMIT, "managed_attribution_commit", LEGACY_ATTRIBUTION_COMMITS),
+    ("pr", "", "managed_attribution_pr", ()),
+    ("sessionUrl", False, "managed_attribution_session_url", ()),
+)
 MIN_CLAUDE_VERSION = (2, 1, 293)
 REPO_ROOT = Path(__file__).resolve().parent
 JUNK_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".swx", "~", ".orig", ".rej")
@@ -51,7 +58,7 @@ LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status")
 
 
 LAUNCHER_HELP = """\
-claude-%(tag)s: Claude Code with the claude-supervisor pack
+claude-%(tag)s: Claude Code with the Supervisor for Claude pack
 Tag: %(tag)s   Config dir: %(target)s
 
 Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
@@ -601,26 +608,31 @@ def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple
 
 
 def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
-    """Decide what to do with settings['attribution']['commit'] (sandbox installs only).
+    """Decide what to do with settings['attribution'] commit, pr and sessionUrl (sandbox installs only).
 
-    Never replaces a value the pack did not set. Returns (new_settings or None, record fields, message).
+    Never replaces a value the pack did not set; replaces an earlier pack commit value the pack set.
+    Returns (new_settings or None, record fields, message).
     """
-    managed = bool(prev.get("managed_attribution_commit"))
     attr = settings.get("attribution")
     if attr is not None and not isinstance(attr, dict):
-        return None, {"managed_attribution_commit": False}, \
+        return None, {flag: False for _, _, flag, _ in ATTRIBUTION_KEYS}, \
             "attribution is %r; not changed" % (attr,)
-    current = (attr or {}).get("commit")
-    if current == ATTRIBUTION_COMMIT:
-        return None, {"managed_attribution_commit": managed}, \
-            "attribution.commit already %r" % ATTRIBUTION_COMMIT
-    if current is not None:
-        return None, {"managed_attribution_commit": False}, \
-            "attribution.commit is %r; not changed" % (current,)
-    new = dict(settings)
-    new["attribution"] = dict(attr or {}, commit=ATTRIBUTION_COMMIT)
-    return new, {"managed_attribution_commit": True}, \
-        "set attribution.commit = %r" % ATTRIBUTION_COMMIT
+    new_attr = dict(attr or {})
+    rec, msgs = {}, []
+    for key, value, flag, legacy in ATTRIBUTION_KEYS:
+        managed = bool(prev.get(flag))
+        current = new_attr.get(key)
+        if current is None or (managed and current in legacy):
+            new_attr[key] = value
+            rec[flag] = True
+            msgs.append("set attribution.%s = %r" % (key, value))
+        else:
+            rec[flag] = managed if current == value else False
+            msgs.append("attribution.%s already %r" % (key, value) if current == value
+                        else "attribution.%s is %r; not changed" % (key, current))
+    if new_attr == (attr or {}):
+        return None, rec, "; ".join(msgs)
+    return dict(settings, attribution=new_attr), rec, "; ".join(msgs)
 
 
 # --------------------------------------------------------------------------- registry
@@ -1047,8 +1059,10 @@ def status_cmd(args: argparse.Namespace) -> int:
         settings = load_settings(target)
         rec = (manifest or {}).get("settings") or {}
         print("Settings agent: %r%s" % (settings.get("agent"), " (managed)" if rec.get("managed_agent_key") else ""))
-        if rec.get("managed_attribution_commit"):
-            print("Settings attribution.commit: %r (managed)" % (settings.get("attribution") or {}).get("commit"))
+        attr = settings.get("attribution")
+        for key, _, flag, _ in ATTRIBUTION_KEYS:
+            if rec.get(flag) and isinstance(attr, dict):
+                print("Settings attribution.%s: %r (managed)" % (key, attr.get(key)))
     except DeployError as exc:
         print("Settings: %s" % exc)
     return 0
@@ -1594,7 +1608,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     else:
         p = argparse.ArgumentParser(
             prog="deploy",
-            description="Install, inspect and remove the claude-supervisor pack in a Claude Code config dir.",
+            description="Install, inspect and remove the Supervisor for Claude pack in a Claude Code config dir.",
             epilog="Target: sandbox ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
                    "or --global for ~/.claude.")
         p.add_argument("--version", action=VersionAction, help="show the pack version and the claude version")

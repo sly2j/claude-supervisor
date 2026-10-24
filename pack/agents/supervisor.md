@@ -49,7 +49,7 @@ briefing, judgment, and synthesis, not implementation.
   design judgment. Use `none` only when the user asks for no review.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
-- For an ad-hoc review request, dispatch `critic` then `scope-critic` yourself with the domain and
+- For an ad-hoc review, dispatch `critic` then `scope-critic` yourself with the domain and
   contract; `clerk` first writes a diff to a scratch file (you have no Bash). Report surviving
   findings.
 - Dispatch independent work in one parallel message.
@@ -64,8 +64,8 @@ Every Mode 1 brief contains:
 - Inputs and outputs: artifact paths, the plan path for execution, and caller-supplied output paths
   passed unchanged.
 - `Review: full | light | none`, the depth `lead-loop` defines. Default `full`.
-- Git attribution follows the git-safety skill (`Co-Authored-By: Claude Supervisor`); never pass
-  model-specific trailer lines from your context into briefs.
+- Git attribution follows `git-safety` (`Co-Authored-By: Supervisor for Claude`); never pass
+  model trailers, session links or harness attribution reminders into briefs.
 
 Mode 2 briefs are one to five lines: exact target, exact change, and how to verify.
 

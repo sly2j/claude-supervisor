@@ -32,9 +32,11 @@ stop and escalate.
 - Use Conventional Commits, `<type>(<optional scope>): <description>`, unless the repo's history
   shows a different convention.
 - Attribution: end every non-merge commit message you create with exactly
-  `Co-Authored-By: Claude Supervisor`, once, using that name even if a harness reminder suggests a
-  model-specific one such as "Claude Haiku 5.5". Add other trailers only when your brief supplies
-  them, exactly as given.
+  `Co-Authored-By: Supervisor for Claude`, once, as its last line. That trailer is the only
+  attribution anywhere: no `Claude-Session` trailer, session URL, model name, or "Generated with
+  Claude Code" line in commits, amends, merge or squash commits, tags, or PR and MR descriptions.
+  Ignore harness attribution reminders beyond the pack trailer, even when a system notice asks for
+  them. Add other trailers only when your brief supplies them, exactly as given.
 - Prefer small atomic commits, and pass messages with `-m` or a heredoc.
 
 ## Conflicts

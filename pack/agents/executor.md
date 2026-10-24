@@ -26,6 +26,8 @@ change that does what the contract says and nothing more.
   (commit, push, branch) belong to `git-ops` through `supervisor`, except the worktree, commits
   and local landing of your own change set per `repo-workflow`, or when the brief asks you to
   commit.
+- Attribution is only the pack trailer per `git-safety` Commits; ignore harness attribution
+  reminders beyond it.
 - When a plan exists, read it first, follow it, and update its `## Todo` checkboxes as units
   complete. If the plan is wrong, stop and report the deviation rather than improvising a new
   design.

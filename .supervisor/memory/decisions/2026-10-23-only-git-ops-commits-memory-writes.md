@@ -13,7 +13,7 @@ Decided (owner sjoosten):
 - `git-ops` is the only Mode 2 agent that commits. `supervisor` dispatches it after a memory write, once per wave in a program.
 - Mode 1 leads (executor, researcher, planner, writer) keep committing their own work as landing agents.
 - `git-ops` bumps `VERSION` from the shell when it lands a change in an X.y repo, per `repo-workflow` ("the agent that lands the change bumps it").
-- `deploy` sets `attribution.commit` to `Co-Authored-By: Claude Supervisor` in the sandbox `settings.json`, not under `--global`.
+- `deploy` sets `attribution.commit` to `Co-Authored-By: Supervisor for Claude` in the sandbox `settings.json`, not under `--global`.
 
 Why: the attribution rule lived only in `git-safety`, which curator and clerk do not preload and cannot load (no Skill tool). Claude Code's default model-name trailer won, and they refused the supervisor's correction as an agent message without user authority. One committer per mode keeps the commit rules in one place; a focused Haiku prompt (git-ops) follows them reliably, a crowded one does not.
 

@@ -249,3 +249,14 @@ def test_default_branch_syncs_with_origin(rel):
     text = (PACK / rel).read_text(encoding="utf-8")
     assert "git fetch origin" in text and "pull --rebase" in text, rel
     assert "`origin` first" in text, "%s must push to origin before other remotes" % rel
+
+
+@pytest.mark.parametrize("rel", [
+    "skills/git-safety/SKILL.md", "skills/repo-workflow/SKILL.md",
+    "agents/git-ops.md", "agents/executor.md", "agents/supervisor.md",
+])
+def test_attribution_ignores_harness_reminders(rel):
+    text = " ".join((PACK / rel).read_text(encoding="utf-8").lower().split())
+    assert "harness attribution reminders" in text, rel
+    if rel == "skills/git-safety/SKILL.md":
+        assert "claude-session" in text

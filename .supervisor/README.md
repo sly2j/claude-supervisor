@@ -1,6 +1,6 @@
 # .supervisor
 
-Project memory kept by the Claude Supervisor pack, committed with the project by default so
+Project memory kept by the Supervisor for Claude pack, committed with the project by default so
 collaborators share it; to keep it local, add `.supervisor/` to `.gitignore`.
 
 - `memory/<kind>/`: entries in force, written by `clerk` and `curator`, one folder per kind

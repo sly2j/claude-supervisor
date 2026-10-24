@@ -10,7 +10,7 @@
   skill (`pack/skills/agent-authoring/SKILL.md`).
 - Per change set on `main`: edit, bump `VERSION` once (`X.y` -> `X.y+1`; a major branch's squash
   merge sets `X.0`), run `python3 -m pytest -q`, run `./deploy install` if `pack/` changed, commit
-  with the trailer exactly `Co-Authored-By: Claude Supervisor`, push.
+  with the trailer exactly `Co-Authored-By: Supervisor for Claude`, push.
 - Plans live in `.supervisor/working/plans/plan-<topic>.md`; the `curator` archives finished ones
   to `.supervisor/archive/working/plans/`. Long tasks may use work packages (`## Work Packages`
   in the plan; see README).

@@ -1,6 +1,6 @@
 ---
 name: plan-writing
-description: Plan artifact contract for the claude-supervisor pack - sections, the no-code rule, vertical slices, length targets, the work-package block, and the checklist critic reviews plans against. Preloaded by planner; loaded by critic for domain plan. Not for direct use.
+description: Plan artifact contract for the Supervisor for Claude pack - sections, the no-code rule, vertical slices, length targets, the work-package block, and the checklist critic reviews plans against. Preloaded by planner; loaded by critic for domain plan. Not for direct use.
 user-invocable: false
 ---
 

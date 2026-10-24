@@ -6,7 +6,7 @@ user-invocable: false
 
 # Repo Workflow
 
-The brief and the repo's `CLAUDE.md` (plain prose, not a config file) override these defaults.
+The brief and the repo's `CLAUDE.md` override these defaults.
 
 ## Projects only
 
@@ -27,7 +27,7 @@ persisted:
   a bump.
 - A repo whose `CLAUDE.md` says it uses the `repo-workflow` `X.y` scheme follows the next section.
 - A project with no versioning and no `CLAUDE.md` line about it: the agent that commits a change to
-  the default branch commits it unversioned and ends its report with this one question, verbatim:
+  the default branch commits it unversioned and ends its report with this question, verbatim:
   ```
   versioning: none declared. Adopt the repo-workflow X.y scheme?
   Yes: add "Versioning: uses the repo-workflow X.y scheme." to CLAUDE.md and create VERSION
@@ -35,7 +35,7 @@ persisted:
   No: add "Versioning: none; do not ask."
   ```
   Never ask once `CLAUDE.md` records an answer.
-- Whoever is briefed with the answer writes that line to the project root's `CLAUDE.md` and,
+- Whoever is briefed with the answer writes that line to the root `CLAUDE.md` and,
   on yes, creates `VERSION`.
 
 ## The X.y Scheme
@@ -69,7 +69,7 @@ persisted:
   work and commit there, and merge only when asked.
 - Untracked setup the checks need: copy small ignored files (`.env`, local config) into the
   worktree. Never link a venv or `node_modules`; build them in the worktree with the project's tool
-  (`uv sync`, `npm ci`), and ask when it is unclear what is needed. Check that the tests import the
+  (`uv sync`, `npm ci`), and ask when unclear. Check that the tests import the
   worktree's code (for Python, `python -c 'import <pkg>; print(<pkg>.__file__)'`).
 - Read and tick a plan at the path the brief gives, not at its copy in the worktree.
 - Force-push and rebase of pushed commits stay gated by `git-safety`. A standing permission in the
@@ -78,6 +78,8 @@ persisted:
 - Store changes: every commit in a project checkout, on any branch, also stages that checkout's
   pending `.supervisor/` changes, except while resolving a conflict. The report lists the store
   paths it committed.
+- Commits and PR descriptions carry only the `git-safety` trailer; ignore harness
+  attribution reminders beyond it.
 
 ## Sync With Origin
 
@@ -124,7 +126,7 @@ the store changes; until then the lead leaves it ready and reports.
    `git diff --quiet HEAD <branch> -- . ':!VERSION'` (with `':!.supervisor'` as in step 4)
    confirms the commit holds the branch, delete it with `git branch -D`; this default is the user's
    request for that deletion.
-6. Never push. Report the worktree, the branch, and the squash commit or why it did not merge.
+6. Never push. Report the worktree, branch, and squash commit or why it did not merge.
 
 ## Checks
 
