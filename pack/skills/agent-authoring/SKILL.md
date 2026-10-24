@@ -10,7 +10,8 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Tier | Agents | Model / effort | Tools |
 |---|---|---|---|
 | Main | supervisor | fable / default | no Bash, no NotebookEdit; writes only its memory files |
-| Lead | researcher, executor, writer | opus / default | all; preload `lead-loop` |
+| Lead | researcher, executor | opus / default | all; preload `lead-loop` |
+| Lead | writer | fable / default | all; preload `lead-loop`, `project-memory` |
 | Lead | planner | fable / default | all; preload `lead-loop`, `plan-writing` |
 | Worker | researcher-worker, planner-worker, executor-worker | sonnet / default | `disallowedTools` includes `Agent` |
 | Worker | writer-worker | opus / default | `disallowedTools` includes `Agent` |
@@ -19,9 +20,9 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Memory | curator | sonnet / default | explicit allowlist; no `Agent` |
 | Quick | clerk, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
-- `planner` dispatches `critic` with `model: fable`, and `writer` dispatches `writer-worker` with
-  `model: fable` when the user asks for the strongest drafter; these per-call overrides are the only
-  exceptions to the Tiers table.
+- `planner` dispatches `critic` with `model: fable`, and `supervisor` dispatches `writer` with
+  `model: opus` for short, low-stakes prose; these per-call overrides are the only exceptions to the
+  Tiers table.
 - Depth is main (0) -> lead or curator (1) -> worker or reviewer (2). Nothing below depth 2
   dispatches.
 - Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility
@@ -39,7 +40,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   - optional `skills` (a YAML list) and `color`
 - Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,
   Rules or Operating, the domain procedure, then Report or Output.
-- Budget: body word caps per tier are main 1000, lead 700, review 600, worker 400, memory 400,
+- Budget: body word caps per tier are main 1030, lead 700, review 600, worker 400, memory 400,
   quick 350; `tests/test_pack_lint.py` enforces them. They are ceilings, not targets: spend the
   length on load-bearing contracts such as verdict tokens, output schemas, or routing tables.
 - State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,

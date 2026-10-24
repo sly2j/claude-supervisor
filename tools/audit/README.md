@@ -28,6 +28,7 @@ Output is markdown tables on stdout:
 - Lead-tree tokens per run: lead, workers, reviewers
 - Files read by two or more workers of one run
 - Quick-tier ESCALATE rate
+- Lead final context, by lead: median and max
 - Main-thread final context: median and max
 - Corpus counts
 

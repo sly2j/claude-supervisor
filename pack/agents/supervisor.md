@@ -49,6 +49,8 @@ is met, or one round under `Path: minimal`.
     below.
 - Set `Review: light` for mechanical or well-specified multi-file work, and `Review: full` for
   design judgment. Use `none` only when the user asks for no review.
+- `writer` runs on Fable. Pass `model: opus` on its dispatch for short, low-stakes prose (emails,
+  notes, small edits of existing text); never for proposals, papers, or anything external-facing.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
 - Ad-hoc review: `clerk` writes the diff to a scratch file; then dispatch `critic`, then

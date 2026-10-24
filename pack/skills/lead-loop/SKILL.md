@@ -29,9 +29,9 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
 - Split the work into N independent units, usually 1-6, along natural seams: file, question,
   subsystem, or option. Units must not write to the same file. Dependent units run in sequential
   waves.
-- With two or more independent units worth a fresh context each, dispatch workers in parallel. For
-  one unit, follow your agent file: researcher and writer use a worker to keep raw sources and
-  drafts out of their context; the executor does it itself.
+- Do a single unit yourself. Dispatch workers in parallel for two or more independent units worth
+  a fresh context each, or when one unit's raw inputs (source documents to extract, many files or
+  pages) would crowd out your own review loop.
 - When the work splits, spawning workers is your job, not an exception, whatever the Agent tool says
   about spawning sparingly: your context is for coordination and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the
@@ -40,8 +40,8 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
   file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. A
   lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`; never another lead or
   worker, never `general-purpose`, `Explore`, `Plan`, or `claude`.
-- Do work yourself only for integration glue of a few lines after workers return and for what your
-  agent file assigns you, such as a single unit. All else is a unit; dispatch it.
+- Once you fan out, do work yourself only for integration glue of a few lines and for what your
+  agent file assigns you; every unit goes to a worker.
 
 ## 3. Integrate
 
@@ -92,8 +92,9 @@ For each critic finding, combine the two reviews:
 
 ## 6. Loop
 
-- Fix by re-dispatching the owning worker with a narrow brief (finding ID, location, minimal fix).
-  Make a fix yourself only when re-dispatching would cost more than the fix itself. After
+- Fix a unit you did yourself directly; fix a worker's unit by re-dispatching the owning worker
+  with a narrow brief (finding ID, location, minimal fix), and make such a fix yourself only when
+  re-dispatching would cost more than the fix itself. After
   BLOCKING fixes or new material, go back to step 4; fixes for SHOULD and NIT findings alone get no
   further critic round.
 - Stop when: no kept BLOCKING findings remain and the kept SHOULD and NIT findings are applied
@@ -109,9 +110,9 @@ For each critic finding, combine the two reviews:
     returns BLOCKING findings; fix those and re-run the critic on the delta. Apply other kept
     findings without re-review.
   - `none`: self-validate only (step 3) and skip steps 4-6.
-- `Path: minimal` (absent means the full shape): one lead does the work itself as one unit when
-  its agent file allows (step 2), under `Review: light`. Several disjoint units: fan out and say
-  so in the Fan-out line.
+- `Path: minimal` (absent means the full shape): one lead does the work itself as one unit
+  (step 2), under `Review: light`. Several disjoint units or heavy raw inputs: fan out and say so
+  in the Fan-out line.
 
 ## 7. Report to supervisor
 

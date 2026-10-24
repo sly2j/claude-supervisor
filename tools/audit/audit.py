@@ -5,8 +5,8 @@ Standard library only; Python 3.9 compatible. Prints markdown tables to stdout a
 
 Metrics: critic round-1 PASS by lead, round-1 empty and NIT-only-or-empty findings-table rates
 by lead, scope-critic dispatches per critic round, lead-tree tokens per run (lead / workers /
-reviewers), files read by two or more workers of one run, quick-tier ESCALATE rate, main-thread
-final context, and corpus counts.
+reviewers), files read by two or more workers of one run, quick-tier ESCALATE rate, lead final
+context by lead, main-thread final context, and corpus counts.
 
 Privacy: transcripts are only regex-matched, never printed. The whole report is built first and
 refused (exit status 2, no offending text shown) if a line looks like a home-directory path or
@@ -217,8 +217,10 @@ def lead_runs(session):
                 for _, name, inp, _ in kp["tools"]:
                     if name == "Read":
                         reads[inp.get("file_path", "")].add(k)
+        ctx = context_sizes(p)
         runs.append({
             "lead": lead, "critics": critics, "rounds": len(rounds),
+            "ctx": ctx[-1] if ctx else None,
             "scope": scope,
             "skipped": len(re.findall(r"scope-critic skipped", p["handback"])),
             "tok": tok,
@@ -326,6 +328,16 @@ def build_report(sessions):
             rows.append([t, ratio(sum(q), len(q))])
     rows.append(["all", ratio(sum(e for _, e in quick), len(quick))])
     table(out, ["agent", "ESCALATE"], rows)
+
+    out += ["## Lead final context by lead (tokens)", ""]
+    out.append("Prompt size of the lead transcript's last assistant message; watches self-doing leads for bloat.")
+    out.append("")
+    rows = []
+    for lead, L in by_lead(runs):
+        xs = [r["ctx"] for r in L if r["ctx"] is not None]
+        rows.append([lead, len(xs), fmt(statistics.median(xs)) if xs else "n/a",
+                     fmt(max(xs)) if xs else "n/a"])
+    table(out, ["lead", "runs", "median", "max"], rows)
 
     out += ["## Main-thread final context (tokens)", ""]
     finals = []

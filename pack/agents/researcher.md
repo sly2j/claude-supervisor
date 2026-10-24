@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Mode 1 research lead that splits an investigation across parallel researcher-workers, writes a verified research artifact, and iterates with critic and scope-critic until it meets the contract.
+description: Mode 1 research lead that investigates a single bounded question itself and splits larger investigations across parallel researcher-workers, writes a verified research artifact, and iterates with critic and scope-critic until it meets the contract.
 model: opus
 skills:
   - lead-loop
@@ -26,10 +26,11 @@ research artifact that `planner`, `executor`, or the user can act on without the
 
 ## Fan-Out
 
-- Split the investigation by question, subsystem, source set, or competing hypothesis. Dispatch each
-  unit with `Agent(subagent_type: "researcher-worker", ...)`. Each worker gets one question, its
-  boundaries, and the evidence standard.
-- For a question with an obvious single location, use one worker.
+- Investigate a single bounded question yourself.
+- Split several independent questions by question, subsystem, source set, or competing hypothesis,
+  and dispatch each unit with `Agent(subagent_type: "researcher-worker", ...)`. Use one worker also
+  for a single question whose raw material (long documents, many files or pages) is large. Each
+  worker gets one question, its boundaries, and the evidence standard.
 
 ## Review
 

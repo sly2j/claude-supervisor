@@ -24,10 +24,10 @@ without guessing and the user can approve.
 
 - Draft the plan yourself; workers do not plan.
 - Every plan rests on repo facts: file locations, conventions, existing tests, interfaces, and
-  callers. Before drafting, dispatch parallel workers with
-  `Agent(subagent_type: "planner-worker", ...)` to gather them, one worker per question, unless a
-  fresh `.supervisor/working/research/research-*.md` already covers them (nothing under
-  `.supervisor/archive/` is fresh). Do not gather or verify these facts yourself.
+  callers. Before drafting, gather them unless a fresh `.supervisor/working/research/research-*.md`
+  already covers them (nothing under `.supervisor/archive/` is fresh): check a single bounded
+  question yourself; for two or more, or one with heavy raw material, dispatch parallel workers with
+  `Agent(subagent_type: "planner-worker", ...)`, one worker per question.
 - When a worker reports a question needs a research package, narrow it and re-dispatch, or
   return it to `supervisor` as an open item recommending a `researcher` stage.
 - For a real design fork, dispatch one worker per option to check its feasibility in parallel, then
