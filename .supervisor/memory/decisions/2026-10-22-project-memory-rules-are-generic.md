@@ -2,7 +2,7 @@
 domain: process
 summary: Rules written into project-memory must be generic for any project, never naming this repo or its pack
 affects: [pack/skills/project-memory/]
-verified: 2026-10-22
+verified: 2026-10-24
 source: user 2026-10-22 (.supervisor/archive/working/plans/plan-memory-bloat.md#decisions)
 supersedes: 
 ---

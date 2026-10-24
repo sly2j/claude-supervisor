@@ -2,7 +2,7 @@
 domain: process
 summary: Before any commit or merge into main, in any project, fetch and pull --rebase from origin; push to all remotes in one step, origin first
 affects: [pack/skills/repo-workflow/SKILL.md, pack/agents/git-ops.md, pack/agents/executor.md, pack/skills/git-safety/]
-verified: 2026-10-23
+verified: 2026-10-24
 source: user 2026-10-23 ("we should always do a rebase pull from origin (in any context or any project) before commiting or merging anything into main"; approved the refinement: "yours is better, proceed")
 supersedes:
 ---

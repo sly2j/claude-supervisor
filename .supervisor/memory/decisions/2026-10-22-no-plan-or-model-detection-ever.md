@@ -2,7 +2,7 @@
 domain: code
 summary: Deploy never detects the plan or model; Opus is the default and Fable a per-session opt-in
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-22
+verified: 2026-10-24
 source: .supervisor/archive/working/plans/plan-opus-default.md; user 2026-10-21
 supersedes: .supervisor/archive/memory/decisions/2026-10-22-deploy-install-model-rationale.md
 ---

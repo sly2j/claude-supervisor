@@ -2,7 +2,7 @@
 domain: code
 summary: Versioning is a hand-bumped VERSION file with no tags, changelog, release process, CI or hooks
 affects: [VERSION, CLAUDE.md, tests/test_version.py]
-verified: 2026-10-22
+verified: 2026-10-24
 source: .supervisor/archive/working/plans/plan-versioning.md; owner 2026-10-21
 supersedes: .supervisor/archive/memory/decisions/2026-10-22-version-policy-rationale.md
 ---

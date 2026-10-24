@@ -2,7 +2,7 @@
 domain: code
 summary: Launcher runs Fable by default; Opus is the explicit opt-out (--fable-is-opus or env var)
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-23
+verified: 2026-10-24
 source: user 2026-10-23; commit 9426bfa
 supersedes: .supervisor/archive/memory/decisions/2026-10-22-fable-remapped-by-launcher-env-var.md
 ---
