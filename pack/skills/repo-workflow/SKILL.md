@@ -63,8 +63,8 @@ persisted:
   `git check-ignore -q .claude/worktrees/<slug>` fails, append the line `/.claude/worktrees/` to
   `$(git rev-parse --git-path info/exclude)`. Never edit `.gitignore` for this.
 - Clean up other worktrees only when the user asks, never with `--force`: commit uncommitted edits
-  on their branch as a `wip:` commit, `git worktree remove` the worktree, delete its branch
-  (`git branch -d`) only if `git log <default>..<branch>` is empty, then `git worktree prune`.
+  as a `wip:` commit, `git worktree remove` it, `git branch -d` its branch only if
+  `git log <default>..<branch>` is empty, then `git worktree prune`.
 - When the brief or the user explicitly says to work in place or in a named checkout or worktree,
   work and commit there, and merge only when asked.
 - Untracked setup the checks need: copy small ignored files (`.env`, local config) into the
@@ -83,14 +83,13 @@ persisted:
 
 ## Sync With Origin
 
-In any repo, project or not, before any commit or merge into the default branch, run
-`git fetch origin` in its checkout. Skip the pull when there is no `origin` remote, it has no
+In any repo, before any commit or merge into the default branch, run `git fetch origin` in its
+checkout. Skip the pull when there is no `origin` remote, it has no
 `<default>` branch, or `git merge-base --is-ancestor origin/<default> HEAD` succeeds. If
 `git branch -r --contains <c>` lists another remote for a commit `<c>` in `origin/<default>..HEAD`,
 stop and report (`git-safety` gate). Otherwise run `git pull --rebase --autostash origin <default>`
-and stage after it (`--autostash` may unstage). On a conflict, follow `git-safety` (Conflicts). When
-pushing to several remotes, push to all in one step, `origin` first; if origin rejects, push
-nowhere else; report.
+and stage after it (`--autostash` may unstage). On a conflict, follow `git-safety` (Conflicts).
+Push several remotes in one step, `origin` first; if origin rejects, push nowhere else; report.
 
 ## Landing A Work Branch
 
@@ -106,27 +105,30 @@ the store changes; until then the lead leaves it ready and reports.
 2. In the worktree, `git rebase <default>`, then rerun the checks. On a conflict, follow
    `git-safety` (Conflicts).
 3. Find the checkout that has the default branch checked out (`git worktree list`). If there is
-   none, stop: leave the branch ready and report why. If it has staged changes outside
+   none, or the harness refuses commands against it, follow
+   `${CLAUDE_SKILL_DIR}/references/landing-from-worktree.md`. If it has staged changes outside
    `.supervisor/` or an operation in progress, or git fails on a `.lock` file, wait a minute and
-   retry from step 2, at most three times, then stop the same way. There, sync with origin (Sync
-   With Origin). If `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
+   retry from step 2, at most three times, then stop, leaving the branch ready, and report.
+   There, sync with origin (Sync With Origin). If
+   `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
 4. There, `git merge --squash <branch>`; if git refuses because it would overwrite uncommitted
    changes only under `.supervisor/`, commit those first with `git add .supervisor` and
-   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, with a `VERSION` bump
-   in the pathspec), then go back to step 2; if it
-   names other paths, stop: leave the branch ready and report. Otherwise `git add .supervisor`, so
+   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, with `VERSION` bumped
+   in the pathspec), then go back to step 2; if it names other paths, stop: leave the branch ready
+   and report. Otherwise `git add .supervisor`, so
    this checkout's pending store changes join the squash. Bump `VERSION` if the repo uses
    the `X.y` scheme, run the checks, and commit once
    `git diff --cached --quiet <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit
    takes those store changes) confirms the staged tree is the branch. Unrelated
-   uncommitted changes stay out of the commit. If the checks or that test fail, do not
-   commit; report, leave the squash staged, and stop (keep the worktree and branch). Never move
+   uncommitted changes stay out of the commit. If the checks or that test fail, do not commit;
+   report, leave the squash staged, and stop (keep the worktree and branch). Never move
    the default branch with `update-ref` or `branch -f`.
 5. `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
    `git diff --quiet HEAD <branch> -- . ':!VERSION'` (with `':!.supervisor'` as in step 4)
    confirms the commit holds the branch, delete it with `git branch -D`; this default is the user's
    request for that deletion.
-6. Never push. Report the worktree, branch, and squash commit or why it did not merge.
+6. Never push, except the fast-forward push in the worktree landing.
+   Report the worktree, branch, and squash commit or why it did not merge.
 
 ## Checks
 

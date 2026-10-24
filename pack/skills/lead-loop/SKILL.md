@@ -6,9 +6,9 @@ user-invocable: false
 
 # Lead Loop
 
-You are a mini-supervisor. Workers do the bulk of the work, `critic` checks quality and compliance,
-and `scope-critic` checks the critic and the artifact for bloat and scope creep. You own every
-decision.
+You are a mini-supervisor. Workers do the bulk of split work, `critic` checks quality and
+compliance, and `scope-critic` checks the critic and the artifact for bloat when it runs. You own
+every decision.
 
 ## 1. Contract
 
@@ -29,10 +29,11 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
 - Split the work into N independent units, usually 1-6, along natural seams: file, question,
   subsystem, or option. Units must not write to the same file. Dependent units run in sequential
   waves.
-- Fan-out is the default. When the work has two or more independent units, dispatch them in
-  parallel. Use N=1 only when the work genuinely cannot be split.
-- Spawning workers is your job, not an exception, whatever the Agent tool's general guidance says
-  about spawning sparingly: your context is for coordination, integration, and review.
+- With two or more independent units worth a fresh context each, dispatch workers in parallel. For
+  one unit, follow your agent file: researcher and writer use a worker to keep raw sources and
+  drafts out of their context; the executor does it itself.
+- When the work splits, spawning workers is your job, not an exception, whatever the Agent tool says
+  about spawning sparingly: your context is for coordination and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the
   relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
 - Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent
@@ -40,7 +41,7 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
   lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`; never another lead or
   worker, never `general-purpose`, `Explore`, `Plan`, or `claude`.
 - Do work yourself only for integration glue of a few lines after workers return and for what your
-  agent file assigns you. Everything else is a unit; dispatch it.
+  agent file assigns you, such as a single unit. All else is a unit; dispatch it.
 
 ## 3. Integrate
 
@@ -54,9 +55,11 @@ checks).
    path), the domain (research | plan | code | prose | agent-definition), the round number, and the
    suppression list (findings you already rejected, with reasons), plus the convention entry paths
    and draft-state path you loaded (prose) or the memory entry paths you cited (other domains).
-2. Dispatch `scope-critic` with the contract, the original user request, the artifact location, and
-   the critic's full findings. For code changes, give it a diff file path because it has no Bash.
-   This runs after the critic, never in parallel with it.
+2. When the findings table has a row above NIT (a PASS can carry SHOULD rows) or the change
+   exceeds the plan's expected size, else 200 diff lines (code) or two pages of new prose, then
+   dispatch `scope-critic`, never in parallel with the critic, with the contract, the original user
+   request, the artifact location (a diff file path for code; it has no Bash), and the critic's
+   full findings. With no findings above NIT and within that bound, skip it.
 
 Write each diff to a file in your scratch directory (the session scratchpad when your environment
 lists one; never inside the repo).
@@ -65,9 +68,12 @@ Round 2 and later review only the delta. Before fixing, save a copy of the files
 your scratch directory; afterwards write `diff -u` against that copy and pass its path to both
 reviewers. `git diff` is not a delta once round 1 has changed the tree. Give the critic also the
 prior round's findings, each with your disposition (fixed, or rejected with reason). Re-run
-`scope-critic` when the fixes added material.
+`scope-critic` when the fixes added material, per step 4.
 
 ## 5. Decide
+
+If step 4 skipped `scope-critic`, log
+`scope-critic skipped: round N, no findings above NIT, <size>`.
 
 For each critic finding, combine the two reviews:
 
@@ -98,11 +104,14 @@ For each critic finding, combine the two reviews:
 - On cap, stop iterating and report the open findings with options for the user.
 - The brief's `Review:` field sets the depth. The caller can still change the round cap ("up to 5
   rounds"); honor it.
-  - `full` (default): `critic`, then `scope-critic`, iterating per this section.
-  - `light`: one `critic` round, then `scope-critic`. Do not iterate unless the critic returns
-    BLOCKING findings; fix those and re-run the critic on the delta. Apply other kept findings
-    without re-review.
+  - `full` (default): `critic`, then `scope-critic` per step 4, iterating per this section.
+  - `light`: one `critic` round, then `scope-critic` per step 4. Do not iterate unless the critic
+    returns BLOCKING findings; fix those and re-run the critic on the delta. Apply other kept
+    findings without re-review.
   - `none`: self-validate only (step 3) and skip steps 4-6.
+- `Path: minimal` (absent means the full shape): one lead does the work itself as one unit when
+  its agent file allows (step 2), under `Review: light`. Several disjoint units: fan out and say
+  so in the Fan-out line.
 
 ## 7. Report to supervisor
 
@@ -112,7 +121,7 @@ Committing the store).
 Report within these bounds, in this order:
 - **Outcome**: done, cap, or blocked, plus a summary normally under 800 words.
 - **Fan-out**: units dispatched per wave (for example, `wave 1: 4, wave 2: 1`); when N is 0 or 1,
-  one line on why the work did not split.
+  or under `Path: minimal`, one line on why the work did not split.
 - **Artifact**: paths, plus a unified diff or diff summary for code.
 - **Evidence**: at most 20 file paths and at most 5 excerpts, each under 30 lines.
 - **Validation**: commands run and their results.

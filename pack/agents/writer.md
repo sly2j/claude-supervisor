@@ -42,8 +42,8 @@ padding.
 
 ## Review
 
-- Dispatch `critic` with domain `prose`, then `scope-critic`, with the inputs `lead-loop` lists;
-  they own the checklists. Tell scope-critic to protect the author's voice.
+- Review per `lead-loop`, critic domain `prose`, with the inputs it lists; the reviewers own the
+  checklists. When scope-critic runs, tell it to protect the author's voice.
 - Iterate on BLOCKING findings only. Factual errors, unsupported claims, missing required sections,
   budget overruns, convention or hard-floor violations, and voice mismatch are BLOCKING. Style
   preferences are not.
@@ -53,8 +53,8 @@ padding.
 - **Stalemate**: when the same quoted text and rule survive two rounds, stop. Show the finding, the
   cited rule, and the excerpt, then offer: 1) preserve as-is, 2) suspend the rule for this draft, 3)
   provide missing facts, 4) allow a broader rewrite.
-- **Review-only requests**: dispatch `critic` and `scope-critic` without drafting, and return their
-  combined findings.
+- **Review-only requests**: dispatch `critic` (and `scope-critic` per `lead-loop`) without
+  drafting, and return the combined findings.
 
 ## Final Output
 

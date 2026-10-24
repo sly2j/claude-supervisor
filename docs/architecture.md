@@ -7,16 +7,16 @@
                           |
                     supervisor (fable)                         depth 0 (main thread)
          ________________|___________________________
-        |  Mode 1: full harness                      |  Mode 2: quick tier (haiku)
+        |  Mode 1: full harness (or Path: minimal)   |  Mode 2: quick tier (haiku)
         |                                            |
   researcher  planner   executor   writer            clerk   git-ops  scout  curator  depth 1
    (opus)    (fable)    (opus)     (opus)                                    (sonnet)
       |         |          |          |
-      |   N parallel workers (one wave per message)                              depth 2
+      |   N parallel workers when the work splits (one wave per message)        depth 2
       |   researcher-worker (sonnet) | planner-worker (sonnet) | executor-worker (sonnet) | writer-worker (opus; fable on request)
       |
       +--> critic (opus; fable when planner calls)                              depth 2
-      +--> scope-critic (fable) -- rules on the critic's findings, lists cuts    depth 2
+      +--> scope-critic (fable) -- if SHOULD+ or big: rules, lists cuts         depth 2
       |
       lead decides -> fix (re-dispatch) -> review delta -> ... (cap 3 rounds)
 ```
@@ -28,7 +28,7 @@
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
 | `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / default | all |
 | `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | fable / default | all |
-| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments; lands its change sets through a worktree and a local squash merge | opus / default | all |
+| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments; implements a single unit itself and fans out two or more disjoint units; lands its change sets through a worktree and a local squash merge | opus / default | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs | opus / default | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
 | `planner-worker` | Worker: one bounded repo question for a plan | sonnet / default | all except Agent, Write, Edit, NotebookEdit |
@@ -38,7 +38,7 @@
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
 | `clerk` | Quick: small, exact edits; logs plan decisions as briefed; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
 | `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); retires entries the delivered work encodes; audits the store on request; archives draft state; stages its writes, never commits | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
-| `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer (commits curator and clerk store writes, raises `VERSION` on an X.y default branch) | haiku / xhigh | Bash, Read, Glob, Grep |
+| `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer (commits curator and clerk store writes, raises `VERSION` on an X.y default branch; may amend or reset a session commit when the brief names its SHA and the operation, and commits briefed paths without stopping on other changes) | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
 
 ## Mode 1: The Lead Loop
@@ -46,16 +46,16 @@
 All four leads preload the `lead-loop` skill (`pack/skills/lead-loop/SKILL.md`):
 
 1. **Contract.** Goal, acceptance criteria, in/out of scope, constraints.
-2. **Fan-out.** N independent units (1-6) dispatched in one message. Units never share files. Dependent units run in waves.
+2. **Fan-out.** N independent units (1-6) dispatched in one message when the work splits; a single unit follows the lead's file (the executor does it itself; researcher and writer still use one worker). Units never share files. Dependent units run in waves.
 3. **Integrate.** Merge reports and run cheap validation.
 4. **critic.** BLOCKING/SHOULD/NIT findings with evidence, then a PASS/REVISE verdict. It applies the project's root REVIEW.md and any REVIEW.md in a directory holding a changed file or the artifact, after the brief's contract.
-5. **scope-critic.** Rules KEEP/DOWNGRADE/DROP on each critic finding, lists CUTs of existing bloat, and returns a LEAN/TRIM verdict.
+5. **scope-critic.** Runs when the critic's findings table has a row above NIT (a PASS can carry SHOULD rows) or the artifact exceeds a size bound (the plan's expected change size, else more than 200 changed diff lines for code or more than two pages of new prose); otherwise the lead skips it and logs the skip. Rules KEEP/DOWNGRADE/DROP on each critic finding, lists CUTs of existing bloat, and returns a LEAN/TRIM verdict.
 6. **Decide.** The lead fixes kept BLOCKING findings and applies CUTs, and logs every overrule.
 7. **Loop or stop.** Done or cap (3 rounds), each followed by a bounded report. Round 2 and later review only a diff of the fixes. When the critic re-raises a finding the lead already addressed or rejected, it survives; on its second survival (stalemate) the lead decides it and logs the decision.
 
-The supervisor's brief sets the review depth: `Review: full` (default, the loop above), `light` (one critic round, then scope-critic, iteration only on BLOCKING findings), or `none` (the lead self-validates). The planner defaults to one review round, because the user reviews the plan next.
+The supervisor's brief sets the review depth: `Review: full` (default, the loop above), `light` (one critic round, then scope-critic when the rule above calls for it, iteration only on BLOCKING findings), or `none` (the lead self-validates). The planner defaults to one review round, because the user reviews the plan next.
 
-Why two critics? A single critic improves correctness but drifts toward defensive additions: extra validation, caveats, edge cases nobody has, and "for completeness" sections. Each one sounds reasonable, so a lead that accepts every finding grows the artifact every round. `scope-critic` sees the original request and the critic's findings together, and its only job is to say which findings the contract actually needs. It is barred from adding requirements, so it cannot become a third source of growth.
+Why two critics? A single critic improves correctness but drifts toward defensive additions: extra validation, caveats, edge cases nobody has, and "for completeness" sections. Each one sounds reasonable, so a lead that accepts every finding grows the artifact every round. `scope-critic` sees the original request and the critic's findings together. It has two duties: ruling on which findings the contract actually needs, and an independent bloat check of the artifact itself. On a clean small round (no findings above NIT, artifact under the size bound) the lead skips it. It is barred from adding requirements, so it cannot become a third source of growth.
 
 **Work packages.** A plan may carry a `## Work Packages` section: a breakdown into packages with disjoint ownership, dependencies, and the stages each needs, which the supervisor runs as a program one wave at a time. The six-field block and Status values are in `pack/skills/plan-writing/SKILL.md` (`## Work Packages`), the split rules (when to split, `Amend parent:`) in `pack/agents/planner.md` (`## Work Packages`), and the run rules in `pack/agents/supervisor.md` (`## Programs`); the README's `## Larger Work` section has the diagrams. After each wave, one `clerk` advances each package's `Status`, appends each lead's `Log:` line to the plan's `## Log`, and applies any `Amend parent:`: a package's planner splits it by returning new packages for the parent plan, so plans never nest. One `git-ops` then commits the wave's store changes. A blocked package is skipped until the user answers, which re-runs its stage. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts, and goals into memory, then archives the plan, its child plans, and its research to `.supervisor/archive/working/`.
 
@@ -65,19 +65,19 @@ The supervisor dispatches one Haiku specialist directly, with no review loop. Th
 
 ## Routing
 
-The supervisor picks the mode. An explicit user choice ("quick", "full") wins. Otherwise Mode 2 applies only when the task is fully specified, small, local, needs no design decision, and is cheap to undo. Larger work chains through the leads: `researcher` -> `planner` (questions, then the plan) -> user approval -> `executor`, skipping stages that add nothing. Mechanical multi-file work gets `Review: light`.
+The supervisor picks the mode. An explicit user choice ("quick", "full") wins. Otherwise Mode 2 applies only when the task is fully specified, small, local, needs no design decision, and is cheap to undo. Larger work chains through the leads: `researcher` -> `planner` (questions, then the plan) -> user approval -> `executor`, skipping stages that add nothing. Mechanical multi-file work gets `Review: light`. A request that fails the Mode 2 test only on "cheap to undo" or "needs no design decision", with a specified, local outcome (one subsystem, a few files), gets `Path: minimal`: one lead that does the single unit itself, one critic round, scope-critic only on findings above NIT or a large artifact, implying `Review: light`; the lead fans out if it finds several disjoint units. The default for Mode 1 stays the full shape. When the session is confined to a worktree (the environment forbids the parent checkout), the supervisor confirms the push with the user, then briefs `executor` and `git-ops` with `Confined to worktree: <path>; push to <default> authorized`.
 
 Git conflicts: `git-ops` never resolves them. It returns a structured `ESCALATE` (operation, both sides, conflicted files with hunk counts and mechanical flags). The supervisor sends easy conflicts to `executor` with `Review: light`, and hard ones through `researcher` -> `planner` -> user approval -> `executor`.
 
 ## Git Work
 
-In a git project, each `executor` change set works in its own worktree at `<toplevel>/.claude/worktrees/<slug>` on a new branch; its workers share the lead's worktree, and only the lead changes git state in it. The lead lands the branch locally with a squash merge into the checkout holding the default branch, and never pushes. Quick-tier work, conflict resolution, environment repair and repos with submodules stay in the current checkout. Other worktrees are reported and cleaned up only on request. No version is created or bumped unless the repo opts in (`X.y` scheme, asked until `CLAUDE.md` records an answer). Outside a project nothing is persisted. Rules: `pack/skills/repo-workflow/SKILL.md`; user view: [README](../README.md#branches-worktrees-and-versions).
+In a git project, each `executor` change set works in its own worktree at `<toplevel>/.claude/worktrees/<slug>` on a new branch; its workers share the lead's worktree, and only the lead changes git state in it. The lead lands the branch locally with a squash merge into the checkout holding the default branch, and never pushes. The exception is a session confined to its worktree (no checkout has the default branch, or the harness forbids the parent): the lead lands from the worktree itself and fast-forward pushes `HEAD:<default>` only when the brief authorizes it, otherwise stops before the push and reports the squash SHA (`pack/skills/repo-workflow/references/landing-from-worktree.md`). Quick-tier work, conflict resolution, environment repair and repos with submodules stay in the current checkout. Other worktrees are reported and cleaned up only on request. No version is created or bumped unless the repo opts in (`X.y` scheme, asked until `CLAUDE.md` records an answer). Outside a project nothing is persisted. Rules: `pack/skills/repo-workflow/SKILL.md`; user view: [README](../README.md#branches-worktrees-and-versions).
 
 ## Models And Cost
 
 The full assignment is in the [Agents](#agents) table. Fable runs where judgment has the most leverage: the supervisor's routing, the planner's plans, and scope-critic's resistance to reasonable-sounding additions. Every agent runs at default effort except the Haiku quick tier, which runs at xhigh. Planner overrides the critic to Fable for plan reviews, and writer can override writer-worker to Fable when the user asks for the strongest drafter. writer-worker runs on Opus because voice matching and AI-tell avoidance need the stronger model, and it usually runs as a single drafter and fans out only for source extraction. The other workers run on Sonnet and the quick tier on Haiku. Deployed agents keep `model: fable`; Fable runs as Fable unless `ANTHROPIC_DEFAULT_FABLE_MODEL` maps it to Opus, in the environment or via the launcher's `--fable-is-opus` (see `docs/deploy.md`).
 
-A Mode 1 round costs N worker calls plus three more (critic, scope-critic, and the lead's own turns). Mode 2 costs one Haiku call, and a plan close-out one Sonnet call. Routing small work to Mode 2 is the main cost control; `Review: light` drops the extra rounds for mechanical Mode 1 work.
+A Mode 1 round costs N worker calls plus the critic, scope-critic (when it runs) and the lead's own turns; a clean small round skips scope-critic. A `Path: minimal` run costs the lead plus one critic call, and scope-critic only if the critic found something above NIT or the change is large. Mode 2 costs one Haiku call, and a plan close-out one Sonnet call. Routing small work to Mode 2 is the main cost control; `Review: light` drops the extra rounds for mechanical Mode 1 work.
 
 ## Memory
 

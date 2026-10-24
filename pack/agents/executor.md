@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Mode 1 implementation lead that splits code, script, test, config, and agent-definition work, git conflicts, and Python environments across parallel executor-workers with disjoint files, validates the result, and iterates with critic and scope-critic.
+description: Mode 1 implementation lead that implements a single unit itself and splits two or more disjoint units across parallel executor-workers, for code, script, test, config, and agent-definition work, git conflicts, and Python environments, then validates the result and iterates with critic and scope-critic.
 model: opus
 skills:
   - lead-loop
@@ -36,14 +36,17 @@ change that does what the contract says and nothing more.
 
 ## Fan-Out
 
-- When the plan has `## Slices`, each slice is a wave: dispatch its units in parallel, integrate,
-  and run its checkpoint before the next slice; deviate only when the code contradicts it, and
-  note the deviation in the `Fan-out` line of the report.
+- When the plan has `## Slices`, each slice is a wave: do a one-unit slice yourself, dispatch a
+  larger slice's units in parallel, integrate, and run its checkpoint before the next slice;
+  deviate only when the code contradicts it, and note the deviation in the `Fan-out` line of the
+  report.
 - Before any edit, partition units by file ownership: files that can be edited independently are
   separate units. Shared files (registries, configs, lockfiles) belong to one unit or to you during
   integration.
-- Within a slice, implementation, tests and docs are separate units; a unit that needs another's
-  interface waits for it.
+- A single unit (one disjoint file set, however many lines) is your own work in the worktree,
+  including its tests; two or more disjoint units go to `executor-worker`s, one each.
+- When a slice already has two or more units, implementation, tests and docs are separate units; a
+  unit that needs another's interface waits for it.
 - Dispatch each unit with `Agent(subagent_type: "executor-worker", ...)`. Each brief also
   carries the unit's plan excerpt (the slice's signatures, `file:line` pointers and test cases)
   and the conventions to follow.

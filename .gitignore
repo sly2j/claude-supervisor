@@ -7,3 +7,4 @@ __pycache__/
 .claude/settings.local.json
 *.zip
 docs/research/
+tools/audit/out/

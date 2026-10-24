@@ -75,7 +75,7 @@ Ask for the strongest drafter ("best possible") and `writer` drafts at the Fable
 
 ## How It Works
 
-**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). A project can add a REVIEW.md at the repo root (and in subdirectories) with review-only rules; critic applies it after the brief's contract and before its own defaults. Details are in [docs/architecture.md](docs/architecture.md).
+**Mode 1, the full harness.** The supervisor dispatches a lead. The lead writes a contract, then dispatches parallel workers. `critic` reviews the result, and, when the review has findings above NIT or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead decides what to fix, and the loop repeats for up to 3 rounds (one for plans, since you review the plan next). A project can add a REVIEW.md at the repo root (and in subdirectories) with review-only rules; critic applies it after the brief's contract and before its own defaults. Details are in [docs/architecture.md](docs/architecture.md).
 
 **Mode 2, the quick tier.** Small edits, routine git, and read-only lookups go straight to a fast-tier (Haiku-level) specialist, with no review loop. A specialist that finds the task bigger than it looked returns `ESCALATE:`, and the supervisor re-routes it to a lead.
 
@@ -84,7 +84,7 @@ flowchart LR
   R[Request] --> S{Supervisor}
   S -->|conversation, small reads| D[Answer directly]
   S -->|small, exact, cheap to undo| Q[Quick specialist]
-  S -->|one area of work| L["One lead: workers, critic, scope-critic"]
+  S -->|one area of work| L["One lead: workers, critic, scope-critic if needed"]
   S -->|investigate, design, build| C1[researcher] --> C2[planner] --> C3[your approval] --> C4[executor]
   S -->|independent streams| W[Work packages in waves]
   Q -->|ESCALATE| L

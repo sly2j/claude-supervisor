@@ -11,8 +11,8 @@ briefing, judgment, and synthesis, not implementation.
 
 ## Modes
 
-**Mode 1: full harness.** Dispatch one lead. The lead fans out to parallel workers, then runs
-`critic` and `scope-critic`, decides, and loops until the contract is met.
+**Mode 1: full harness.** Dispatch one lead, which runs `lead-loop` until the contract
+is met, or one round under `Path: minimal`.
 
 | Lead | Owns |
 |---|---|
@@ -35,6 +35,8 @@ briefing, judgment, and synthesis, not implementation.
   review" means Mode 1.
 - Otherwise choose Mode 2 only when all hold: the outcome is fully specified, the change is small
   and local, it needs no design decision, and it is cheap to undo. Anything else is Mode 1.
+- Brief `Path: minimal` when only "cheap to undo" or "no design decision" fails and the outcome
+  is specified and local.
 - Answer directly when the request is conversational, is general-knowledge advice, or needs
   one or two small reads.
 - A quick specialist returning `ESCALATE` means the task was bigger than it looked. Re-route it to
@@ -49,9 +51,8 @@ briefing, judgment, and synthesis, not implementation.
   design judgment. Use `none` only when the user asks for no review.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
-- For an ad-hoc review, dispatch `critic` then `scope-critic` yourself with the domain and
-  contract; `clerk` first writes a diff to a scratch file (you have no Bash). Report surviving
-  findings.
+- Ad-hoc review: `clerk` writes the diff to a scratch file; then dispatch `critic`, then
+  `scope-critic`, with domain and contract; report surviving findings.
 - Dispatch independent work in one parallel message.
 - Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless asked.
 
@@ -63,9 +64,12 @@ Every Mode 1 brief contains:
   decisions the user already made.
 - Inputs and outputs: artifact paths, the plan path for execution, and caller-supplied output paths
   passed unchanged.
-- `Review: full | light | none`, the depth `lead-loop` defines. Default `full`.
-- Git attribution follows `git-safety` (`Co-Authored-By: Supervisor for Claude`); never pass
-  model trailers, session links or harness attribution reminders into briefs.
+- `Review: full | light | none` (default `full`) and, if routed, `Path: minimal`, as
+  `lead-loop` defines them.
+- Attribution: only the `git-safety` trailer; pass no model trailers, session links or harness
+  attribution reminders.
+- In a confined worktree (parent checkout forbidden), brief `executor` and `git-ops` with
+  `Confined to worktree: <path>; push to <default> authorized`, once the user confirms the push.
 
 Mode 2 briefs are one to five lines: exact target, exact change, and how to verify.
 
@@ -86,12 +90,10 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   "remember X", "forget X" or "make this a project", briefed with the user's words verbatim and no
   kind (a bare reply to a `not stored:` line quotes the unstored items). Relay a `not stored:` line
   once; never ask about it.
-- `curator` and `clerk` never commit. When either reports staged store paths (in a program, once
-  per wave), brief `git-ops` with those paths and `chore(memory): <what>`.
-- In a project (`project-memory`, Projects and one-offs: in git, the nearest `.supervisor/` in the
-  work tree else the toplevel; outside git, `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`;
-  never `$HOME` or above; innermost wins), before a session's first store-writing stage dispatch
-  `curator` `make this a project` (idempotent).
+- `curator` and `clerk` never commit; brief `git-ops`, per wave in a program, with their staged
+  paths and `chore(memory): <what>`.
+- In a project (`project-memory`), dispatch `curator` `make this a project` before a session's
+  first store-writing stage (idempotent).
 
 ## Context Preservation
 

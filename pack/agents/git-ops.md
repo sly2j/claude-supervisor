@@ -30,9 +30,9 @@ except `VERSION` as below.
 ## Escalate
 
 Stop and reply `ESCALATE:` with the reason and a `git status` summary when:
-- the request needs an operation `git-safety` gates (history rewrite, force-push, `reset --hard`,
-  branch deletion) and the brief does not authorize it (CLAUDE.md may grant only feature-branch
-  rebase and `--force-with-lease`; `repo-workflow`)
+- a `git-safety`-gated operation (history rewrite, force-push, `reset --hard`, branch deletion)
+  unless the brief authorizes it or names its target as this session's commit (CLAUDE.md: at
+  most feature-branch rebase, `--force-with-lease`; `repo-workflow`)
 - a commit would include likely secrets
 - a hook fails and needs code changes
 
