@@ -270,8 +270,8 @@ def test_attribution_legacy_pack_value_replaced(pack, target):
     assert settings(target)["attribution"]["commit"] == "Co-Authored-By: Claude Supervisor"
 
 
-def test_attribution_sandbox_uninstall_deletes_dir(pack, target):
-    # A sandbox uninstall deletes the whole dir, so no attribution value outlives it.
+def test_attribution_profile_uninstall_deletes_dir(pack, target):
+    # A profile uninstall deletes the whole dir, so no attribution value outlives it.
     run(pack, target, "install")
     assert run(pack, target, "uninstall", "--yes").returncode == 0
     assert not target.exists()
@@ -557,7 +557,7 @@ LEGACY = "claude-supervisor: --fable is now the default; use --fable-is-opus to 
 ])
 def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, monkeypatch):
     assert run(pack, target, "install").returncode == 0
-    _, launcher = sandbox_paths(tmp_path, "supervisor")
+    _, launcher = profile_paths(tmp_path, "supervisor")
     monkeypatch.setenv("HOME", str(tmp_path))
     opus = load_deploy().OPUS_MODEL
     assert opus == "claude-opus-5-5"
@@ -573,7 +573,7 @@ def test_launcher_fable_switch(pack, target, tmp_path, args, caller, expect, mon
 ])
 def test_launcher_legacy_fable_flag(pack, target, tmp_path, args, expect, note):
     assert run(pack, target, "install").returncode == 0
-    _, launcher = sandbox_paths(tmp_path, "supervisor")
+    _, launcher = profile_paths(tmp_path, "supervisor")
     r = run_launcher(launcher, fable_stub(tmp_path), *args)
     assert r.returncode == 0, r.stderr
     assert r.stdout.splitlines() == expect
@@ -588,7 +588,7 @@ def test_global_install_notes_fable_variable(pack, global_target, dry):
     assert note in r.stdout
 
 
-def test_sandbox_install_has_no_fable_note(pack, target):
+def test_profile_install_has_no_fable_note(pack, target):
     for dry in ([], ["--dry-run"]):
         r = run(pack, target, "install", *dry)
         assert r.returncode == 0, r.stdout + r.stderr
@@ -708,7 +708,7 @@ def test_install_warns_when_both_manifests_exist(pack, legacy_install):
     assert (legacy_install / LEGACY_MANIFEST).exists()
 
 
-# --------------------------------------------------------------------------- sandbox
+# --------------------------------------------------------------------------- profile
 
 def claude_stub(tmp_path: Path) -> dict:
     """A stub `claude` that echoes its env and args; returns the env for running a launcher."""
@@ -726,14 +726,14 @@ def run_launcher(launcher: Path, env: dict, *args: str) -> subprocess.CompletedP
                           timeout=60, stdin=subprocess.DEVNULL)
 
 
-def sandbox_paths(tmp_path: Path, tag: str):
+def profile_paths(tmp_path: Path, tag: str):
     return ((tmp_path / ".config" / ("claude-" + tag)).resolve(),
             (tmp_path / ".local" / "bin" / ("claude-" + tag)).resolve())
 
 
 @pytest.mark.parametrize("extra, tag", [([], "supervisor"), (["--tag", "t"], "t")])
-def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
-    sbx, launcher = sandbox_paths(tmp_path, tag)
+def test_profile_round_trip(pack, target, tmp_path, extra, tag):
+    sbx, launcher = profile_paths(tmp_path, tag)
     r = run(pack, target, "install", "--dry-run", target_args=extra)
     assert r.returncode == 0, r.stdout + r.stderr
     assert not sbx.exists() and not launcher.exists()
@@ -767,8 +767,8 @@ def test_sandbox_round_trip(pack, target, tmp_path, extra, tag):
     assert not sbx.exists() and not launcher.exists()
 
 
-def test_sandbox_token_provider(pack, target, tmp_path):
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+def test_profile_token_provider(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "t")
     r = run(pack, target, "install", "--base-url", "https://llm.example", "--token", "s3cret",
             target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
@@ -793,7 +793,7 @@ def test_sandbox_token_provider(pack, target, tmp_path):
     tok.write_bytes(b"f1le\n")
     r = run(pack, target, "install", "--token-file", str(tok), target_args=["--tag", "u"])
     assert r.returncode == 0, r.stdout + r.stderr
-    sbx_u, launcher_u = sandbox_paths(tmp_path, "u")
+    sbx_u, launcher_u = profile_paths(tmp_path, "u")
     assert (sbx_u / "token").read_bytes() == b"f1le\n"
     assert (sbx_u / "token").stat().st_mode & 0o777 == 0o600
     text_u = launcher_u.read_text()
@@ -818,7 +818,7 @@ def test_global_round_trip(pack, global_target, tmp_path):
     assert (global_target / "mine.txt").read_text() == "mine"
 
 
-def test_sandbox_seeds_from_global_once(pack, global_target, target, tmp_path):
+def test_profile_seeds_from_global_once(pack, global_target, target, tmp_path):
     assert run(pack, global_target, "install").returncode == 0
     (global_target / "settings.json").write_text(json.dumps({"agent": "supervisor", "theme": "dark"}))
     for rel in ("CLAUDE.md", "agents/mine.md", "commands/c.md",
@@ -827,7 +827,7 @@ def test_sandbox_seeds_from_global_once(pack, global_target, target, tmp_path):
         (global_target / rel).parent.mkdir(parents=True, exist_ok=True)
         (global_target / rel).write_text("global v1")
     (global_target / "agents" / "helper.md").write_text("global edit")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
 
     r = run(pack, target, "install", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
@@ -847,7 +847,7 @@ def test_sandbox_seeds_from_global_once(pack, global_target, target, tmp_path):
 
 def test_tag_with_target_dir(pack, target, tmp_path):
     box = tmp_path / "box"
-    _, launcher = sandbox_paths(tmp_path, "work")
+    _, launcher = profile_paths(tmp_path, "work")
     args = ["--tag", "work", "--target", str(box)]
     r = run(pack, target, "install", target_args=args)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -861,7 +861,7 @@ def test_tag_with_target_dir(pack, target, tmp_path):
     assert not box.exists() and not launcher.exists()
 
 
-def test_sandbox_refusals(pack, target, global_target, tmp_path):
+def test_profile_refusals(pack, target, global_target, tmp_path):
     def check(r, *msgs):
         assert r.returncode == 2, r.stdout + r.stderr
         for msg in msgs:
@@ -901,7 +901,7 @@ def test_prefix_launcher_recorded_for_uninstall(pack, target, tmp_path):
     assert not (px / "bin" / "claude-t").exists()
 
 
-def test_sandbox_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
+def test_profile_uninstall_without_manifest_keeps_dir(pack, target, tmp_path):
     keep = tmp_path / ".config" / "claude-t" / "keep"
     keep.parent.mkdir(parents=True)
     keep.write_text("x")
@@ -924,7 +924,7 @@ def stub_env(tmp_path: Path, with_claude: bool = True) -> dict:
 @pytest.mark.parametrize("flag", ["-h", "--help", "help"])
 def test_launcher_help(pack, target, tmp_path, flag):
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+    sbx, launcher = profile_paths(tmp_path, "t")
     r = run_launcher(launcher, stub_env(tmp_path), flag)
     assert r.returncode == 0, r.stderr
     assert r.stdout.startswith("claude-t: ")
@@ -938,7 +938,7 @@ def test_launcher_version(pack, target, tmp_path, version, shown):
     if version:
         version_file(pack, version)
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+    sbx, launcher = profile_paths(tmp_path, "t")
     for flag in ("--version", "-v"):
         r = run_launcher(launcher, stub_env(tmp_path), flag)
         assert r.returncode == 0, r.stderr
@@ -1028,7 +1028,7 @@ def test_list_missing_launcher_and_manifest(remote, three, tmp_path):
 
 def test_list_marks_dirty_commit(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     m = manifest(sbx)
     m["source_dirty"] = True
     (sbx / MANIFEST).write_text(json.dumps(m))
@@ -1058,7 +1058,7 @@ def entry(tag, remote=None, branch="main") -> dict:
 
 
 def test_install_records_registry_and_tool_copy(pack, target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     r = run(pack, target, "install", target_args=["--tag", "t"])
     assert r.returncode == 0, r.stdout + r.stderr
     assert registry(tmp_path) == {str(sbx): entry("t")}
@@ -1077,7 +1077,7 @@ def test_install_records_registry_and_tool_copy(pack, target, tmp_path):
 
 
 def test_uninstall_removes_registry_entries(pack, target, global_target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     assert run(pack, global_target, "install").returncode == 0
     assert registry(tmp_path) == {str(sbx): entry("t"),
@@ -1121,19 +1121,19 @@ def test_update_and_uninstall_selection_errors(pack, target, tmp_path):
             r = run(pack, target, cmd, "--yes", target_args=["--all"] + extra)
             assert r.returncode == 2, (cmd, extra, r.stdout + r.stderr)
             assert "--all cannot be combined with --tag, --target or --global" in r.stderr
-    assert list(registry(tmp_path)) == [str(sandbox_paths(tmp_path, "t")[0])]
+    assert list(registry(tmp_path)) == [str(profile_paths(tmp_path, "t")[0])]
 
 
 def test_prefixes_are_independent(pack, target, tmp_path):
     pa, pb = tmp_path / "pa", tmp_path / "pb"
-    sbx_a, _ = sandbox_paths(tmp_path, "a")
-    sbx_b, _ = sandbox_paths(tmp_path, "b")
+    sbx_a, _ = profile_paths(tmp_path, "a")
+    sbx_b, _ = profile_paths(tmp_path, "b")
     for tag, px in (("a", pa), ("b", pb)):
         r = run(pack, target, "install", target_args=["--tag", tag, "--prefix", str(px)])
         assert r.returncode == 0, r.stdout + r.stderr
         assert (px / "bin" / ("claude-" + tag)).is_file()
         assert (state_dir(tmp_path, px) / "deploy").read_bytes() == SCRIPT.read_bytes()
-        assert manifest(sandbox_paths(tmp_path, tag)[0])["prefix"] == str(px.resolve())
+        assert manifest(profile_paths(tmp_path, tag)[0])["prefix"] == str(px.resolve())
     assert registry(tmp_path, pa) == {str(sbx_a): entry("a")}
     assert registry(tmp_path, pb) == {str(sbx_b): entry("b")}
     assert not (tmp_path / ".local").exists()
@@ -1170,7 +1170,7 @@ def test_prefix_mismatch_refuses(pack, target, tmp_path):
 
 
 def test_manifest_without_prefix_counts_as_default(pack, target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     default = str((tmp_path / ".local").resolve())
 
     def strip_prefix():
@@ -1262,7 +1262,7 @@ def helper_text(target: Path) -> str:
 
 def test_update_from_remote_replays_options(remote, tmp_path):
     px = tmp_path / "px"
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     launcher = px / "bin" / "claude-t"
     install_from_clone(remote, "--tag", "t", "--prefix", str(px), "--no-default-agent",
                        "--base-url", "https://llm.example")
@@ -1291,10 +1291,10 @@ def test_update_from_remote_replays_options(remote, tmp_path):
 
 @pytest.fixture
 def three(remote, tmp_path) -> list:
-    """Two sandboxes and a global install, all from the same remote."""
+    """Two profiles and a global install, all from the same remote."""
     for args in (["--tag", "t"], ["--tag", "u"], ["--global"]):
         install_from_clone(remote, *args)
-    targets = [sandbox_paths(tmp_path, "t")[0], sandbox_paths(tmp_path, "u")[0],
+    targets = [profile_paths(tmp_path, "t")[0], profile_paths(tmp_path, "u")[0],
                (tmp_path / ".claude").resolve()]
     assert set(registry(tmp_path)) == set(map(str, targets))
     assert {e["remote"] for e in registry(tmp_path).values()} == {remote.url}
@@ -1369,7 +1369,7 @@ def claude_launcher(tmp_path: Path, tag: str) -> Path:
 
 def test_launcher_update_yes(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     push_change(remote, "v6 launcher")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
@@ -1380,7 +1380,7 @@ def test_launcher_update_yes(remote, tmp_path):
 
 def test_launcher_update_survives_claude_update_failure(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     push_change(remote, "v7 despite")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path, stub_exit=3),
                      "update", "--yes")
@@ -1392,7 +1392,7 @@ def test_launcher_update_survives_claude_update_failure(remote, tmp_path):
 def test_launcher_uninstall_yes(remote, tmp_path):
     for tag in ("t", "u"):
         install_from_clone(remote, "--tag", tag)
-    (t, _), (u, _) = sandbox_paths(tmp_path, "t"), sandbox_paths(tmp_path, "u")
+    (t, _), (u, _) = profile_paths(tmp_path, "t"), profile_paths(tmp_path, "u")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "uninstall", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     assert not t.exists() and not claude_launcher(tmp_path, "t").exists()
@@ -1464,7 +1464,7 @@ def test_launcher_rejects_user_selection(remote, tmp_path, cmd, flag):
 @pytest.mark.parametrize("args", [["--fable-is-opus", "update", "--yes"], ["update", "--fable-is-opus", "--yes"]])
 def test_launcher_fable_with_command(remote, tmp_path, args):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     push_change(remote, "v11 fable")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), *args)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -1483,7 +1483,7 @@ def test_launcher_command_help_and_errors(remote, tmp_path):
 
 def test_launcher_status(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "status")
     assert r.returncode == 0, r.stdout + r.stderr
     assert r.stdout.startswith("Target: %s\n" % sbx) and "Version: installed=" in r.stdout
@@ -1500,7 +1500,7 @@ def test_launcher_status_hint_names_the_tag_without_source(remote, tmp_path):
 def test_launcher_old_form_still_runs(remote, tmp_path):
     """A launcher written before 3.3 appends its selection; the shared tool copy still accepts that."""
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     push_change(remote, "v12 old form")
     r = subprocess.run([sys.executable, str(remote.state / "deploy"), "update", "--yes", "--prefix",
                         str(tmp_path / ".local"), "--tag", "t", "--target", str(sbx), "--launcher"],
@@ -1535,7 +1535,7 @@ def feat_tree(remote, tmp_path) -> Path:
 def install_dev(remote: SimpleNamespace, tree: Path, tmp_path: Path) -> Path:
     r = deploy_run(remote, tree / "deploy", "install", "--tag", "dev")
     assert r.returncode == 0, r.stdout + r.stderr
-    return sandbox_paths(tmp_path, "dev")[0]
+    return profile_paths(tmp_path, "dev")[0]
 
 
 def stale_line(sbx: Path, remote_url: str, branch: str = "feat", tag: str = "dev") -> str:
@@ -1549,7 +1549,7 @@ def test_install_records_checkout_branch(remote, feat_tree, tmp_path):
     install_from_clone(remote, "--tag", "t")
     assert "feat v1" in helper_text(dev)
     assert registry(tmp_path) == {str(dev): entry("dev", remote.url, "feat"),
-                                  str(sandbox_paths(tmp_path, "t")[0]): entry("t", remote.url)}
+                                  str(profile_paths(tmp_path, "t")[0]): entry("t", remote.url)}
 
 
 def test_branch_shadowed_by_tag_records_plain_name(remote, feat_tree, tmp_path):
@@ -1563,13 +1563,13 @@ def test_install_on_detached_head_records_main(remote, tmp_path):
     r = deploy_run(remote, remote.clone / "deploy", "install", "--tag", "t")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "is on a detached HEAD; recording branch main for update" in r.stdout + r.stderr
-    assert registry(tmp_path) == {str(sandbox_paths(tmp_path, "t")[0]): entry("t", remote.url)}
+    assert registry(tmp_path) == {str(profile_paths(tmp_path, "t")[0]): entry("t", remote.url)}
 
 
 def test_update_follows_recorded_branch(remote, feat_tree, tmp_path):
     dev = install_dev(remote, feat_tree, tmp_path)
     install_from_clone(remote, "--tag", "t")
-    t = sandbox_paths(tmp_path, "t")[0]
+    t = profile_paths(tmp_path, "t")[0]
     push_feat(remote, "feat v2")
     push_change(remote, "main v2")
 
@@ -1589,7 +1589,7 @@ def test_update_follows_recorded_branch(remote, feat_tree, tmp_path):
 
 def test_update_entry_without_branch_counts_as_main(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    t = sandbox_paths(tmp_path, "t")[0]
+    t = profile_paths(tmp_path, "t")[0]
     reg = state_dir(tmp_path) / "installs.json"
     data = json.loads(reg.read_text())
     del data["installs"][str(t)]["branch"]
@@ -1614,7 +1614,7 @@ def test_update_gone_branch_is_stale(remote, feat_tree, tmp_path):
 
     # under --all the other installs carry on, and the exit code is still 3
     install_from_clone(remote, "--tag", "t")
-    t = sandbox_paths(tmp_path, "t")[0]
+    t = profile_paths(tmp_path, "t")[0]
     push_change(remote, "main after stale")
     r = update(remote, "--all", "--yes")
     assert r.returncode == 3, r.stdout + r.stderr
@@ -1625,7 +1625,7 @@ def test_update_gone_branch_is_stale(remote, feat_tree, tmp_path):
 
 def test_update_ls_remote_failure_is_error_not_stale(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    t = sandbox_paths(tmp_path, "t")[0]
+    t = profile_paths(tmp_path, "t")[0]
     before = snapshot(t)
     bad = "file://%s" % (tmp_path / "nowhere.git")
     reg = state_dir(tmp_path) / "installs.json"
@@ -1642,7 +1642,7 @@ def test_update_ls_remote_failure_is_error_not_stale(remote, tmp_path):
 def test_update_from_checkout_skips_other_branches(remote, feat_tree, tmp_path):
     dev = install_dev(remote, feat_tree, tmp_path)
     install_from_clone(remote, "--tag", "t")
-    t = sandbox_paths(tmp_path, "t")[0]
+    t = profile_paths(tmp_path, "t")[0]
     before = snapshot(dev)
     (remote.clone / "pack" / "agents" / "helper.md").write_text(agent_md("helper", "local main"))
     r = deploy_run(remote, remote.clone / "deploy", "update", "--from", str(remote.clone), "--all", "--yes")
@@ -1665,7 +1665,7 @@ def test_status_shows_remote_and_branch(remote, feat_tree, tmp_path):
 
 # --------------------------------------------------------------------------- migrate
 
-SANDBOX_AGENT = "agents/supervisor.md"
+PROFILE_AGENT = "agents/supervisor.md"
 OLD_FILES = ("agents/helper.md", "agents/supervisor.md", "skills/demo/SKILL.md", "skills/demo/scripts/run.sh")
 OLD_NAMES = {MANIFEST, LEGACY_MANIFEST, ".claude-supervisor.lock", ".claude-agents.lock"}
 
@@ -1686,16 +1686,16 @@ def backups(global_target: Path) -> list:
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-def test_migrate_moves_old_install_to_sandbox(request, pack, global_target, tmp_path, legacy):
+def test_migrate_moves_old_install_to_profile(request, pack, global_target, tmp_path, legacy):
     old_install(request, pack, global_target, legacy)
-    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    sbx, launcher = profile_paths(tmp_path, "supervisor")
     r = migrate(pack, global_target, "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     for name in OLD_NAMES:
         assert not (global_target / name).exists(), name
     for rel in OLD_FILES:
         assert not (global_target / rel).exists(), rel
-    assert (sbx / MANIFEST).is_file() and (sbx / SANDBOX_AGENT).is_file()
+    assert (sbx / MANIFEST).is_file() and (sbx / PROFILE_AGENT).is_file()
     assert launcher.is_file()
     reg = registry(tmp_path)
     assert str(sbx) in reg and str(global_target.resolve()) not in reg
@@ -1703,7 +1703,7 @@ def test_migrate_moves_old_install_to_sandbox(request, pack, global_target, tmp_
 
 def test_migrate_backs_up_edited_files_only(request, pack, global_target, tmp_path):
     old_install(request, pack, global_target)
-    sbx, _ = sandbox_paths(tmp_path, "supervisor")
+    sbx, _ = profile_paths(tmp_path, "supervisor")
     (global_target / "agents" / "helper.md").write_text("my edits")
     settings_before = (global_target / "settings.json").read_text()
     r = migrate(pack, global_target, "--yes")
@@ -1749,7 +1749,7 @@ def test_migrate_restores_agent_setting(pack, global_target, tmp_path, prior_age
     r = migrate(pack, global_target, "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     assert settings(global_target) == expected
-    assert settings(sandbox_paths(tmp_path, "supervisor")[0])["agent"] == "supervisor"
+    assert settings(profile_paths(tmp_path, "supervisor")[0])["agent"] == "supervisor"
 
 
 @pytest.mark.parametrize("user_files", [{}, {"CLAUDE.md": "notes"}])
@@ -1758,10 +1758,10 @@ def test_migrate_without_old_install(pack, global_target, tmp_path, user_files):
         global_target.mkdir(exist_ok=True)
         (global_target / rel).write_text(text)
     before = snapshot(global_target)
-    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    sbx, launcher = profile_paths(tmp_path, "supervisor")
     r = migrate(pack, global_target)  # no --yes and no terminal: nothing to confirm
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "No pack install in %s; installing the default sandbox." % global_target.resolve() in r.stdout
+    assert "No pack install in %s; installing the default profile." % global_target.resolve() in r.stdout
     assert (sbx / MANIFEST).is_file() and launcher.is_file()
     assert snapshot(global_target) == before and not backups(global_target)
 
@@ -1784,8 +1784,8 @@ def test_migrate_without_yes_and_no_tty_refuses(request, pack, global_target, tm
     r = migrate(pack, global_target)
     assert r.returncode == 2, r.stdout + r.stderr
     assert "re-run with --yes" in r.stderr
-    home, sbx = global_target.resolve(), sandbox_paths(tmp_path, "supervisor")[0]
-    assert ("Remove the agent pack from %s (4 files, 1 edited) and install the default sandbox %s? "
+    home, sbx = global_target.resolve(), profile_paths(tmp_path, "supervisor")[0]
+    assert ("Remove the agent pack from %s (4 files, 1 edited) and install the default profile %s? "
             "settings.json and edited files are backed up to %s/claude-supervisor-backup-"
             % (home, sbx, home)) in r.stderr
     assert snapshot(tmp_path) == before
@@ -1794,7 +1794,7 @@ def test_migrate_without_yes_and_no_tty_refuses(request, pack, global_target, tm
 def test_migrate_stops_when_uninstall_fails(request, pack, global_target, tmp_path):
     old_install(request, pack, global_target)
     (global_target / "settings.json").write_text("{bad")
-    sbx, launcher = sandbox_paths(tmp_path, "supervisor")
+    sbx, launcher = profile_paths(tmp_path, "supervisor")
     r = migrate(pack, global_target, "--yes")
     assert r.returncode == 1, r.stdout + r.stderr
     assert "pack files were removed from ~/.claude (backup:" in r.stdout
@@ -1829,7 +1829,7 @@ def test_migrate_honors_prefix(request, pack, global_target, tmp_path):
     assert (px / "bin" / "claude-supervisor").is_file()
     assert not (tmp_path / ".local" / "bin").exists()
     assert str(bin_dir) in r.stdout and 'export PATH="%s:$PATH"' % bin_dir in r.stdout
-    assert str(sandbox_paths(tmp_path, "supervisor")[0]) in registry(tmp_path, px)
+    assert str(profile_paths(tmp_path, "supervisor")[0]) in registry(tmp_path, px)
 
 
 # --------------------------------------------------------------------------- doctor
@@ -2030,7 +2030,7 @@ def test_confirm_typed_answers(monkeypatch, answer, expected):
 
 
 def test_uninstall_launcher_requires_typed_tag(pack, target, tmp_path, monkeypatch, capsys):
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+    sbx, launcher = profile_paths(tmp_path, "t")
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     monkeypatch.setenv("HOME", str(tmp_path))
     deploy, asked = tty_deploy(monkeypatch, ["yes", "t"])
@@ -2050,7 +2050,7 @@ def test_eof_at_prompt_aborts(pack, global_target, target, tmp_path, monkeypatch
     assert deploy.main(["uninstall", "--global"]) == 1
     assert "aborted" in capsys.readouterr().err
     assert (global_target / "agents" / "helper.md").exists()
-    assert (sandbox_paths(tmp_path, "t")[0] / MANIFEST).is_file()
+    assert (profile_paths(tmp_path, "t")[0] / MANIFEST).is_file()
 
 
 def test_keyboard_interrupt_names_the_next_step(pack, tmp_path, monkeypatch, capsys):
@@ -2088,7 +2088,7 @@ def test_oserror_is_a_clean_error(pack, global_target):
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
 def test_seed_failure_cleans_up_and_names_the_source(pack, target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     unreadable = tmp_path / ".claude" / "skills" / "own" / "x.md"
     unreadable.parent.mkdir(parents=True)
     unreadable.write_text("x")
@@ -2104,7 +2104,7 @@ def test_seed_failure_cleans_up_and_names_the_source(pack, target, tmp_path):
 
 
 def test_seed_preserves_symlinks(pack, target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     own = tmp_path / ".claude" / "skills" / "own"
     own.mkdir(parents=True)
     (own / "SKILL.md").write_text("own")
@@ -2128,7 +2128,7 @@ def test_seed_with_invalid_global_settings_uses_seed_wording(pack, target, tmp_p
 
 
 def test_seed_dry_run_reports_and_writes_nothing(pack, target, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "CLAUDE.md").write_text("notes")
     r = run(pack, target, "install", "--dry-run", target_args=["--tag", "t"])
@@ -2280,7 +2280,7 @@ def test_status_without_available_source_reads_the_manifest(pack, target, tmp_pa
     if version:
         version_file(pack, version)
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     (sbx / "agents" / "helper.md").write_text("edited")
     (sbx / "agents" / "supervisor.md").unlink()
     break_source(pack, how)
@@ -2324,18 +2324,18 @@ def test_removed_from_source_but_modified_is_kept_unmanaged(pack, target):
 
 
 def test_base_url_empty_string_clears(pack, target, tmp_path):
-    _, launcher = sandbox_paths(tmp_path, "t")
+    _, launcher = profile_paths(tmp_path, "t")
     args = ["--tag", "t"]
     assert run(pack, target, "install", "--base-url", "https://llm.example", target_args=args).returncode == 0
     assert "ANTHROPIC_BASE_URL" in launcher.read_text()
     r = run(pack, target, "install", "--base-url", "", target_args=args)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "ANTHROPIC_BASE_URL" not in launcher.read_text()
-    assert manifest(sandbox_paths(tmp_path, "t")[0])["base_url"] is None
+    assert manifest(profile_paths(tmp_path, "t")[0])["base_url"] is None
 
 
 def test_second_target_with_same_tag_refused(pack, target, tmp_path):
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+    sbx, launcher = profile_paths(tmp_path, "t")
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     text, before = launcher.read_text(), snapshot(sbx)
     other = tmp_path / "other"
@@ -2358,17 +2358,17 @@ def test_install_warns_when_launcher_dir_is_off_path(pack, target, tmp_path, on_
         assert 'export PATH="%s:$PATH"' % bin_dir in r.stdout
 
 
-def test_uninstall_help_states_the_sandbox_default():
+def test_uninstall_help_states_the_profile_default():
     r = subprocess.run([sys.executable, str(SCRIPT), "uninstall", "--help"], capture_output=True, text=True)
     text = " ".join(r.stdout.split())
     assert r.returncode == 0
-    assert "deletes the whole sandbox dir and its launcher" in text
+    assert "deletes the whole profile dir and its launcher" in text
     assert "--global: removes only pack files" in text
 
 
 @pytest.mark.parametrize("kind", ["foreign", "missing"])
 def test_uninstall_reports_only_what_it_removed(pack, target, tmp_path, kind):
-    sbx, launcher = sandbox_paths(tmp_path, "t")
+    sbx, launcher = profile_paths(tmp_path, "t")
     assert run(pack, target, "install", target_args=["--tag", "t"]).returncode == 0
     if kind == "foreign":
         launcher.write_text("#!/bin/sh\necho mine\n")
@@ -2415,7 +2415,7 @@ def test_git_remote_strips_credentials(tmp_path, monkeypatch, url, expected):
 
 def test_update_dry_run_changes_nothing(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     push_change(remote, "v11 dry")
     before = (snapshot(sbx), snapshot(remote.state), registry(tmp_path))
     r = update(remote, "--tag", "t", "--yes", "--dry-run")
@@ -2428,7 +2428,7 @@ def test_update_dry_run_changes_nothing(remote, tmp_path):
 
 def test_update_clone_failure_names_the_next_step(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     before = snapshot(sbx)
     shim = tmp_path / "shim"
     shim.mkdir()
@@ -2458,7 +2458,7 @@ def test_update_without_git_says_so(remote, tmp_path):
 
 def test_update_collision_names_the_real_fix(remote, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     (remote.clone / "pack" / "agents" / "extra.md").write_text(agent_md("extra"))
     (sbx / "agents" / "extra.md").write_text("mine")
     r = deploy_run(remote, remote.state / "deploy", "update", "--from", str(remote.clone), "--tag", "t", "--yes")
@@ -2469,11 +2469,11 @@ def test_update_collision_names_the_real_fix(remote, tmp_path):
 
 def test_update_all_from_checkout_on_other_branch_says_nothing_updated(remote, feat_tree, tmp_path):
     install_from_clone(remote, "--tag", "t")
-    before = snapshot(sandbox_paths(tmp_path, "t")[0])
+    before = snapshot(profile_paths(tmp_path, "t")[0])
     r = deploy_run(remote, remote.state / "deploy", "update", "--from", str(feat_tree), "--all", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "no registered install follows branch feat" in r.stdout and "nothing updated" in r.stdout
-    assert snapshot(sandbox_paths(tmp_path, "t")[0]) == before
+    assert snapshot(profile_paths(tmp_path, "t")[0]) == before
 
 
 def test_update_from_other_branch_reports_new_tracking(remote, feat_tree, tmp_path):
@@ -2485,7 +2485,7 @@ def test_update_from_other_branch_reports_new_tracking(remote, feat_tree, tmp_pa
 
 
 def test_install_records_source_commit_and_dirty(remote, tmp_path):
-    sbx, _ = sandbox_paths(tmp_path, "t")
+    sbx, _ = profile_paths(tmp_path, "t")
     git_bin = shutil.which("git", path=remote.env["PATH"])
     head = subprocess.run([git_bin, "-C", str(remote.clone), "rev-parse", "HEAD"], capture_output=True,
                           text=True, env=remote.env).stdout.strip()
@@ -2678,13 +2678,13 @@ def test_migrate_preflight_failure_leaves_the_pack_in_place(request, pack, globa
     assert "Traceback" not in r.stderr and "pack files were removed" not in r.stdout + r.stderr
     assert snapshot(tmp_path) == before  # ~/.claude still holds the pack, nothing backed up or installed
     assert (global_target / MANIFEST).is_file() and (global_target / "agents" / "helper.md").is_file()
-    assert not backups(global_target) and not sandbox_paths(tmp_path, "supervisor")[0].exists()
+    assert not backups(global_target) and not profile_paths(tmp_path, "supervisor")[0].exists()
 
 
 def test_migrate_prefix_mismatch_refuses(request, pack, global_target, tmp_path):
     old_install(request, pack, global_target)
     pa = tmp_path / "pa"
-    r = run(pack, global_target, "install", target_args=["--prefix", str(pa)])  # the default sandbox, prefix pa
+    r = run(pack, global_target, "install", target_args=["--prefix", str(pa)])  # the default profile, prefix pa
     assert r.returncode == 0, r.stdout + r.stderr
     before = snapshot(tmp_path)
     r = migrate(pack, global_target, "--yes")

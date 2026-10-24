@@ -8,7 +8,7 @@ Supervisor for Claude is a workflow pack that provides multi-agent task orchestr
 
 Supervisor for Claude is built for long-horizon software and scientific-research tasks: complex, multi-session work that benefits from a research-plan-execute loop and persistent short- and long-term memory. For smaller one-off tasks, plain `claude` is likely more effective.
 
-Supervisor for Claude installs by default as a sandbox separate from your default `claude` environment, which keeps the two apart. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. Supervisor for Claude supports multiple independent sandboxes, and a global install into `~/.claude` if you really want to.
+Supervisor for Claude installs by default into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, separate from your default `claude` environment. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. Supervisor for Claude supports multiple independent profiles, and a global install into `~/.claude` if you really want to.
 
 - **Parallel work:** during planning, complex work is split into work packages that run in parallel waves.
 - **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
@@ -23,7 +23,7 @@ Requirements:
 ```bash
 git clone https://github.com/sly2j/claude-supervisor.git ~/Work/claude-supervisor
 cd ~/Work/claude-supervisor
-./deploy install     # sandbox in ~/.config/claude-supervisor, launcher in ~/.local/bin
+./deploy install     # profile in ~/.config/claude-supervisor, launcher in ~/.local/bin
 claude-supervisor    # log in once; type /agents to see the pack
 ```
 
@@ -36,7 +36,6 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 For other options, see [Choosing An Install](#choosing-an-install).
 
 Notes:
-- The sandbox is a private config dir, not a security sandbox.
 - If `install` prints ERROR, see [Troubleshooting](#troubleshooting).
 - To let Claude install it instead, run `claude` inside the clone and say *"deploy this pack"*; it follows [docs/deploy.md](docs/deploy.md).
 
@@ -44,12 +43,12 @@ Notes:
 
 | Install | Where | Start it with |
 |---|---|---|
-| `./deploy install` | Sandbox in `~/.config/claude-supervisor` | `claude-supervisor` |
-| `./deploy install --tag <t>` | Another sandbox, `~/.config/claude-<t>` | `claude-<t>` |
+| `./deploy install` | Profile in `~/.config/claude-supervisor` | `claude-supervisor` |
+| `./deploy install --tag <t>` | Another profile, `~/.config/claude-<t>` | `claude-<t>` |
 | `./deploy install --global` | `~/.claude`, no launcher (not recommended) | plain `claude` |
 
-- A sandbox has its own login, settings, and history, and plain `claude` stays plain Claude Code.
-- A sandbox's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
+- A profile has its own login, settings, and history, and plain `claude` stays plain Claude Code.
+- A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
 - With `--global` (not recommended), plain `claude` becomes the supervisor.
 - `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
 - `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
@@ -204,7 +203,7 @@ The full inventory, with models, effort, workers, reviewers, and internal skills
 ```bash
 ./deploy update                 # clone the install's branch from the recorded remote and reinstall
 ./deploy update --all           # every registered install
-claude-supervisor update        # claude update first, then this sandbox's pack
+claude-supervisor update        # claude update first, then this profile's pack
 ./deploy status                 # installed files, version, remote, and branch (or: claude-supervisor status)
 ./deploy list                   # every registered install: version, branch, commit, launcher
 claude-supervisor --version     # pack and claude versions; -h lists launcher commands
@@ -212,15 +211,15 @@ claude-supervisor --version     # pack and claude versions; -h lists launcher co
 ./deploy uninstall --yes        # or: claude-supervisor uninstall
 ```
 
-`update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default sandbox. Files you edited in the install dir are kept.
+`update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default profile. Files you edited in the install dir are kept.
 
-A sandbox uninstall deletes the sandbox dir, including its sessions, history, login, and token. Run `--dry-run` first.
+A profile uninstall deletes the profile dir, including its sessions, history, login, and token. Run `--dry-run` first.
 
-To route a sandbox through a token provider (only for a proxy or gateway; omit it to use a normal login), see [docs/deploy.md](docs/deploy.md#token-provider).
+To route a profile through a token provider (only for a proxy or gateway; omit it to use a normal login), see [docs/deploy.md](docs/deploy.md#token-provider).
 
 ## Migrating From Older Versions
 
-Run `./deploy migrate` from the checkout and confirm once. It removes the old pack from `~/.claude` (backing up files you edited and restoring your `agent` setting), installs and registers the default sandbox with its `claude-supervisor` launcher, and checks that `~/.local/bin` is on `PATH`. See [docs/deploy.md](docs/deploy.md#migrate).
+Run `./deploy migrate` from the checkout and confirm once. It removes the old pack from `~/.claude` (backing up files you edited and restoring your `agent` setting), installs and registers the default profile with its `claude-supervisor` launcher, and checks that `~/.local/bin` is on `PATH`. See [docs/deploy.md](docs/deploy.md#migrate).
 
 ## Troubleshooting
 

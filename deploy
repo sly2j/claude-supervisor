@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the Supervisor for Claude pack into a Claude Code config dir (default: sandbox ~/.config/claude-supervisor).
+"""Deploy the Supervisor for Claude pack into a Claude Code config dir (default: profile ~/.config/claude-supervisor).
 
 Subcommands: install | update | status | list | uninstall | migrate | doctor.  Run `deploy <cmd> --help`.
 
@@ -63,7 +63,7 @@ Tag: %(tag)s   Config dir: %(target)s
 
 Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
   update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
-  uninstall [--yes] [--dry-run]        delete this sandbox, its launcher and its login
+  uninstall [--yes] [--dry-run]        delete this profile, its launcher and its login
   status                               show this install's version and file states
   list                                 list every registered install
   -v, --version                        show the installed pack version and the claude version
@@ -198,7 +198,7 @@ def confirm_typed(prompt: str, expected: str, assume_yes: bool) -> bool:
 
 
 def target_tag(args: argparse.Namespace) -> Optional[str]:
-    """Sandbox tag, or None for --global."""
+    """Profile tag, or None for --global."""
     if args.use_global:
         for name in ("tag", "target", "base_url", "token", "token_file"):
             if getattr(args, name, None) is not None:
@@ -608,7 +608,7 @@ def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple
 
 
 def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
-    """Decide what to do with settings['attribution'] commit, pr and sessionUrl (sandbox installs only).
+    """Decide what to do with settings['attribution'] commit, pr and sessionUrl (profile installs only).
 
     Never replaces a value the pack did not set; replaces an earlier pack commit value the pack set.
     Returns (new_settings or None, record fields, message).
@@ -710,8 +710,8 @@ def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
             d = d.parent
 
 
-def seed_sandbox(target: Path, dry_run: bool) -> None:
-    """Copy the user's own ~/.claude items into a new sandbox; pack files come from install."""
+def seed_profile(target: Path, dry_run: bool) -> None:
+    """Copy the user's own ~/.claude items into a new profile; pack files come from install."""
     home = Path("~/.claude").expanduser()
     names = [n for n in SEED if (home / n).exists() and not (target / n).exists()]
     if not names:
@@ -810,7 +810,7 @@ def install_cmd(args: argparse.Namespace) -> int:
         migrate_legacy(target, args.dry_run)
         manifest = load_manifest(target) or {}
         if tag and not manifest:
-            seed_sandbox(target, args.dry_run)
+            seed_profile(target, args.dry_run)
         base_url = manifest.get("base_url") if args.base_url is None else args.base_url
         if not tag:
             print("Note: set ANTHROPIC_DEFAULT_FABLE_MODEL to run fable agents on Opus (see docs/deploy.md)")
@@ -1397,10 +1397,10 @@ def update_cmd(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- migrate
 
 def migrate_cmd(args: argparse.Namespace) -> int:
-    """Move a pack installed in ~/.claude to the default sandbox, backing up settings.json and edited files."""
+    """Move a pack installed in ~/.claude to the default profile, backing up settings.json and edited files."""
     home = Path("~/.claude").expanduser().resolve()
     prefix = resolve_prefix(args)
-    sandbox = Path("~/.config/claude-" + DEFAULT_TAG).expanduser().resolve()
+    profile = Path("~/.config/claude-" + DEFAULT_TAG).expanduser().resolve()
     dry = ["--dry-run"] if args.dry_run else []
     inst = build_parser().parse_args(["install", "--prefix", str(prefix)] + dry)
     inst.migrating = True  # install skips its PATH hint; migrate prints its own below
@@ -1408,7 +1408,7 @@ def migrate_cmd(args: argparse.Namespace) -> int:
     manifest = load_manifest(home)
     removed_msg = None
     if manifest is None:
-        print("No pack install in %s; installing the default sandbox." % home)
+        print("No pack install in %s; installing the default profile." % home)
     else:
         files = manifest["files"]
         edited = [k for k in sorted(files) if (home / k).is_file()
@@ -1421,9 +1421,9 @@ def migrate_cmd(args: argparse.Namespace) -> int:
         recorded = manifest.get("prefix") or str(Path("~/.local").expanduser().resolve())
         load_registry(Path(recorded))  # the uninstall below registers under this prefix; fail before removing
         if not args.dry_run and not confirm(
-                "Remove the agent pack from %s (%d files, %d edited) and install the default sandbox %s? "
+                "Remove the agent pack from %s (%d files, %d edited) and install the default profile %s? "
                 "settings.json and edited files are backed up to %s."
-                % (home, len(files), len(edited), sandbox, backup), args.yes):
+                % (home, len(files), len(edited), profile, backup), args.yes):
             eprint("aborted")
             return 1
         saved = (["settings.json"] if (home / "settings.json").exists() else []) + edited
@@ -1609,7 +1609,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
         p = argparse.ArgumentParser(
             prog="deploy",
             description="Install, inspect and remove the Supervisor for Claude pack in a Claude Code config dir.",
-            epilog="Target: sandbox ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
+            epilog="Target: profile ~/.config/claude-TAG (--tag, default supervisor; --target DIR sets the dir), "
                    "or --global for ~/.claude.")
         p.add_argument("--version", action=VersionAction, help="show the pack version and the claude version")
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
@@ -1621,8 +1621,8 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     def common(sp: argparse.ArgumentParser, source: bool = True) -> None:
         if launcher_tag:
             return
-        sp.add_argument("--tag", help="sandbox tag: launcher claude-TAG (default: supervisor)")
-        sp.add_argument("--target", metavar="DIR", help="sandbox dir (default: ~/.config/claude-TAG)")
+        sp.add_argument("--tag", help="profile tag: launcher claude-TAG (default: supervisor)")
+        sp.add_argument("--target", metavar="DIR", help="profile dir (default: ~/.config/claude-TAG)")
         sp.add_argument("--global", dest="use_global", action="store_true",
                         help="use ~/.claude (no seeding, no launcher)")
         sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
@@ -1647,9 +1647,9 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     g.add_argument("--no-default-agent", action="store_true", help="do not set settings.json agent")
     g.add_argument("--force-default-agent", action="store_true",
                    help="replace an existing different settings.json agent value")
-    sp.add_argument("--base-url", metavar="URL", help="sandbox: export ANTHROPIC_BASE_URL ('' clears)")
+    sp.add_argument("--base-url", metavar="URL", help="profile: export ANTHROPIC_BASE_URL ('' clears)")
     tok = sp.add_mutually_exclusive_group()
-    tok.add_argument("--token-file", metavar="PATH", help="sandbox: copy to <dir>/token for ANTHROPIC_AUTH_TOKEN")
+    tok.add_argument("--token-file", metavar="PATH", help="profile: copy to <dir>/token for ANTHROPIC_AUTH_TOKEN")
     tok.add_argument("--token", metavar="VALUE", help="like --token-file, from a value (stays in shell history)")
     sp.set_defaults(func=install_cmd)
 
@@ -1666,8 +1666,8 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
 
     sp = add_parser("uninstall", help="remove the pack",
                         description="Remove unmodified managed files, restore settings agent, delete the manifest. "
-                                    "Locally modified files are kept unless --force. Sandbox installs (default): deletes the "
-                                    "whole sandbox dir and its launcher. --global: removes only pack files.")
+                                    "Locally modified files are kept unless --force. Profile installs (default): deletes the "
+                                    "whole profile dir and its launcher. --global: removes only pack files.")
     common(sp, source=False)
     sp.add_argument("--dry-run", action="store_true", help="show what would be removed; write nothing")
     sp.add_argument("--yes", "-y", action="store_true", help="do not prompt")
@@ -1689,9 +1689,9 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=update_cmd)
 
-    sp = add_parser("migrate", help="move a pack installed in ~/.claude to the default sandbox",
+    sp = add_parser("migrate", help="move a pack installed in ~/.claude to the default profile",
                         description="Remove the pack from ~/.claude (settings.json and edited files are backed "
-                                    "up first), install the default sandbox and its launcher, and check that "
+                                    "up first), install the default profile and its launcher, and check that "
                                     "DIR/bin is on PATH.")
     sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
