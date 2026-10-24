@@ -1,14 +1,14 @@
 # Supervisor for Claude
 
-A supervisor-based agent pack for [Claude Code](https://code.claude.com/docs). One agent, the supervisor, reads every request and decides who handles it. It answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to a team that splits it across parallel agents and reviews the result before it reaches you.
+Supervisor for Claude is a workflow pack that provides multi-agent task orchestration for [Claude Code](https://code.claude.com/docs). It is centered around a single supervisor agent that dynamically dispatches tasks based on scope and complexity. The supervisor answers simple questions itself, sends small exact tasks to a fast, cheap agent, and gives larger work to multi-agent worker teams. These teams execute the work in parallel where possible and iterate with critic agents that review it for quality and scope.
 
 *Supervisor for Claude is an independent project, not affiliated with or endorsed by Anthropic.*
 
 ## What It's For
 
-Supervisor for Claude is built for long-horizon software and scientific-research tasks: work that spans several sessions and moves through investigation, design, code, and papers or proposals. For smaller tasks, plain `claude` is more effective, so use it instead.
+Supervisor for Claude is built for long-horizon software and scientific-research tasks: complex, multi-session work that benefits from a research-plan-execute loop and persistent short- and long-term memory. For smaller one-off tasks, plain `claude` is likely more effective.
 
-The default sandbox install keeps the two apart. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. A `--global` install makes plain `claude` the supervisor instead.
+Supervisor for Claude installs by default as a sandbox separate from your default `claude` environment, which keeps the two apart. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start. Supervisor for Claude supports multiple independent sandboxes, and a global install into `~/.claude` if you really want to.
 
 - **Parallel work:** during planning, complex work is split into work packages that run in parallel waves.
 - **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Larger Work](#larger-work).
