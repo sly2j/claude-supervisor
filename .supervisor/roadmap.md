@@ -45,9 +45,11 @@ Priority: high. Effort: M.
 
 ### 2. Make room in supervisor.md
 
-`pack/agents/supervisor.md` is at its 1000-word Main cap, and Program logs for flat plans needs a
-clause there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the
-owner for approval before adding clauses.
+`pack/agents/supervisor.md` is at its Main word cap (raised 2026-10-24 from 1000 to the smallest
+multiple of 10 that fit the writer-model rule), and Program logs for flat plans needs a clause
+there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the owner
+for approval before adding clauses; a cap raise is minimal, on a multiple of 10, per
+`.supervisor/memory/decisions/2026-10-24-supervisor-word-cap-raised-in-multiples-of-10.md`.
 Priority: normal — unblocks Program logs for flat plans. Effort: S.
 
 ### 3. Roadmap intake: tell users they can add items
@@ -109,7 +111,7 @@ Once a few weeks of v6.0 sessions exist, run `python3 -I tools/audit/audit.py` a
 `.supervisor/memory/facts/2026-10-24-efficiency-baseline-for-drift.md`. Tune the scope-critic skip
 condition and the executor single-unit rule on the numbers. Output is never committed.
 Decisions:
-- `.supervisor/memory/decisions/2026-10-24-scope-critic-skips-on-nit-only-rounds.md`
+- `.supervisor/memory/decisions/2026-10-24-uniform-single-unit-rule-for-all-leads.md`
 - `.supervisor/memory/decisions/2026-10-24-efficiency-scripts-are-opt-in-tooling.md`
 
 Priority: low — opt-in check, not before late November 2026. Effort: S.

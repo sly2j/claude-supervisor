@@ -5,6 +5,7 @@ affects: [pack/skills/lead-loop/SKILL.md, pack/agents/supervisor.md, pack/agents
 verified: 2026-10-24
 source: user 2026-10-24 (owner decisions after .supervisor/working/research/research-fold-subagents.md and .supervisor/working/plans/plan-fold-subagents.md)
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-next-major-folds-within-the-harness.md
+superseded by: .supervisor/memory/decisions/2026-10-24-uniform-single-unit-rule-for-all-leads.md
 ---
 The next major version carries three changes (number set by the squash commit at landing; another branch also heads for a major, so do not hard-code it): R2 skip scope-critic, R3 the executor lead does a single unit itself, R4 a named `Path: minimal` Mode 1 path.
 R2 condition: skip scope-critic when the critic's findings table has no row above NIT (BLOCKING, MUST, SHOULD) and the size bound holds. Owner loosened it from "no findings" because the audit tool showed only 4/52 executor round-1 reports had an empty table, so the strict rule would almost never skip.
