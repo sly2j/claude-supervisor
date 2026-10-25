@@ -2,7 +2,7 @@
 
 ## Context
 
-- This repo is the source of a Claude Code agent pack. `pack/` deploys via `deploy`
+- This repo is the source of Supervisor for Claude, a multi-agent orchestration layer for Claude Code. `pack/` deploys via `deploy`
   (stdlib-only, Python 3.9, which macOS ships as `/usr/bin/python3`).
 - Work goes through the supervisor harness: `researcher`/`planner`/`executor`/`writer` leads with
   worker fan-out and `critic`/`scope-critic` loops; quick tier `fixer`/`git-ops`/`scout`.
