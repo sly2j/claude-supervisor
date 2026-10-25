@@ -4,8 +4,10 @@ Run by `curator`. Entry format, paths and the supersede step are in SKILL.md. Ru
 sweep on every run, after the brief's own procedure. The five-entry cap, unless the brief says
 otherwise, counts every step; `migrate` and `audit` are exempt, and retires (SKILL.md) do not
 count. Before staging any entry, check it against Entry text and the recording test (SKILL.md):
-grep the delivered work for its rule (test b), and rewrite it until it passes. A run that moves a
-file repoints, in the same run, every `source:` in `memory/` that names it (grep by file name).
+grep the delivered work for its rule (test b), and rewrite it until it passes. The slug is cut at
+the last word boundary within 40 characters, and a trailing stopword (a, an, the, and, or, of, to,
+in, for, is) is dropped. A run that moves a file repoints, in the same run, every `source:` in
+`memory/` that names it (grep by file name).
 When the cap would cut entries, leave the roadmap item in place, skip step 7, and report what
 remains as `follow-up: curator close-out <plan path>`. Without git, or when `.supervisor/` is
 gitignored (`git check-ignore -q <project root>/.supervisor`), every archive move here and in
