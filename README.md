@@ -71,6 +71,7 @@ Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
+- `/supervisor-config critic codex|claude|status`: switch the lead's critic to Codex and back ([details](docs/deploy.md#codex-as-critic))
 
 The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
 
@@ -205,6 +206,8 @@ claude-supervisor --version     # pack and claude versions; -h lists launcher co
 `update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default profile. Files you edited in the install dir are kept.
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
+
+To run the lead's critic on Codex instead of Claude, see [Codex As Critic](docs/deploy.md#codex-as-critic).
 
 A profile uninstall deletes the profile dir, including its sessions, history, login, and token. Run `--dry-run` first.
 

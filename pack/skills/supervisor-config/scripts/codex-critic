@@ -1,0 +1,461 @@
+#!/usr/bin/env python3
+"""codex-critic: run the critic step under OpenAI Codex CLI, and switch that mode on or off.
+
+Verbs: enable [MODEL] [--yes], disable [--yes], status, review. Standard library only.
+"""
+import argparse
+import json
+import os
+import shutil
+import re
+import signal
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Optional, Tuple
+
+DEFAULT_MODEL = "gpt-6.1-sol"
+DEFAULT_EFFORT = "high"
+MODE_NAME = "supervisor-config.json"
+DOMAINS = ("research", "plan", "code", "prose", "agent-definition")
+# Extra Codex config so the repo's CLAUDE.md reaches Codex as it reaches the Claude critic.
+# Documented key, not live-tested: drop this constant's entries if Codex rejects it.
+FALLBACK_DOCS_ARGS = ["-c", 'project_doc_fallback_filenames=["CLAUDE.md"]']
+DOMAIN_SKILLS = {
+    "plan": ["plan-writing/SKILL.md"],
+    "agent-definition": ["agent-authoring/SKILL.md"],
+    "prose": ["science-writing-style/SKILL.md", "presentation-style/SKILL.md"],
+}
+WRITING_MD = "project-memory/references/writing.md"
+HEADER_CELLS = ["ID", "Severity", "Location", "Finding", "Evidence", "Minimal fix"]
+SEVERITIES = ("BLOCKING", "SHOULD", "NIT")
+
+CONSENT = """\
+Codex as critic (Supervisor for Claude):
+- Codex reviews spend your OpenAI/ChatGPT quota.
+- Repository content under the current directory, the review brief and the diff are sent to OpenAI."""
+
+
+class CriticError(Exception):
+    pass
+
+
+def config_dir() -> Path:
+    # scripts -> supervisor-config -> skills -> config; abspath, not resolve (the rule needs the literal path)
+    return Path(os.path.abspath(__file__)).parents[3]
+
+
+def script_path() -> str:
+    return os.path.abspath(__file__)
+
+
+def rule_for(path: str) -> str:
+    # scoped to `review`: a whole-script rule would let an agent run `enable --yes` unprompted
+    return "Bash(%s review *)" % path
+
+
+def mode_path(cfg: Path) -> Path:
+    return cfg / MODE_NAME
+
+
+def settings_path(cfg: Path) -> Path:
+    return cfg / "settings.json"
+
+
+def read_json(path: Path) -> dict:
+    """Parsed JSON object, {} if the file is missing."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CriticError("cannot parse %s: %s; fix the JSON" % (path, exc))
+    if not isinstance(data, dict):
+        raise CriticError("%s is not a JSON object; fix the JSON" % path)
+    return data
+
+
+def write_json_atomic(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name("%s.tmp-%d" % (path.name, os.getpid()))
+    try:
+        with open(str(tmp), "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(str(tmp), str(path))
+    except BaseException:
+        try:
+            os.unlink(str(tmp))
+        except OSError:
+            pass
+        raise
+
+
+def load_mode(cfg: Path) -> Optional[dict]:
+    """The critic section of the mode file, or None when there is none."""
+    critic = read_json(mode_path(cfg)).get("critic")
+    return critic if isinstance(critic, dict) else None
+
+
+def save_mode(cfg: Path, critic: Optional[dict]) -> None:
+    """Set the critic section (None removes it); the file goes away when it becomes empty."""
+    path = mode_path(cfg)
+    data = read_json(path)
+    if critic is None:
+        data.pop("critic", None)
+    else:
+        data["critic"] = critic
+    if data:
+        write_json_atomic(path, data)
+    elif path.exists():
+        path.unlink()
+
+
+def allow_rules(cfg: Path) -> list:
+    perms = read_json(settings_path(cfg)).get("permissions")
+    allow = perms.get("allow") if isinstance(perms, dict) else None
+    return allow if isinstance(allow, list) else []
+
+
+def codex_ok() -> Tuple[Optional[str], bool]:
+    """(path to codex or None, authenticated). Logged in iff `codex login status` exits 0 and says so."""
+    path = shutil.which("codex")
+    if not path:
+        return None, False
+    try:
+        proc = subprocess.run([path, "login", "status"], capture_output=True, text=True,
+                              stdin=subprocess.DEVNULL, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return path, False
+    # codex 0.164 prints the login state on stderr; accept either stream.
+    return path, proc.returncode == 0 and "Logged in" in (proc.stdout or "") + (proc.stderr or "")
+
+
+def enable(args: argparse.Namespace) -> int:
+    cfg = config_dir()
+    path, authed = codex_ok()
+    if not path:
+        print("codex-critic: the codex binary is not on PATH; install Codex CLI first", file=sys.stderr)
+        return 1
+    if not authed:
+        print("codex-critic: Codex is not logged in; run `codex login` first", file=sys.stderr)
+        return 1
+    print(CONSENT)
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("codex-critic: cannot ask for consent without a terminal; re-run with --yes",
+                  file=sys.stderr)
+            return 2
+        if input("Enable Codex as critic? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Not enabled.")
+            return 1
+    old = load_mode(cfg) or {}
+    critic = {"backend": "codex", "model": args.model or DEFAULT_MODEL, "effort": DEFAULT_EFFORT}
+    if isinstance(old.get("domains"), dict):
+        critic["domains"] = old["domains"]
+    save_mode(cfg, critic)
+    print("Codex critic enabled: %s %s" % (critic["model"], critic["effort"]))
+    print("mode file: %s" % mode_path(cfg))
+    return 0
+
+
+def disable(args: argparse.Namespace) -> int:
+    cfg = config_dir()
+    save_mode(cfg, None)
+    print("Codex critic disabled; the Claude critic is in use.")
+    return 0
+
+
+def status(args: argparse.Namespace) -> int:
+    cfg = config_dir()
+    mode = load_mode(cfg) or {}
+    rule = rule_for(script_path())
+    path, authed = codex_ok()
+    domains = mode.get("domains")
+    print("backend: %s" % ("codex" if mode.get("backend") == "codex" else "claude"))
+    print("model: %s" % (mode.get("model") or "n/a"))
+    print("effort: %s" % (mode.get("effort") or "n/a"))
+    print("domains: %s" % (json.dumps(domains, sort_keys=True) if domains else "none"))
+    print("codex: %s" % (path or "not found"))
+    print("auth: %s" % ("n/a" if not path else "logged in" if authed else "not logged in"))
+    print("mode file: %s" % mode_path(cfg))
+    print("settings: %s" % settings_path(cfg))
+    print("rule: %s" % rule)
+    print("rule present: %s" % ("yes" if rule in allow_rules(cfg) else "no (`deploy install` writes it)"))
+    return 0
+
+
+def fallback(reason: str) -> int:
+    print("NO_CODEX")
+    print("codex-critic: %s" % reason, file=sys.stderr)
+    return 0
+
+
+def resolve_model(mode: Optional[dict], domain: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """("claude", None, None) or ("codex", model, effort) for a domain, applying domain overrides."""
+    if not mode or mode.get("backend") != "codex":
+        return "claude", None, None
+    model = mode.get("model") or DEFAULT_MODEL
+    effort = mode.get("effort") or DEFAULT_EFFORT
+    domains = mode.get("domains")
+    over = domains.get(domain) if isinstance(domains, dict) else None
+    if over == "claude":
+        return "claude", None, None
+    if isinstance(over, dict):
+        model = over.get("model") or model
+        effort = over.get("effort") or effort
+    return "codex", model, effort
+
+
+def strip_frontmatter(text: str) -> str:
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 3)
+        if end != -1:
+            return text[end + 5:]
+    return text
+
+
+def build_prompt(cfg: Path, cwd: Path, domain: str, round_no: int, brief: str,
+                 diff: Optional[str], paths: list) -> str:
+    """The Codex prompt, in the order of Decision 8."""
+    parts = [
+        "You are the pack's critic (Supervisor for Claude), running under Codex.\n"
+        "Domain: %s. Round: %d.\n"
+        "The critic definition and the skill texts you would load follow; apply them as written.\n"
+        "Read only the memory files the brief names; never list or sweep `.supervisor/`.\n"
+        "Read the artifact paths listed below yourself; you run read-only inside the repository.\n"
+        "When running pytest, use `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q -p no:cacheprovider` "
+        "(no cache writes); if they cannot run, say in VALIDATION that tests were not "
+        "independently run.\n"
+        "Output the findings block exactly as the critic definition's Output section specifies, "
+        "and nothing else." % (domain, round_no),
+        "## Critic definition\n\n"
+        + strip_frontmatter((cfg / "agents" / "critic.md").read_text(encoding="utf-8")).strip(),
+    ]
+    review_md = cwd / "REVIEW.md"
+    if review_md.is_file():
+        parts.append("## REVIEW.md\n\n" + review_md.read_text(encoding="utf-8").strip())
+    else:
+        parts[0] += "\nDo not report on project rule files that do not exist."
+    rels = list(DOMAIN_SKILLS.get(domain, []))
+    if domain == "prose" and (cwd / ".supervisor").is_dir():
+        rels.append(WRITING_MD)
+    for rel in rels:
+        f = cfg / "skills" / rel
+        if f.is_file():
+            parts.append("## Skill: %s\n\n%s" % (rel, strip_frontmatter(f.read_text(encoding="utf-8")).strip()))
+    if paths:
+        parts.append("## Artifact paths\n\n" + "\n".join("- %s" % p for p in paths))
+    if diff is not None:
+        parts.append("## Diff\n\n" + diff.strip("\n"))
+    parts.append("## Brief\n\n" + brief.strip("\n"))
+    return "\n\n".join(parts) + "\n"
+
+
+def run_codex(prompt: str, cwd: Path, model: str, effort: str,
+              timeout: int) -> Tuple[Optional[int], Optional[str], str]:
+    """Run `codex exec` once: (rc, text of the -o file or None, stderr tail). rc is None on timeout."""
+    fd, out_path = tempfile.mkstemp(prefix="codex-critic-", suffix=".md")
+    os.close(fd)
+    argv = [shutil.which("codex") or "codex", "exec", "-s", "read-only", "--ephemeral",
+            "--ignore-user-config", "--skip-git-repo-check", "--color", "never",
+            "-C", str(cwd), "-m", model, "-c", "model_reasoning_effort=%s" % effort]
+    argv += FALLBACK_DOCS_ARGS + ["-o", out_path, "-"]
+    try:
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            _, err = proc.communicate(prompt.encode("utf-8"), timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                proc.kill()
+            proc.communicate()
+            return None, None, ""
+        tail = " ".join(err.decode("utf-8", "replace").split())[-300:]
+        try:
+            text = Path(out_path).read_text(encoding="utf-8")
+        except OSError:
+            text = None
+        return proc.returncode, text, tail
+    finally:
+        try:
+            os.unlink(out_path)
+        except OSError:
+            pass
+
+
+def split_row(line: str) -> list:
+    """Cells of a markdown table row: split on `|` that is neither backslash-escaped nor inside backticks."""
+    cells, cur, ticks, i = [], [], False, 0
+    line = line.strip()
+    while i < len(line):
+        ch = line[i]
+        if ch == "\\" and i + 1 < len(line) and line[i + 1] == "|":
+            cur.append("|")
+            i += 2
+            continue
+        if ch == "`":
+            ticks = not ticks
+        if ch == "|" and not ticks:
+            cells.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(ch)
+        i += 1
+    cells.append("".join(cur).strip())
+    if line.startswith("|"):
+        cells = cells[1:]
+    if line.endswith("|") and not line.endswith("\\|") and cells:
+        cells = cells[:-1]
+    return cells
+
+
+def validate_block(text: str, round_no: int) -> Tuple[Optional[str], str]:
+    """(normalised block, "") when text is a valid critic block, else (None, the failed check)."""
+    text = text.strip()
+    if text.startswith("```") and text.endswith("```") and text.count("\n") >= 1:
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    lines = text.splitlines()
+    m = re.match(r"VERDICT: (PASS|REVISE)$", lines[0].strip()) if lines else None
+    if not m:
+        return None, "line 1 is not `VERDICT: PASS|REVISE`"
+    verdict = m.group(1)
+    r = re.match(r"ROUND: (\d+)$", lines[1].strip()) if len(lines) > 1 else None
+    if not r:
+        return None, "line 2 is not `ROUND: <n>`"
+    if int(r.group(1)) != round_no:
+        return None, "ROUND is %s, expected %d" % (r.group(1), round_no)
+    head = next((i for i, ln in enumerate(lines) if ln.strip().startswith("|")
+                 and [c.lower() for c in split_row(ln)] == [c.lower() for c in HEADER_CELLS]), None)
+    if head is None:
+        return None, "findings table header row is missing"
+    end = head + 1
+    blocking = False
+    while end < len(lines) and lines[end].strip().startswith("|"):
+        cells = split_row(lines[end])
+        end += 1
+        if all(re.match(r"^:?-+:?$", c) for c in cells):
+            continue
+        if len(cells) != len(HEADER_CELLS):
+            return None, "finding row %d has %d cells, expected 6" % (end - head - 1, len(cells))
+        if cells[1] not in SEVERITIES:
+            return None, "finding row %s has severity %r" % (cells[0], cells[1])
+        blocking = blocking or cells[1] == "BLOCKING"
+    rest = lines[end:]
+    if sum(1 for ln in lines if ln.startswith("VALIDATION:")) != 1 \
+            or sum(1 for ln in lines if ln.startswith("NOTES:")) != 1:
+        return None, "need exactly one VALIDATION: and one NOTES: line"
+    if not any(ln.startswith("VALIDATION:") for ln in rest) or not any(ln.startswith("NOTES:") for ln in rest):
+        return None, "VALIDATION: and NOTES: must follow the table"
+    if blocking != (verdict == "REVISE"):
+        return None, "verdict %s disagrees with the rows (REVISE iff a BLOCKING row)" % verdict
+    return "\n".join(lines), ""
+
+
+def probe(args: argparse.Namespace) -> int:
+    """Print `codex <model> <effort>` when a review would run under Codex, else `claude`."""
+    try:
+        backend, model, effort = resolve_model(load_mode(config_dir()), args.domain)
+    except (CriticError, OSError, ValueError) as exc:
+        backend, why = "claude", str(exc)
+    else:
+        why = "" if backend == "codex" else "review backend is claude"
+    if backend == "codex":
+        path, authed = codex_ok()
+        if not path:
+            backend, why = "claude", "the codex binary is not on PATH"
+        elif not authed:
+            backend, why = "claude", "codex is not logged in"
+    if backend == "codex":
+        print("codex %s %s" % (model, effort))
+    else:
+        print("claude")
+        print("codex-critic: %s" % why, file=sys.stderr)
+    return 0
+
+
+def review(args: argparse.Namespace) -> int:
+    """Print the validated block or NO_CODEX; every failure falls back with rc 0."""
+    if args.probe:
+        return probe(args)
+    missing = [f for f in ("domain", "round", "brief") if getattr(args, f) is None]
+    if missing:
+        print("codex-critic review: --%s is required without --probe" % ", --".join(missing),
+              file=sys.stderr)
+        return 2
+    try:
+        return run_review(args)
+    except (CriticError, OSError, ValueError) as exc:
+        return fallback(str(exc))
+
+
+def run_review(args: argparse.Namespace) -> int:
+    cfg = config_dir()
+    mode = load_mode(cfg)
+    backend, model, effort = resolve_model(mode, args.domain)
+    if backend != "codex":
+        return fallback("Codex critic is off for domain %s" % args.domain)
+    if not shutil.which("codex"):
+        return fallback("the codex binary is not on PATH")
+    cwd = Path(os.path.abspath(args.cwd or os.getcwd()))
+    try:
+        brief = Path(args.brief).read_text(encoding="utf-8")
+        diff = Path(args.diff).read_text(encoding="utf-8") if args.diff else None
+        prompt = build_prompt(cfg, cwd, args.domain, args.round, brief, diff, args.paths)
+    except OSError as exc:
+        return fallback("cannot read an input file: %s" % exc)
+    rc, text, tail = run_codex(prompt, cwd, model, effort, args.timeout)
+    if rc is None:
+        return fallback("codex timed out after %d s" % args.timeout)
+    if rc != 0:
+        return fallback("codex exited %d: %s" % (rc, tail or "no stderr"))
+    if not text or not text.strip():
+        return fallback("codex wrote no output")
+    block, why = validate_block(text, args.round)
+    if block is None:
+        return fallback("block failed validation: %s" % why)
+    print("%s\nbackend: codex %s %s" % (block, model, effort))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="codex-critic", description=__doc__.strip().splitlines()[0])
+    sub = parser.add_subparsers(dest="verb", required=True)
+    sp = sub.add_parser("enable", help="turn Codex critic on")
+    sp.add_argument("model", nargs="?", help="model id (default %s)" % DEFAULT_MODEL)
+    sp.add_argument("--yes", action="store_true", help="skip the consent question")
+    sp.set_defaults(func=enable)
+    sp = sub.add_parser("disable", help="turn Codex critic off")
+    sp.add_argument("--yes", action="store_true", help="accepted for symmetry; disable never asks")
+    sp.set_defaults(func=disable)
+    sp = sub.add_parser("status", help="show the critic backend, Codex and the permission rule")
+    sp.set_defaults(func=status)
+    sp = sub.add_parser("review", help="run one critic round under Codex (or --probe the backend)")
+    sp.add_argument("--probe", action="store_true",
+                    help="only print `claude` or `codex <model> <effort>`; needs no other flag")
+    sp.add_argument("--domain", choices=DOMAINS, help="required unless --probe")
+    sp.add_argument("--round", type=int, help="required unless --probe")
+    sp.add_argument("--brief", metavar="FILE", help="required unless --probe")
+    sp.add_argument("--diff", metavar="FILE")
+    sp.add_argument("--cwd", metavar="DIR")
+    sp.add_argument("--timeout", type=int, default=540, metavar="SECS")
+    sp.add_argument("paths", nargs="*", metavar="PATH")
+    sp.set_defaults(func=review)
+    return parser
+
+
+def main(argv: Optional[list] = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        return args.func(args)
+    except CriticError as exc:
+        print("codex-critic: %s" % exc, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

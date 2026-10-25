@@ -45,11 +45,11 @@ Priority: high. Effort: M.
 
 ### 2. Make room in supervisor.md
 
-`pack/agents/supervisor.md` is at its Main word cap (raised 2026-10-24 from 1000 to the smallest
-multiple of 10 that fit the writer-model rule), and Program logs for flat plans needs a clause
+`pack/agents/supervisor.md` is at its Main word cap (raised to the smallest multiple of 10 that
+fit, twice, for the writer-model rule and the Codex critic; now 1039 of 1040), and Program logs for flat plans needs a clause
 there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the owner
 for approval before adding clauses; a cap raise is minimal, on a multiple of 10, per
-`.supervisor/memory/decisions/2026-10-24-raise-the-supervisor-md-word-cap-only-on.md`.
+`.supervisor/memory/decisions/2026-10-24-raise-a-word-cap-only-on-the-owner-s-sa.md`.
 Priority: normal — unblocks Program logs for flat plans. Effort: S.
 
 ### 3. Roadmap intake: tell users they can add items
@@ -107,3 +107,19 @@ Decisions:
 - `.supervisor/memory/decisions/2026-10-24-tools-audit-is-opt-in-tooling.md`
 
 Priority: low — opt-in check, not before late November 2026. Effort: S.
+
+### 8. Chore: bring supervisor.md back under 1000 words
+
+`pack/agents/supervisor.md` is at 1039 of 1040 words; cut it back below 1000 with the owner's
+approval of each cut. Optionally do the same for the lead-loop skill (1371 of 1380).
+Decisions:
+- `.supervisor/memory/decisions/2026-10-24-raise-a-word-cap-only-on-the-owner-s-sa.md`
+
+Priority: low. Effort: S.
+
+### 9. Codex critic follow-ups (optional)
+
+Only if the need shows up: a Haiku relay agent for UI visibility if the Bash-line description of
+the Codex review call proves insufficient; an interpreter-path setting so Codex can run tests
+(`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-te.md`).
+Priority: low. Effort: S.

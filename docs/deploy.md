@@ -145,6 +145,51 @@ A profile created later copies `~/.claude/settings.json`, and there a settings v
 
 Global installs made before 1.14 had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
 
+## Codex As Critic
+
+An opt-in mode in which the lead's critic step runs OpenAI Codex CLI instead of the Claude `critic` subagent. Only the critic changes: `scope-critic` stays on Claude, and any failed Codex review falls back to the Claude critic for that round, automatically. It needs the `codex` CLI on `PATH` and a logged-in Codex account (`codex login`).
+
+### Consent, Cost, And Data Flow
+
+- Codex reviews spend your OpenAI/ChatGPT quota.
+- Repository content under the current directory, the review brief and the diff are sent to OpenAI.
+
+`enable` prints this consent text and asks for a yes; without a terminal it needs `--yes`. Codex runs read-only and ephemeral.
+
+Every install (profile, `--global` or `--target`) adds one permission rule for its own read-only review script to the install's `settings.json`: `Bash(<abs script path> review *)`, where the path is the installed `skills/supervisor-config/scripts/codex-critic`. `update` keeps it and `uninstall` removes it. The rule covers only `review`, so the lead's probe and review calls never prompt, in either mode; `enable`, `disable` and `status` are not covered, so an in-session enable costs one permission prompt by design and no agent can turn Codex on unasked. `enable` and `disable` never touch `settings.json`.
+
+### Switching
+
+```bash
+./deploy critic enable [MODEL]       # also: disable, status; take --tag, --target or --global
+claude-supervisor critic status      # the launcher forwards to the same script
+/supervisor-config critic codex [model] | claude | status    # inside a session
+```
+
+No reinstall is needed. The mode lives in `supervisor-config.json` in the install's config dir, next to `settings.json`. The lead probes the mode once per task, so a switch takes effect from the next task. `install` prints a hint to enable it when `codex` is on `PATH` and the mode is off. A global uninstall runs `disable` first.
+
+### Models
+
+The default is `gpt-6.1-sol` at effort `high`; `gpt-6-astra` is also verified. Per-domain overrides are edited by hand into `supervisor-config.json`; `enable` keeps them. A domain is `claude` or an object with `model` and `effort`:
+
+```json
+{"critic": {"domains": {"prose": "claude", "plan": {"model": "gpt-6-astra", "effort": "xhigh"}}}}
+```
+
+### Fallback And Which Engine Reviewed
+
+When Codex is off for a domain, missing, times out, exits non-zero, writes nothing or returns a malformed block, the script prints `NO_CODEX` and the reason on stderr, and the lead dispatches the Claude `critic`. In the transcript the lead first makes one Bash call per task described `critic: check review backend` (`review --probe`, which prints `claude` or `codex <model> <effort>`, covered by the same rule); in Claude mode that is the only extra call and the `critic` launch follows as before. In Codex mode each round is a Bash call described `critic → codex <model> <effort>, round <n>` instead of a `critic` launch. A successful review ends with a `backend: codex <model> <effort>` line. The lead's report names the engine per round (`critic: codex gpt-6.1-sol high`, or `critic: claude (<reason>)`). `critic status` shows the backend, models, domain overrides, Codex login and whether the allow rule is present. `doctor` always prints a `critic backend: claude|codex` row.
+
+### Caveats
+
+- Claude Code's own sandbox blocks OpenAI hosts unless they are allowlisted, and whether Codex's Seatbelt sandbox runs nested inside it is unconfirmed. If reviews fall back with a network or sandbox reason, check that first.
+- Model IDs are account-specific. A wrong one makes `codex` exit non-zero, so the review falls back with the reason on stderr. `doctor` and `critic status` show the login state.
+- If the install path is reached through a symlink, the allow rule can miss and every review prompts. `critic status` prints the rule for the path it ran from; if the lead types the other form (literal or symlink-resolved), add that form to `permissions.allow` too.
+- Install a branch's pack with that branch's own `deploy` (`<checkout>/deploy install --source <checkout>/pack`): an older `deploy` copies the pack but writes no review rule, so every Codex round prompts; `critic status` then shows `rule present: no`.
+- Codex runs tests only through an interpreter its read-only sandbox may execute. On macOS that sandbox refused a conda `python3` here, and the Homebrew one had no pytest, so a Codex review may report that tests were not independently run.
+- Codex's severities tend to run hot; `scope-critic`'s ruling is the calibrating layer.
+- Reviews take from tens of seconds to several minutes. The script stops Codex after 540 s (`review --timeout SECS`) and falls back.
+
 ## Doctor Checks
 
 | Check | Level | Meaning and remedy |
@@ -164,6 +209,7 @@ Global installs made before 1.14 had those files rewritten to `opus`; the next p
 | `CLAUDE_CODE_EFFORT_LEVEL` set | WARN | Per-agent effort levels are ignored; unset it, or remove it from `settings.json` `env` |
 | `git` | WARN | Needed for `./deploy update` and to clone; optional otherwise (`git-ops` uses it) |
 | `zip` | WARN | Optional; used by `project-backup` |
+| Codex critic (only when `critic.backend` is `codex`) | FAIL | `codex` missing from `PATH` or not logged in; install it, run `codex login`, or run `critic disable` |
 
 The three environment variables are checked both in the shell environment and in the `env` block of the target's `settings.json`. Doctor exits 1 if any row is FAIL; WARN rows do not change the exit code.
 
@@ -174,7 +220,7 @@ The three environment variables are checked both in the shell environment and in
 "$REPO/deploy" uninstall --yes
 ```
 
-For a profile, uninstall deletes its dir, including sessions, history, login, and token, and its launcher. With `--global` it removes only the pack's files. Either way it removes the install's registry entry.
+For a profile, uninstall deletes its dir, including sessions, history, login, and token, and its launcher. With `--global` it removes only the pack's files, after running `codex-critic disable` to drop the mode file, and it removes the review script's `settings.json` allow rule; a profile uninstall removes everything with its dir. Either way it removes the install's registry entry.
 
 `uninstall --all` removes every install registered under the given `--prefix` after one confirmation that lists them. Entries whose target has no manifest are pruned from the registry.
 

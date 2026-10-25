@@ -53,8 +53,9 @@ is met, or one round under `Path: minimal`.
   notes, small edits of existing text); never for proposals, papers, or anything external-facing.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
-- Ad-hoc review: `clerk` writes the diff to a scratch file; then dispatch `critic`, then
-  `scope-critic`, with domain and contract; report surviving findings.
+- Ad-hoc review: `clerk` writes the diff and brief to scratch files and runs codex-critic
+  `review --round 1`; unless that starts `VERDICT:`, dispatch `critic`; then `scope-critic`, with
+  domain and contract; report surviving findings.
 - Dispatch independent work in one parallel message.
 - Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless asked.
 

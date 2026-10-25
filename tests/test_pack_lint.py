@@ -2,6 +2,7 @@
 
 import importlib.machinery
 import importlib.util
+import py_compile
 import re
 from pathlib import Path
 
@@ -19,9 +20,9 @@ EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 NO_AGENT_TOOL = {"critic", "scope-critic", "clerk", "git-ops", "scout", "curator"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
 BODY_WORD_CAPS = {
-    "Main": 1030, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
+    "Main": 1040, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
 }
-SKILL_WORD_CAP = 1300
+SKILL_WORD_CAP = 1380
 TIER_TOOLS = {  # agent -> (field, entries it must list), from the Tools column of the Tiers table
     "supervisor": ("disallowedTools", ["Bash"]),
     "critic": ("disallowedTools", ["Write", "Edit"]),
@@ -181,6 +182,21 @@ def test_skill(skill):
     assert n <= 300, "SKILL.md has %d lines (agent-authoring: keep each skill under 300)" % n
     words = body_words(skill_md)
     assert words <= SKILL_WORD_CAP, "SKILL.md body has %d words, cap is %d" % (words, SKILL_WORD_CAP)
+
+
+SCRIPTS = sorted(
+    p for p in (PACK / "skills").glob("*/scripts/*")
+    if p.is_file() and p.name != ".DS_Store" and "__pycache__" not in p.parts and p.suffix != ".pyc"
+)
+
+
+@pytest.mark.parametrize("path", SCRIPTS, ids=lambda p: str(p.relative_to(PACK)))
+def test_scripts_executable(path, tmp_path):
+    assert path.stat().st_mode & 0o111, "not executable"
+    first = path.read_text(encoding="utf-8").splitlines()[0]
+    assert first.startswith("#!"), "first line is not a shebang"
+    if "python" in first:
+        py_compile.compile(str(path), cfile=str(tmp_path / "out.pyc"), doraise=True)
 
 
 def test_no_opencode_leftovers():

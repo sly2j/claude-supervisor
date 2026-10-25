@@ -55,6 +55,16 @@ checks).
    path), the domain (research | plan | code | prose | agent-definition), the round number, and the
    suppression list (findings you already rejected, with reasons), plus the convention entry paths
    and draft-state path you loaded (prose) or the memory entry paths you cited (other domains).
+   Once per task, run
+   `<config>/skills/supervisor-config/scripts/codex-critic review --probe --domain <d>`
+   (`<config>`: two levels above this skill's base directory), Bash description
+   `critic: check review backend`. If it prints `codex <model> <effort>`, write that brief to a
+   scratch file each round and run, with `timeout: 600000` and description
+   `critic → codex <model> <effort>, round <n>`:
+   ```
+   <config>/skills/supervisor-config/scripts/codex-critic review --domain <d> --round <n> --brief <file> [--diff <file>] [--cwd <worktree>] <paths>
+   ```
+   Output starting `VERDICT:` is the findings; otherwise, or on `claude`, dispatch `critic`.
 2. When the findings table has a row above NIT (a PASS can carry SHOULD rows) or the change
    exceeds the plan's expected size, else 200 diff lines (code) or two pages of new prose, then
    dispatch `scope-critic`, never in parallel with the critic, with the contract, the original user
@@ -125,7 +135,8 @@ Report within these bounds, in this order:
   or under `Path: minimal`, one line on why the work did not split.
 - **Artifact**: paths, plus a unified diff or diff summary for code.
 - **Evidence**: at most 20 file paths and at most 5 excerpts, each under 30 lines.
-- **Validation**: commands run and their results.
+- **Validation**: commands run and their results, and each round's critic (`codex <model>
+  <effort>`, or `claude` with the fallback reason).
 - **Decision log**: one line per finding that was fixed, rejected, or cut, with the reason. Rounds
   used.
 - **Open items**: open findings and questions for the user, decisions that bind later stages

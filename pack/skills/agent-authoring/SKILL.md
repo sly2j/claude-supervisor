@@ -40,7 +40,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   - optional `skills` (a YAML list) and `color`
 - Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,
   Rules or Operating, the domain procedure, then Report or Output.
-- Budget: body word caps per tier are main 1030, lead 700, review 600, worker 400, memory 400,
+- Budget: body word caps per tier are main 1040, lead 700, review 600, worker 400, memory 400,
   quick 350; `tests/test_pack_lint.py` enforces them. They are ceilings, not targets: spend the
   length on load-bearing contracts such as verdict tokens, output schemas, or routing tables.
 - State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,
@@ -58,7 +58,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   `description`, which triggers loading: say what it does and when to use it.
 - Set `user-invocable: false` for protocol skills that agents preload. Use
   `disable-model-invocation: true` for skills that should run only by slash command.
-- Keep SKILL.md under 300 lines and 1300 body words (linted). Put bulky references in
+- Keep SKILL.md under 300 lines and 1380 body words (linted). Put bulky references in
   `references/` and helpers in `scripts/`, and reference them via `${CLAUDE_SKILL_DIR}`.
 
 ## Reviewing Definitions (for critic)

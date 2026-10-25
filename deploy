@@ -54,7 +54,7 @@ MANIFEST_RECOVERY = ("restore it from a backup, or delete it and re-run ./deploy
 REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 # Fable agents run on this Opus model when the launcher gets --fable-is-opus; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
-LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status")
+LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status", "critic")
 
 
 LAUNCHER_HELP = """\
@@ -66,6 +66,7 @@ Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
   uninstall [--yes] [--dry-run]        delete this profile, its launcher and its login
   status                               show this install's version and file states
   list                                 list every registered install
+  critic enable|disable|status         switch the lead's critic to Codex (codex-critic)
   -v, --version                        show the installed pack version and the claude version
   --fable-is-opus                      run Fable-tier agents on Opus this session
   -h, --help, help                     show this help
@@ -93,6 +94,7 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
              "  printf 'claude-supervisor %%s (claude-%s, %%s)\\n' \"${v:-unknown}\" '%s'" % (tag, target),
              '  if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi',
              "  exit 0;;",
+             "critic) shift; exec '%s/skills/supervisor-config/scripts/codex-critic' \"$@\";;" % target,
              "update|uninstall|list|status)",
              "  d='%s'" % d,
              '  [ -x "$d" ] || { echo "claude-%s: $d missing; run ./deploy install from your checkout" >&2; exit 1; }' % tag,
@@ -607,6 +609,26 @@ def plan_settings(args: argparse.Namespace, settings: dict, prev: dict) -> Tuple
         % (current, DEFAULT_AGENT)
 
 
+def critic_rule(target: Path) -> str:
+    """The one permission rule install adds: the installed codex-critic script, `review` subcommand only."""
+    return "Bash(%s review *)" % target.joinpath(*CRITIC_SCRIPT)
+
+
+def plan_critic_rule(settings: dict, target: Path) -> Tuple[Optional[dict], str]:
+    """Add critic_rule(target) to permissions.allow. Returns (new_settings or None if present, message)."""
+    rule = critic_rule(target)
+    perms = settings.get("permissions")
+    if perms is not None and not isinstance(perms, dict):
+        raise DeployError("settings permissions is not an object; fix the JSON")
+    allow = (perms or {}).get("allow")
+    if allow is not None and not isinstance(allow, list):
+        raise DeployError("settings permissions.allow is not a list; fix the JSON")
+    if rule in (allow or []):
+        return None, "permission rule for its own read-only review script already present"
+    new_perms = dict(perms or {}, allow=list(allow or []) + [rule])
+    return dict(settings, permissions=new_perms), "adds one permission rule for its own read-only review script"
+
+
 def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
     """Decide what to do with settings['attribution'] commit, pr and sessionUrl (profile installs only).
 
@@ -905,6 +927,9 @@ def install_cmd(args: argparse.Namespace) -> int:
                 settings_rec = dict(settings_rec, **attr_rec)
                 settings_msg += "; " + attr_msg
                 new_settings = attr_settings or new_settings
+            rule_settings, rule_msg = plan_critic_rule(new_settings or settings, target)
+            settings_msg += "; " + rule_msg
+            new_settings = rule_settings or new_settings
             if new_settings is not None:
                 if args.dry_run:
                     settings_msg = "would " + settings_msg
@@ -965,6 +990,10 @@ def install_cmd(args: argparse.Namespace) -> int:
         if not getattr(args, "migrating", False) and not on_path(prefix / "bin"):
             print('WARNING %s is not on your PATH; add export PATH="%s:$PATH" to your shell profile, '
                   "then open a new terminal" % (prefix / "bin", prefix / "bin"))
+    if shutil.which("codex") and critic_backend(target) != "codex":
+        cmd = "%s critic enable" % launcher.name if launcher else \
+            "./deploy critic enable" + (" --global" if args.use_global else " --target %s" % target)
+        print("Codex as critic is off; enable with `%s`" % cmd)
     if args.dry_run:
         print("Dry run: nothing was written.")
     return 1 if counts["errors"] else 0
@@ -1174,6 +1203,17 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
     kept: List[str] = []
     removed: List[str] = []
     errors = 0
+    critic = target.joinpath(*CRITIC_SCRIPT)
+    if critic.is_file():
+        if args.dry_run:
+            print("  would run codex-critic disable (removes supervisor-config.json)")
+        else:
+            try:
+                rc = subprocess.call([sys.executable, str(critic), "disable", "--yes"])
+            except OSError as exc:
+                rc = exc
+            if rc != 0:
+                print("  WARNING codex-critic disable failed (%s); remove supervisor-config.json by hand" % rc)
     with target_lock(target, args.dry_run):
         for key, entry in sorted(manifest["files"].items()):
             dst = target / key
@@ -1192,21 +1232,40 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
         settings_msg = "agent left untouched (not managed by this pack)"
         try:
             settings = load_settings(target)
+            new = dict(settings)
+            changed = False
+            actions = []  # what this uninstall changes, reported before any note
+            rule = critic_rule(target)
+            perms = settings.get("permissions")
+            allow = perms.get("allow") if isinstance(perms, dict) else None
+            if isinstance(allow, list) and rule in allow:
+                kept_allow = [a for a in allow if a != rule]
+                new_perms = dict(perms, allow=kept_allow)
+                if not kept_allow:
+                    del new_perms["allow"]
+                if new_perms:
+                    new["permissions"] = new_perms
+                else:
+                    del new["permissions"]
+                changed = True
+                actions.append("remove its permission rule")
             if rec.get("managed_agent_key") and settings.get("agent") == DEFAULT_AGENT:
-                new = dict(settings)
                 prev = rec.get("previous_agent")
                 if prev is None:
                     new.pop("agent", None)
-                    settings_msg = "remove agent key"
+                    actions.append("remove agent key")
                 else:
                     new["agent"] = prev
-                    settings_msg = "restore agent = %r" % prev
-                if args.dry_run:
-                    settings_msg = "would " + settings_msg
-                else:
-                    save_settings(target, new)
+                    actions.append("restore agent = %r" % prev)
+                settings_msg = ""
+                changed = True
             elif rec.get("managed_agent_key"):
                 settings_msg = "agent changed by user to %r; left untouched" % settings.get("agent")
+            if changed:
+                done = ("would " if args.dry_run else "") + "; ".join(actions)
+                settings_msg = "; ".join(m for m in (done, settings_msg) if m)
+                if not args.dry_run:
+                    save_settings(target, new)
         except DeployError as exc:
             settings_msg = "ERROR: %s" % exc
             errors += 1
@@ -1492,6 +1551,40 @@ def install_hint(args: argparse.Namespace) -> str:
     return hint + (" --target %s" % args.target if args.target else "")
 
 
+CRITIC_SCRIPT = ("skills", "supervisor-config", "scripts", "codex-critic")
+
+
+def critic_backend(target: Path) -> str:
+    """The critic backend recorded in <target>/supervisor-config.json: "codex", else "claude"."""
+    try:
+        data = json.loads((target / "supervisor-config.json").read_text(encoding="utf-8"))
+        critic = data.get("critic") if isinstance(data, dict) else None
+        return "codex" if isinstance(critic, dict) and critic.get("backend") == "codex" else "claude"
+    except (OSError, ValueError):
+        return "claude"
+
+
+def critic_cmd(args: argparse.Namespace) -> int:
+    """Run the installed codex-critic script (enable, disable, status) for the resolved target."""
+    rest = list(args.rest)
+    if not getattr(args, "launcher", False):  # target flags after the verb land in REMAINDER; take them back out
+        tp = argparse.ArgumentParser(add_help=False)
+        tp.add_argument("--tag")
+        tp.add_argument("--target")
+        tp.add_argument("--global", dest="use_global", action="store_true")
+        tp.add_argument("--prefix")
+        ns, rest = tp.parse_known_args(rest)
+        args.tag = ns.tag or args.tag
+        args.target = ns.target or args.target
+        args.use_global = ns.use_global or args.use_global
+        args.prefix = ns.prefix or args.prefix
+    target = resolve_target(args)
+    script = target.joinpath(*CRITIC_SCRIPT)
+    if not script.is_file():
+        raise DeployError("%s has no codex-critic script (%s); run ./deploy install first" % (target, script))
+    return subprocess.call([sys.executable, str(script), args.verb] + rest)
+
+
 def doctor_cmd(args: argparse.Namespace) -> int:
     target = resolve_target(args)
     hint = install_hint(args)
@@ -1579,6 +1672,20 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         add("WARN", "git not found; needed for ./deploy update and to clone, optional otherwise")
     add("PASS" if shutil.which("zip") else "WARN",
         "zip found" if shutil.which("zip") else "zip not found (optional, used by some skills)")
+
+    backend = critic_backend(target)
+    add("PASS", "critic backend: %s" % backend)
+    if backend == "codex":
+        if not shutil.which("codex"):
+            add("FAIL", "critic backend is codex but codex CLI not found on PATH; install Codex, or turn it off with `codex-critic disable`")
+        else:
+            try:
+                p = subprocess.run(["codex", "login", "status"], capture_output=True, text=True, timeout=30)
+                ok = p.returncode == 0 and "Logged in" in p.stdout + p.stderr
+            except (OSError, subprocess.SubprocessError):
+                ok = False
+            add("PASS" if ok else "FAIL", "codex found, logged in" if ok else
+                "codex is not logged in; run `codex login`")
 
     fails = sum(1 for lvl, _ in results if lvl == "FAIL")
     warns = sum(1 for lvl, _ in results if lvl == "WARN")
@@ -1702,6 +1809,14 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
                         description="Print PASS/WARN/FAIL checks. Exits 1 if any check FAILs.")
     common(sp, source=False)
     sp.set_defaults(func=doctor_cmd)
+
+    sp = add_parser("critic", help="switch the lead's critic to Codex",
+                        description="Run the installed codex-critic script: enable [MODEL] [--yes], disable [--yes], status. "
+                                    "Options after the verb that deploy does not own go to the script.")
+    common(sp, source=False)
+    sp.add_argument("verb", choices=("enable", "disable", "status"))
+    sp.add_argument("rest", nargs=argparse.REMAINDER, help="arguments for the script (MODEL, --yes)")
+    sp.set_defaults(func=critic_cmd)
     return p
 
 

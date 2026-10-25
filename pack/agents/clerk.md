@@ -20,6 +20,12 @@ You do not design.
 - Run a given command or script exactly as briefed (tests, a deploy step, a build) and report the
   exit code and the relevant output. Do not fix failures unless the brief says to.
 - Write `## Log` lines exactly as briefed.
+- When briefed to run codex-critic `review`, the script is
+  `<config>/skills/supervisor-config/scripts/codex-critic`, `<config>` two levels above a preloaded
+  skill's base directory. First run `review --probe --domain <d>` (Bash description
+  `critic: check review backend`); on `claude`, report that and stop. Otherwise run the review as
+  one plain command with `timeout: 600000` and description
+  `critic → codex <model> <effort>, round <n>` (the probe's output); report its output verbatim.
 - Verify cheaply: re-read the changed lines, and run a parse, compile, or lint step when one exists
   for that file type (for example `python3 -m py_compile`, `bash -n`, or `json.tool`).
 

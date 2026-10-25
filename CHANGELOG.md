@@ -2,6 +2,7 @@
 
 Major versions only; minor versions are in `git log`.
 
+- **v7** (2026-10-24): optional Codex CLI backend for the critic, with the Claude critic as automatic fallback; switch with `deploy critic` or `/supervisor-config critic`. See [Codex As Critic](docs/deploy.md#codex-as-critic).
 - **v6** (2026-10-24): major architectural change to improve token efficiency, by letting leads work directly on smaller tasks and by optimizing the review cycle.
 - **v5** (2026-10-23): rebrand to Supervisor for Claude.
 - **v4** (2026-10-22): project-aware git workflow: agents follow a repo's own versioning scheme, and larger changes are developed on their own branch in a worktree.

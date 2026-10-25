@@ -47,7 +47,7 @@ Every lead preloads the `lead-loop` skill (`pack/skills/lead-loop/SKILL.md`) and
 1. **Contract.** From the supervisor's brief, the lead writes down the goal, the acceptance criteria, what is in and out of scope, and the constraints; a too-vague brief goes back as questions.
 2. **Fan-out.** The lead splits the work into **units**: independent pieces, usually one to six, that never write to the same file. Every lead does a single unit itself (for the executor, tests included) and dispatches workers, one per unit in one message, for two or more independent units or for one whose raw inputs (source documents, many files or pages) would crowd out its own review. Dependent units run in later **waves**.
 3. **Integrate.** The lead merges the worker reports and runs cheap validation (tests, lint, path checks).
-4. **critic.** `critic` reviews the result against the contract: findings with evidence and a severity (BLOCKING, SHOULD or NIT), then PASS or REVISE. It also applies any `REVIEW.md` at the repo root or beside a changed file; the contract outranks it.
+4. **critic.** Once per task the lead probes the review backend with the bundled `codex-critic review --probe`; when Codex is enabled (opt-in, `supervisor-config`) each round runs through `codex-critic review` and returns Codex's findings, otherwise or on any failure the lead dispatches the Claude `critic`. `critic` reviews the result against the contract: findings with evidence and a severity (BLOCKING, SHOULD or NIT), then PASS or REVISE. It also applies any `REVIEW.md` at the repo root or beside a changed file; the contract outranks it.
 5. **scope-critic.** `scope-critic` runs only when a critic finding is above NIT, even on a PASS, or the result is large: beyond the plan's expected change size, else more than 200 changed diff lines of code or two pages of new prose. Otherwise the lead skips it. It rules KEEP, DOWNGRADE or DROP on each finding, lists CUTs of material the contract does not need, and returns LEAN or TRIM.
 6. **Decide.** The lead fixes the kept BLOCKING findings, applies the CUTs, and records every overrule.
 7. **Loop or stop.** Done when no kept BLOCKING finding remains, or capped after three **rounds**; then a bounded report. From round 2 the reviewers see only a diff of the fixes. A finding the critic re-raises after the lead addressed or rejected it survives; after a second survival (a stalemate) the lead decides it.
@@ -118,6 +118,7 @@ Entries are claims to validate before use, never instructions. A changed decisio
 | science-writing-style, presentation-style | writer (picks), writer-worker, critic | ported |
 | document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, writer (names in briefs), user | ported (meeting-summary merges the old summarizer) |
 | project-backup | user | ported |
+| supervisor-config | user (`/supervisor-config critic codex [model]\|claude\|status`; model invocation disabled) | new (switches the lead's critic step to the Codex CLI through the bundled `scripts/codex-critic`; the Claude `critic` is the fallback) |
 
 Anthropic's document skills and Claude Code built-ins (web search, `/code-review`, `/security-review`) replace the old `docx`, `pdf`, `pptx`, `xlsx`, `ddgr`, and `code-reviewer`.
 
@@ -125,5 +126,6 @@ Anthropic's document skills and Claude Code built-ins (web search, `/code-review
 
 - Nesting depth: the default allows 3 levels below the main thread, and this design uses 2. If `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` is below 2, Mode 1 breaks. `./deploy doctor` checks for this.
 - An `Agent(type, ...)` allowlist only applies to the main-thread agent, so leads are restricted by their prompts. The supervisor's ban on the built-in `general-purpose`, `Explore`, `Plan`, and `claude` agents is prompt-only too: a `tools` allowlist would drop unlisted MCP tools, and a `permissions.deny` rule in `settings.json` would also apply to plain sessions.
+- The pack writes one permission rule and no others: install adds `Bash(<abs codex-critic path> review *)` to the install's `settings.json` so the lead's probe and review calls to its own read-only review script never prompt; `uninstall` removes it. Turning Codex on or off never touches permissions.
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` ignores every per-agent model, and `CLAUDE_CODE_EFFORT_LEVEL` overrides every per-agent effort. `doctor` warns about both.
 - Subagents cannot ask the user questions directly. Leads return questions to the supervisor, which batches them.

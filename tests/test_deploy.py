@@ -104,6 +104,14 @@ def settings(target: Path) -> dict:
     return json.loads((target / "settings.json").read_text())
 
 
+def rule_for(target: Path) -> str:
+    return "Bash(%s review *)" % (target.resolve() / "skills" / "supervisor-config" / "scripts" / "codex-critic")
+
+
+def perms_for(target: Path) -> dict:
+    return {"allow": [rule_for(target)]}
+
+
 def test_fresh_install(pack, target):
     r = run(pack, target, "install")
     assert r.returncode == 0, r.stdout + r.stderr
@@ -119,7 +127,7 @@ def test_fresh_install(pack, target):
                              "managed_attribution_commit": True, "managed_attribution_pr": True,
                              "managed_attribution_session_url": True}
     assert m["source_commit"] is None and m["source_dirty"] is None  # the temp pack is not in a repo
-    assert settings(target) == {"agent": "supervisor", "attribution": ATTR_ALL}
+    assert settings(target) == {"agent": "supervisor", "attribution": ATTR_ALL, "permissions": perms_for(target)}
 
 
 def test_idempotent_rerun(pack, target):
@@ -194,7 +202,7 @@ def test_settings_other_keys_preserved(pack, target):
     assert r.returncode == 0
     s = settings(target)
     assert s["agent"] == "supervisor"
-    assert list(s) == ["model", "env", "zzz", "agent", "attribution"]
+    assert list(s) == ["model", "env", "zzz", "agent", "attribution", "permissions"]
     assert s["env"] == {"A": "1"}
     assert list(target.glob("settings.json.bak-*"))
 
@@ -223,7 +231,7 @@ def test_attribution_update_merges_and_keeps_other_keys(pack, target):
     r = run(pack, target, "install")
     assert r.returncode == 0
     assert settings(target) == {"attribution": {"pr": "mine", "commit": ATTR_COMMIT, "sessionUrl": False}, "model": "opus",
-                                "agent": "supervisor"}
+                                "agent": "supervisor", "permissions": perms_for(target)}
     rec = manifest(target)["settings"]
     assert rec["managed_attribution_commit"] is True and rec["managed_attribution_session_url"] is True
     assert rec["managed_attribution_pr"] is False  # the user's pr is kept and not ours
@@ -300,6 +308,7 @@ def test_attribution_global_untouched(pack, global_target):
     (global_target / "settings.json").write_text(json.dumps({"attribution": {"pr": "mine"}}))
     assert run(pack, global_target, "install").returncode == 0
     assert settings(global_target)["attribution"] == {"pr": "mine"}
+    assert settings(global_target)["permissions"] == perms_for(global_target)
     assert not [k for k in manifest(global_target)["settings"] if k.startswith("managed_attribution")]
     assert run(pack, global_target, "uninstall", "--yes").returncode == 0
     assert settings(global_target) == {"attribution": {"pr": "mine"}}
@@ -432,7 +441,7 @@ def test_symlinked_settings_survive_install(pack, target, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (target / "settings.json").is_symlink()
     assert json.loads(real.read_text()) == {"model": "opus", "env": {"A": "1"}, "agent": "supervisor",
-                                          "attribution": ATTR_ALL}
+                                          "attribution": ATTR_ALL, "permissions": perms_for(target)}
     assert real.stat().st_mode & 0o777 == 0o644
     assert not list(real.parent.glob(".tmp-*"))
 
@@ -731,6 +740,67 @@ def profile_paths(tmp_path: Path, tag: str):
             (tmp_path / ".local" / "bin" / ("claude-" + tag)).resolve())
 
 
+CRITIC_SRC = SCRIPT.parent / "pack" / "skills" / "supervisor-config" / "scripts" / "codex-critic"
+
+
+def critic_pack(pack: Path) -> Path:
+    """The test pack plus the real supervisor-config skill and its codex-critic script."""
+    skill = pack / "skills" / "supervisor-config"
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: supervisor-config\ndescription: Config skill.\n---\n\nUse it.\n")
+    shutil.copy(CRITIC_SRC, skill / "scripts" / "codex-critic")
+    (skill / "scripts" / "codex-critic").chmod(0o755)
+    return pack
+
+
+def stub_codex(bin_dir: Path) -> None:
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    stub = bin_dir / "codex"
+    stub.write_text("#!/bin/sh\n"
+                    "if [ \"$1 $2\" = 'login status' ]; then echo 'Logged in using ChatGPT' >&2; exit 0; fi\n"
+                    "exit 0\n")
+    stub.chmod(0o755)
+
+
+def test_deploy_critic_delegates(pack, target, tmp_path):
+    critic_pack(pack)
+    stub_claude(tmp_path / "bin")
+    stub_codex(tmp_path / "bin")
+    path = "%s:/usr/bin:/bin" % (tmp_path / "bin")
+    assert run(pack, target, "install", path=path).returncode == 0
+    # target flags before the verb, then after it
+    r = run(pack, target, "critic", "status", path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "backend: claude" in r.stdout.splitlines()
+    r = run(pack, target, "critic", "status", "--target", str(target), target_args=[], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "backend: claude" in r.stdout.splitlines()
+    before = (target / "settings.json").read_bytes()
+    r = run(pack, target, "critic", "enable", "gpt-6-astra", "--yes", "--target", str(target),
+            target_args=[], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "gpt-6-astra" in (target / "supervisor-config.json").read_text()
+    assert (target / "settings.json").read_bytes() == before
+    assert settings(target)["permissions"] == perms_for(target)
+
+
+def test_deploy_critic_not_installed(pack, target):
+    r = run(pack, target, "critic", "status")
+    assert r.returncode == 2
+    assert str(target) in r.stderr
+
+
+def test_launcher_critic_passthrough(pack, target, tmp_path):
+    critic_pack(pack)
+    env = claude_stub(tmp_path)
+    _, launcher = profile_paths(tmp_path, "supervisor")
+    assert run(pack, target, "install", target_args=[], path=env["PATH"]).returncode == 0
+    r = run_launcher(launcher, env, "critic", "status")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "backend: claude" in r.stdout.splitlines()
+    assert "critic" not in r.stdout.splitlines()  # the claude stub echoes its argv; it was not run
+
+
 @pytest.mark.parametrize("extra, tag", [([], "supervisor"), (["--tag", "t"], "t")])
 def test_profile_round_trip(pack, target, tmp_path, extra, tag):
     sbx, launcher = profile_paths(tmp_path, tag)
@@ -837,7 +907,8 @@ def test_profile_seeds_from_global_once(pack, global_target, target, tmp_path):
     for rel in ("agents/mine.md.bak-1", "skills/synced/x.md", "skills/.trash/y.md",
                 "plugins/p.json", "history.jsonl"):
         assert not (sbx / rel).exists(), rel
-    assert settings(sbx) == {"theme": "dark", "agent": "supervisor", "attribution": ATTR_ALL}
+    assert settings(sbx) == {"theme": "dark", "agent": "supervisor", "attribution": ATTR_ALL,
+                             "permissions": perms_for(sbx)}
     assert manifest(sbx)["settings"]["managed_agent_key"] is True
 
     (global_target / "CLAUDE.md").write_text("global v2")
@@ -2692,3 +2763,234 @@ def test_migrate_prefix_mismatch_refuses(request, pack, global_target, tmp_path)
     assert "was installed with --prefix" in r.stderr and str(pa.resolve()) in r.stderr
     assert snapshot(tmp_path) == before and not backups(global_target)
     assert (global_target / "agents" / "helper.md").is_file()
+
+
+# --------------------------------------------------------------------------- codex critic: deploy integration
+
+def codex_path(tmp_path: Path, with_codex: bool = True) -> str:
+    stub_claude(tmp_path / "bin")
+    if with_codex:
+        stub_codex(tmp_path / "bin")
+    return "%s:/usr/bin:/bin" % (tmp_path / "bin")
+
+
+def allow_rules(cfg: Path) -> list:
+    path = cfg / "settings.json"
+    return json.loads(path.read_text()).get("permissions", {}).get("allow", []) if path.exists() else []
+
+
+@pytest.mark.parametrize("extra, hint", [(["--tag", "t"], "claude-t critic enable"), ([], "claude-supervisor critic enable")])
+def test_install_hint_with_codex(pack, target, tmp_path, extra, hint):
+    critic_pack(pack)
+    r = run(pack, target, "install", target_args=extra, path=codex_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    lines = [l for l in r.stdout.splitlines() if "Codex as critic" in l]
+    assert lines == ["Codex as critic is off; enable with `%s`" % hint]
+    cfg = profile_paths(tmp_path, extra[1] if extra else "supervisor")[0]
+    assert not (cfg / "supervisor-config.json").exists()
+    assert allow_rules(cfg) == [rule_for(cfg)]
+    assert r.stdout.count("adds one permission rule for its own read-only review script") == 1
+
+
+def test_install_hint_global_names_deploy(pack, global_target, tmp_path):
+    critic_pack(pack)
+    r = run(pack, global_target, "install", path=codex_path(tmp_path))
+    assert "Codex as critic is off; enable with `./deploy critic enable --global`" in r.stdout.splitlines()
+
+
+def test_install_hint_without_codex(pack, target, tmp_path):
+    critic_pack(pack)
+    r = run(pack, target, "install", path=codex_path(tmp_path, with_codex=False))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "Codex as critic" not in r.stdout
+    assert not (target / "supervisor-config.json").exists()
+
+
+def test_install_hint_silent_when_enabled(pack, target, tmp_path):
+    critic_pack(pack)
+    path = codex_path(tmp_path)
+    assert run(pack, target, "install", path=path).returncode == 0
+    assert run(pack, target, "critic", "enable", "--yes", path=path).returncode == 0
+    r = run(pack, target, "install", path=path)
+    assert r.returncode == 0 and "Codex as critic" not in r.stdout
+
+
+def test_update_preserves_codex_mode(remote, tmp_path):
+    script_rel = Path("pack/skills/supervisor-config/scripts/codex-critic")
+    (remote.work / script_rel).parent.mkdir(parents=True)
+    shutil.copy(CRITIC_SRC, remote.work / script_rel)
+    (remote.work / script_rel).chmod(0o755)
+    (remote.work / "pack/skills/supervisor-config/SKILL.md").write_text(
+        "---\nname: supervisor-config\ndescription: Config skill.\n---\n\nUse it.\n")
+    remote.git(remote.work, "add", "-A")
+    remote.git(remote.work, "commit", "-q", "-m", "critic")
+    remote.git(remote.work, "push", "-q", "origin", "HEAD:main")
+    remote.git(remote.clone, "pull", "-q", "origin", "main")
+    stub_codex(tmp_path / "bin")
+    remote.env["PATH"] += ":%s" % (tmp_path / "bin")
+    sbx, _ = profile_paths(tmp_path, "t")
+    install_from_clone(remote, "--tag", "t")
+    r = deploy_run(remote, remote.clone / "deploy", "critic", "enable", "--yes", "--tag", "t")
+    assert r.returncode == 0, r.stdout + r.stderr
+    mode = (sbx / "supervisor-config.json").read_text()
+    rules = [a for a in allow_rules(sbx) if "codex-critic" in a]
+    assert rules == [rule_for(sbx)]
+
+    installed = sbx / script_rel.relative_to("pack")
+    (remote.work / script_rel).write_text(CRITIC_SRC.read_text() + "\n# v2\n")
+    remote.git(remote.work, "add", "-A")
+    remote.git(remote.work, "commit", "-q", "-m", "script v2")
+    remote.git(remote.work, "push", "-q", "origin", "HEAD:main")
+    shutil.rmtree(remote.clone)
+    r = update(remote, "--tag", "t", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert installed.read_text().endswith("# v2\n")
+    assert (sbx / "supervisor-config.json").read_text() == mode
+    assert [a for a in allow_rules(sbx) if "codex-critic" in a] == rules
+
+
+def test_global_uninstall_removes_codex_mode(pack, global_target, tmp_path):
+    critic_pack(pack)
+    path = codex_path(tmp_path)
+    assert run(pack, global_target, "install", path=path).returncode == 0
+    cfg = global_target
+    s = json.loads((cfg / "settings.json").read_text())
+    s["permissions"]["allow"].insert(0, "Bash(ls)")
+    s["permissions"]["deny"] = ["Bash(rm *)"]
+    s["theme"] = "dark"
+    (cfg / "settings.json").write_text(json.dumps(s))
+    assert run(pack, global_target, "critic", "enable", "--yes", path=path).returncode == 0
+    assert (cfg / "supervisor-config.json").exists()
+    assert rule_for(cfg) in allow_rules(cfg)
+    r = run(pack, global_target, "uninstall", "--yes", path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not (cfg / "supervisor-config.json").exists()
+    after = json.loads((cfg / "settings.json").read_text())
+    assert after["permissions"] == {"allow": ["Bash(ls)"], "deny": ["Bash(rm *)"]} and after["theme"] == "dark"
+    assert "agent" not in after
+
+
+@pytest.mark.parametrize("use_global", [False, True])
+def test_install_writes_critic_rule(pack, target, global_target, tmp_path, use_global):
+    cfg = global_target if use_global else target
+    cfg.mkdir()
+    (cfg / "settings.json").write_text(json.dumps(
+        {"model": "opus", "permissions": {"allow": ["Bash(ls)"], "ask": ["Bash(git push *)"]}}))
+    for _ in range(2):  # no duplicate on re-install
+        r = run(pack, cfg, "install")
+        assert r.returncode == 0, r.stdout + r.stderr
+    s = settings(cfg)
+    assert s["permissions"] == {"allow": ["Bash(ls)", rule_for(cfg)], "ask": ["Bash(git push *)"]}
+    assert s["model"] == "opus"
+    assert rule_for(cfg).endswith("/skills/supervisor-config/scripts/codex-critic review *)")
+
+
+def test_install_dry_run_reports_critic_rule(pack, target):
+    r = run(pack, target, "install", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    line = [l for l in r.stdout.splitlines() if l.startswith("Settings:")][0]
+    assert "adds one permission rule for its own read-only review script" in line
+    assert not target.exists() or not (target / "settings.json").exists()
+
+
+def test_update_readds_missing_critic_rule(remote, tmp_path):
+    sbx, _ = profile_paths(tmp_path, "t")
+    install_from_clone(remote, "--tag", "t")
+    assert allow_rules(sbx) == [rule_for(sbx)]
+    s = json.loads((sbx / "settings.json").read_text())
+    s["permissions"]["allow"] = ["Bash(ls)"]
+    (sbx / "settings.json").write_text(json.dumps(s))
+    assert update(remote, "--tag", "t", "--yes").returncode == 0
+    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx)]
+    assert update(remote, "--tag", "t", "--yes").returncode == 0
+    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx)]
+
+
+def test_global_uninstall_dry_run_keeps_critic_rule(pack, global_target):
+    assert run(pack, global_target, "install").returncode == 0
+    before = (global_target / "settings.json").read_bytes()
+    r = run(pack, global_target, "uninstall", "--dry-run")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "remove its permission rule" in r.stdout
+    assert (global_target / "settings.json").read_bytes() == before
+
+
+def test_critic_enable_disable_leave_settings_alone(pack, target, tmp_path):
+    critic_pack(pack)
+    path = codex_path(tmp_path)
+    assert run(pack, target, "install", path=path).returncode == 0
+    before = (target / "settings.json").read_bytes()
+    assert run(pack, target, "critic", "enable", "--yes", path=path).returncode == 0
+    assert (target / "supervisor-config.json").exists()
+    assert (target / "settings.json").read_bytes() == before
+    assert run(pack, target, "critic", "disable", path=path).returncode == 0
+    assert not (target / "supervisor-config.json").exists()
+    assert (target / "settings.json").read_bytes() == before
+
+
+def test_global_uninstall_dry_run_keeps_codex_mode(pack, global_target, tmp_path):
+    critic_pack(pack)
+    path = codex_path(tmp_path)
+    assert run(pack, global_target, "install", path=path).returncode == 0
+    assert run(pack, global_target, "critic", "enable", "--yes", path=path).returncode == 0
+    r = run(pack, global_target, "uninstall", "--dry-run", path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "would run codex-critic disable" in r.stdout
+    assert (global_target / "supervisor-config.json").exists()
+
+
+def test_profile_uninstall_removes_dir(pack, target, tmp_path):
+    critic_pack(pack)
+    path = codex_path(tmp_path)
+    sbx, launcher = profile_paths(tmp_path, "t")
+    assert run(pack, target, "install", target_args=["--tag", "t"], path=path).returncode == 0
+    assert run(pack, target, "critic", "enable", "--yes", target_args=["--tag", "t"], path=path).returncode == 0
+    assert (sbx / "supervisor-config.json").exists()
+    r = run(pack, target, "uninstall", "--yes", target_args=["--tag", "t"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not sbx.exists() and not launcher.exists()
+
+
+def doctor_codex_env(tmp_path: Path, codex: str = "ok") -> str:
+    """doctor PATH with a stub claude and a codex stub: ok, logged-out, or none."""
+    bin_dir = Path(doctor_bin(tmp_path, "2.1.300", tools=("git", "zip")))
+    if codex == "ok":
+        stub_codex(bin_dir)
+    elif codex == "logged-out":
+        (bin_dir / "codex").write_text("#!/bin/sh\necho 'Not logged in' >&2\nexit 1\n")
+        (bin_dir / "codex").chmod(0o755)
+    return str(bin_dir)
+
+
+def enable_codex_mode(target: Path, backend: str = "codex") -> None:
+    (target / "supervisor-config.json").write_text(json.dumps(
+        {"critic": {"backend": backend, "model": "gpt-6.1-sol", "effort": "high"}}))
+
+
+def test_doctor_codex_off(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    r = run(pack, target, "doctor", path=doctor_codex_env(tmp_path, "none"))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert row(r, "critic backend").startswith("PASS") and "claude" in row(r, "critic backend")
+    assert [l for l in rows_of(r) if "codex" in l.lower()] == []
+    assert "0 FAIL" in r.stdout
+
+
+def test_doctor_codex_on_ok(pack, target, tmp_path):
+    assert run(pack, target, "install").returncode == 0
+    enable_codex_mode(target)
+    r = run(pack, target, "doctor", path=doctor_codex_env(tmp_path, "ok"))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert row(r, "critic backend").startswith("PASS") and "codex" in row(r, "critic backend")
+    assert row(r, "logged in").startswith("PASS")
+    assert "0 FAIL" in r.stdout
+
+
+@pytest.mark.parametrize("codex, fragment", [("none", "not found"), ("logged-out", "not logged in")])
+def test_doctor_codex_on_fail(pack, target, tmp_path, codex, fragment):
+    assert run(pack, target, "install").returncode == 0
+    enable_codex_mode(target)
+    r = run(pack, target, "doctor", path=doctor_codex_env(tmp_path, codex))
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert row(r, fragment).startswith("FAIL")
+    assert "1 FAIL" in r.stdout
