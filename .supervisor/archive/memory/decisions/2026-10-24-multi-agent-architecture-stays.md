@@ -9,3 +9,5 @@ supersedes: .supervisor/archive/memory/decisions/2026-10-24-keep-the-multi-agent
 Keep the architecture; do not fold into one loop. Scout and clerk absorb large reads (clerk also maintains plan state in programs), curator keeps memory reads out of the main thread, and each lead holds its domain's harness.
 Answers the claim "Anthropic's guidance accepts subagents only for measured main-loop bloat or parallel discardable context". The audit measured both (85% of tokens in subagents, main-thread median final context 66k, nesting at most 2, the supervisor's no-read rule holds), and the use case is long-horizon multi-session work.
 Rejected: a full single-loop fold; folding the Haiku tier into the supervisor; dropping the supervisor's no-read rule; merging the four leads before efficiency is measured (revisit only with measurements).
+
+superseded by: .supervisor/memory/decisions/2026-10-24-keep-supervisor-leads-workers-and-the-ha.md

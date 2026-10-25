@@ -34,3 +34,5 @@ Behaviour is in the pack (`project-memory` Committing the store and Projects and
   every directory under `~` a project, and the ask-once flow and its scratch markers, retention
   and promotion cost more than they saved. The root walk stops at the git toplevel and ignores
   `$HOME` and its ancestors, per worktree.
+
+superseded by: .supervisor/memory/decisions/2026-10-24-the-store-is-committed-in-the-branch-and.md

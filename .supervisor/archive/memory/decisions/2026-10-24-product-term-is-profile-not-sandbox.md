@@ -11,3 +11,5 @@ Reach: product wording, written into README, docs and `deploy` strings by execut
 A profile is a private config dir `~/.config/claude-<tag>` with its own launcher; several coexist via `--tag`. `--global` installs into `~/.claude` instead.
 Why: "sandbox" implies security isolation, which the install does not give, and needed a disclaimer; "profile" matches the browser-profile mental model. Rejected: keeping "sandbox" with the disclaimer.
 Identifiers (flags, tags, file names) are unchanged. Archived entries and file names keep the old word as history.
+
+superseded by: .supervisor/memory/decisions/2026-10-24-product-text-says-profile-never-sandbox.md

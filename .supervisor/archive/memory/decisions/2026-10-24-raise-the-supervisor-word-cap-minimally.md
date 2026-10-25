@@ -8,3 +8,5 @@ supersedes: .supervisor/archive/memory/decisions/2026-10-24-supervisor-word-cap-
 ---
 A cap raise lands on the smallest multiple of 10 that fits the file, and only when the owner says so. Existing supervisor rules are not trimmed to make room for a rule the owner asked for.
 Rejected: trimming existing rules to fit; a blanket raise (for example by 100).
+
+superseded by: .supervisor/memory/decisions/2026-10-24-raise-the-supervisor-md-word-cap-only-on.md

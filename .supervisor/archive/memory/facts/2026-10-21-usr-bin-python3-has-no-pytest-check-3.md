@@ -14,3 +14,5 @@ supersedes:
 It matters beyond import errors: the installed tool copy and the launcher subcommands run under whatever `python3` is first on `PATH`, and the launcher tests' `PATH=<tmp>/bin:/usr/bin:/bin` also run the copy under 3.9 on macOS.
 
 Reach: repo work.
+
+superseded by: .supervisor/memory/facts/2026-10-24-usr-bin-python3-3-9-6-has-no-pytest-so-t.md

@@ -11,3 +11,5 @@ This repo splits its rules by audience. `CLAUDE.md` holds what an editing agent 
 Why: Anthropic's Code Review and the pack's `critic` both read `REVIEW.md`, and `CLAUDE.md` held no review-only rule when the split was made. `REVIEW.md` stays short enough to read in one screen (about 40 lines at most): a longer file buries the severity rules reviewers most need. Rejected: growing `REVIEW.md` with edge cases of the review mechanism, and moving `CLAUDE.md` rules into it.
 
 Reach: repo work.
+
+superseded by: .supervisor/memory/decisions/2026-10-24-review-only-rules-live-in-review-md-kept.md

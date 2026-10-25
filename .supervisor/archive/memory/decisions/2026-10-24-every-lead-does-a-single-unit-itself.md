@@ -11,3 +11,5 @@ Scope-critic is skipped when the critic's findings table has no row above NIT (B
 Why: 38 files were re-read by several workers (30 under executor), and the lead reads the draft anyway to integrate and judge critic findings, so delegating a single unit saved no context.
 Rejected: a researcher/writer single-worker exception to keep drafts out of the lead's context; it split the voice and saved nothing.
 Unmeasured: only 14 writer lead runs in the corpus. Re-measure with `tools/audit/audit.py` (including the lead-final-context metric) before tuning the size bound or judging bloat in self-drafting leads. Related: `2026-10-24-multi-agent-architecture-stays.md` (the roster is unchanged; only who does a single unit moved).
+
+superseded by: .supervisor/memory/decisions/2026-10-24-every-lead-does-a-single-unit-itself-and.md

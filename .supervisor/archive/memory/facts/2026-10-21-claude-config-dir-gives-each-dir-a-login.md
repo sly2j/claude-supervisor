@@ -14,3 +14,5 @@ Found 2026-10-16 on Claude Code 2.1.302 (macOS, native install), from the offici
 Consequences for `deploy`: a launcher must bake the absolute path the deploy resolved, never expand `$HOME` or `XDG_CONFIG_HOME` at run time (a different string would silently switch logins), and must never point at `~/.claude`. Every tag needs its own login. Profile uninstall leaves that dir's Keychain entry behind, which is harmless, and re-installing at the same path reuses it. Not tested: interactive `/login` in a profile, Linux credential isolation, IDE integration with a custom dir.
 
 Reach: product; enforced in deploy (target resolution).
+
+superseded by: .supervisor/memory/facts/2026-10-24-claude-config-dir-gives-each-dir-its-own.md
