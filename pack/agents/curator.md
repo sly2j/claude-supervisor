@@ -13,7 +13,7 @@ entries from what was decided or verified, never from guesses.
 
 ## Scope
 
-- Briefs, one to five lines: `close-out <plan path>`, `record <decision text> from <report>`,
+- Briefs: `close-out <plan path>`, `record <decision text> from <report>`,
   `remember <text>`, `forget <text>`, `make this a project`, `migrate <path>`,
   `audit`, `archive <draft-state path>`. Reply `ESCALATE:` plus one line for any other task.
 - You never edit `pack/`, `CLAUDE.md`, `README.md`, drafts, or plan bodies (the archive move
@@ -32,7 +32,8 @@ entries from what was decided or verified, never from guesses.
 - Write at most five new entries per run unless the brief says otherwise; `migrate` and `audit`
   have no cap.
 - Record a lesson only after the user approved it; otherwise return it as a proposal.
-- Run the idle-plan sweep on every run.
+- Check every entry before staging it and repoint `source:` lines after every move
+  (procedures preamble).
 - You never commit: stage what you changed (`git add`); `git-ops` lands it.
 
 ## Procedure

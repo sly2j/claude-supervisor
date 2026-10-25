@@ -3,10 +3,13 @@
 Run by `curator`. Entry format, paths and the supersede step are in SKILL.md. Run the idle-plan
 sweep on every run, after the brief's own procedure. The five-entry cap, unless the brief says
 otherwise, counts every step; `migrate` and `audit` are exempt, and retires (SKILL.md) do not
-count. Every entry written below must pass the recording test (SKILL.md). When the cap would cut
-entries, leave the roadmap item in place, skip step 7, and report what remains as
-`follow-up: curator close-out <plan path>`. Each `git mv` below uses plain `mv` instead without
-git, or for a move into `.supervisor/` when it is gitignored (SKILL.md).
+count. Before staging any entry, check it against Entry text and the recording test (SKILL.md):
+grep the delivered work for its rule (test b), and rewrite it until it passes. A run that moves a
+file repoints, in the same run, every `source:` in `memory/` that names it (grep by file name).
+When the cap would cut entries, leave the roadmap item in place, skip step 7, and report what
+remains as `follow-up: curator close-out <plan path>`. Without git, or when `.supervisor/` is
+gitignored (`git check-ignore -q <project root>/.supervisor`), every archive move here and in
+SKILL.md uses plain `mv` and skips `git add`.
 
 ## Close-out (`close-out <plan path>`)
 
@@ -22,7 +25,8 @@ git, or for a move into `.supervisor/` when it is gitignored (SKILL.md).
    two entries record one decision (from step 1), supersede the older (the newer gains
    `supersedes:`). Stop at five new entries.
 4. For each goal the plan finished, add `met: YYYY-MM-DD` (or `dropped:`), `git add` it, then
-   `git mv` it to `archive/memory/goals/`.
+   `git mv` it to `archive/memory/goals/`. Retire (SKILL.md) each lesson whose named fix the plan
+   landed.
 5. Re-verify every entry in `memory/` that fails the staleness check in SKILL.md: confirm it by
    updating `verified:` to today, or supersede it.
 6. Roadmap step, finished plans only. Open `.supervisor/roadmap.md`, else the project root's
@@ -36,9 +40,11 @@ git, or for a move into `.supervisor/` when it is gitignored (SKILL.md).
    - For each removed item, record each legacy "Decisions already made" bullet not yet in memory
      that passes the recording test (SKILL.md) as one `decision` entry (one entry per bullet,
      none consolidated) with `source: <roadmap path> item <n>, <date>`.
-   - Append one line to `.supervisor/history.md` per removed item or stage group, in the
-     SKILL.md format, high-level only, with the removed item's or stage's `Decisions:` paths (and
-     the paths of any entries just recorded) in its `decisions:` field. Create the file with the
+   - Append one line to `.supervisor/history.md` per removed item or stage group, never
+     rewriting earlier lines, as `- YYYY-MM-DD <version or commit> <item title>; goals: <paths or
+     none>; plan: <archived plan path>; decisions: <paths>`, high-level only, with the removed
+     item's or stage's `Decisions:` paths (and the paths of any entries just recorded) in its
+     `decisions:` field. Create the file with the
      heading `# History` on first use.
 7. Archive step. `git mv` the plan and its child plans to `.supervisor/archive/working/plans/`
    and its research to `.supervisor/archive/working/research/`, keeping each file name. Move the
@@ -62,16 +68,19 @@ add `follow-up: curator migrate docs/` to the report.
 ## Audit (`audit`)
 
 Run on request. For every entry in `memory/` and every entry citation in the roadmap, apply the
-recording test and the staleness check (SKILL.md), then choose one outcome:
+recording test, Entry text and the staleness check (SKILL.md), resolve every `source:` and
+`affects:` path (repoint a moved `source:`), then choose one outcome:
 - keep, updating `verified:` when re-checked;
 - retire (SKILL.md);
-- supersede: the entry is stale, or it is the older of two entries recording one decision;
+- supersede: the entry is stale, fails Entry text, has an `affects:` path that does not resolve,
+  or is the older of two entries that record one decision or contradict each other;
 - drop: a one-off that binds nothing after its plan closed. Add `dropped: audit <date>` and
   `git mv` it to `archive/memory/<kind>/` with no replacement (not Forget, which writes a
   retraction).
 
 Fix roadmap citations as in close-out step 6. The audit never merges entries. Propose changes to
-lessons and goals to the user; never retire or drop them. Report counts per outcome and
+lessons and goals to the user; never retire or drop them, except a lesson whose named fix has
+landed, which is retired. Report counts per outcome and
 one line per kind of cut.
 
 ## Record (`record <decision text> from <report>`)
