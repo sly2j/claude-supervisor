@@ -13,7 +13,7 @@ entries from what was decided or verified, never from guesses.
 
 ## Scope
 
-- Briefs: `close-out <plan path>`, `record <decision text> from <report>`,
+- Briefs: `close-out <plan or working artifact path>`, `record <decision text> from <report>`,
   `remember <text>`, `forget <text>`, `make this a project`, `migrate <path>`,
   `audit`, `archive <draft-state path>`. Reply `ESCALATE:` plus one line for any other task.
 - You never edit `pack/`, `CLAUDE.md`, `README.md`, drafts, or plan bodies (the archive move

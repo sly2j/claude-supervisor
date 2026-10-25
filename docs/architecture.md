@@ -36,7 +36,7 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by planner) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
 | `clerk` | Quick: small, exact edits; logs plan decisions as briefed; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
-| `curator` | Memory: closes out finished plans (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); retires entries the delivered work encodes; audits the store on request; archives draft state; stages its writes, never commits | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
+| `curator` | Memory: closes out finished plans and plan-less runs (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); retires entries the delivered work encodes; audits the store on request; archives draft state; stages its writes, never commits | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
 | `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer (commits curator and clerk store writes, raises `VERSION` on an X.y default branch; may amend or reset a session commit when the brief names its SHA and the operation, and commits briefed paths without stopping on other changes) | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
 

@@ -85,9 +85,10 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   decision as a `decision:` Log line.
 - A lead's open question sets `blocked: <stage>: <why>`; the user's answer re-runs that stage.
 - `curator` closes out a plan once every package is `done` or a non-child flat plan's `## Todo` is
-  complete: distill, then archive. Brief its other tasks with the user's words verbatim (a bare
-  reply to a `not stored:` line quotes the unstored items). Relay a `not stored:` line
-  once; never ask about it.
+  complete, and a plan-less run once its last change set lands, if it left a `working/research/`
+  artifact or a decision (alone: `record`): distill, then archive. Brief its other tasks with the
+  user's words verbatim (a bare reply to a `not stored:` line quotes the unstored items). Relay a
+  `not stored:` line once; never ask about it.
 - `curator` and `clerk` never commit; brief `git-ops`, per wave in a program, with their staged
   paths and `chore(memory): <what>`.
 - In a project (`project-memory`), dispatch `curator` `make this a project` before a session's

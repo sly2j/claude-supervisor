@@ -55,6 +55,10 @@ SKILL.md uses plain `mv` and skips `git add`.
 A close-out of an unfinished plan (the answer to an idle-plan proposal) skips step 6 and marks no
 goal `met`.
 
+A plan-less run's close-out (`close-out <working artifact path>`) runs steps 1 to 3 and 5, reading
+that artifact in place of the plan, then `git mv`s it to the matching `archive/working/` folder as
+in step 7.
+
 ## Idle-plan sweep
 
 List each `.supervisor/working/plans/plan-*.md` whose last `## Log` line is dated more than 30
