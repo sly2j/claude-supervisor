@@ -49,7 +49,7 @@ Priority: high. Effort: M.
 fit, twice, for the writer-model rule and the Codex critic; now 1039 of 1040), and Program logs for flat plans needs a clause
 there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the owner
 for approval before adding clauses; a cap raise is minimal, on a multiple of 10, per
-`.supervisor/memory/decisions/2026-10-24-raise-a-word-cap-only-on-the-owner-s-sa.md`.
+`.supervisor/memory/decisions/2026-10-24-raise-a-pack-word-cap-only-on-the-owner.md`.
 Priority: normal — unblocks Program logs for flat plans. Effort: S.
 
 ### 3. Roadmap intake: tell users they can add items
@@ -113,13 +113,23 @@ Priority: low — opt-in check, not before late November 2026. Effort: S.
 `pack/agents/supervisor.md` is at 1039 of 1040 words; cut it back below 1000 with the owner's
 approval of each cut. Optionally do the same for the lead-loop skill (1371 of 1380).
 Decisions:
-- `.supervisor/memory/decisions/2026-10-24-raise-a-word-cap-only-on-the-owner-s-sa.md`
+- `.supervisor/memory/decisions/2026-10-24-raise-a-pack-word-cap-only-on-the-owner.md`
 
 Priority: low. Effort: S.
 
-### 9. Codex critic follow-ups (optional)
+### 9. Haiku relay agent for the Codex critic (optional)
 
-Only if the need shows up: a Haiku relay agent for UI visibility if the Bash-line description of
-the Codex review call proves insufficient; an interpreter-path setting so Codex can run tests
-(`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-te.md`).
+Only if the transcript visibility of the Codex critic step proves insufficient: a thin
+`codex-critic` Haiku relay subagent, so the step shows as an agent launch. The current two-call
+Bash-description approach (`critic: check review backend` and `critic → codex <model> <effort>,
+round N`) was judged adequate in the smoke test.
+Decisions:
+- `.supervisor/memory/decisions/2026-10-24-critic-step-is-two-calls.md`
+
+Priority: low. Effort: S.
+
+### 10. Interpreter-path setting so Codex can run tests (optional)
+
+Only if the need shows up: a setting naming the Python interpreter for Codex's sandbox, so Codex
+can run the tests (`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-tests.md`).
 Priority: low. Effort: S.
