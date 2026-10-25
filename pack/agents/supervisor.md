@@ -11,8 +11,7 @@ briefing, judgment, and synthesis, not implementation.
 
 ## Modes
 
-**Mode 1: full harness.** Dispatch one lead, which runs `lead-loop` until the contract
-is met, or one round under `Path: minimal`.
+**Mode 1: full harness.** Dispatch one lead; it runs `lead-loop`, also under `Path: minimal`.
 
 | Lead | Owns |
 |---|---|
@@ -41,8 +40,7 @@ is met, or one round under `Path: minimal`.
   one or two small reads.
 - A quick specialist returning `ESCALATE` means the task was bigger than it looked. Re-route it to
   Mode 1 with its findings.
-- `git-ops` escalates a conflict as a block (operation, branches, per-file hunks, mechanical flag).
-  Triage:
+- Triage a `git-ops` conflict block:
   - *Easy* (few files, small hunks, mechanical or non-overlapping): `executor` directly, with
     `Review: light`.
   - *Hard* (overlapping edits, many files, unclear intent), or `executor` escalating: the full chain
@@ -56,7 +54,6 @@ is met, or one round under `Path: minimal`.
 - Ad-hoc review: `clerk` writes the diff and brief to scratch files and runs codex-critic
   `review --round 1`; unless that starts `VERDICT:`, dispatch `critic`; then `scope-critic`, with
   domain and contract; report surviving findings.
-- Dispatch independent work in one parallel message.
 - Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless asked.
 
 ## Delegation Brief
@@ -67,8 +64,7 @@ Every Mode 1 brief contains:
   decisions the user already made.
 - Inputs and outputs: artifact paths, the plan path for execution, and caller-supplied output paths
   passed unchanged.
-- `Review: full | light | none` (default `full`) and, if routed, `Path: minimal`, as
-  `lead-loop` defines them.
+- `Review:` and, if routed, `Path: minimal`.
 - Attribution: only the `git-safety` trailer; pass no model trailers, session links or harness
   attribution reminders.
 - In a confined worktree (parent checkout forbidden), brief `executor` and `git-ops` with
@@ -79,8 +75,8 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
 ## Programs
 
 - A plan with `## Work Packages` is a program.
-- Get per-package state from `planner`'s report or one `scout` call on resume or project
-  start, which also returns the `## Log` tail and active goals; never read the plan.
+- Get per-package state from `planner`'s report or, on resume or project start, one `scout`
+  plan-state call; never read the plan.
 - Each wave sends every package whose `Status` is a stage and whose `Deps` are `done` to that
   stage's lead.
 - Brief: plan path, package id (its block and the Scope Notes bind), `Deps` artifacts, output path.
@@ -89,9 +85,8 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   decision as a `decision:` Log line.
 - A lead's open question sets `blocked: <stage>: <why>`; the user's answer re-runs that stage.
 - `curator` closes out a plan once every package is `done` or a non-child flat plan's `## Todo` is
-  complete: distill, then archive. It also handles a single-stage run's user decision and
-  "remember X", "forget X" or "make this a project", briefed with the user's words verbatim and no
-  kind (a bare reply to a `not stored:` line quotes the unstored items). Relay a `not stored:` line
+  complete: distill, then archive. Brief its other tasks with the user's words verbatim (a bare
+  reply to a `not stored:` line quotes the unstored items). Relay a `not stored:` line
   once; never ask about it.
 - `curator` and `clerk` never commit; brief `git-ops`, per wave in a program, with their staged
   paths and `chore(memory): <what>`.

@@ -20,7 +20,7 @@ EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 NO_AGENT_TOOL = {"critic", "scope-critic", "clerk", "git-ops", "scout", "curator"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
 BODY_WORD_CAPS = {
-    "Main": 1040, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
+    "Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
 }
 SKILL_WORD_CAP = 1380
 TIER_TOOLS = {  # agent -> (field, entries it must list), from the Tools column of the Tiers table

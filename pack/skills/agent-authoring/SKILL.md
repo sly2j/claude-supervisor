@@ -40,7 +40,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
   - optional `skills` (a YAML list) and `color`
 - Body: start with `You are ...`, then the sections the role needs, in the order Mission or Scope,
   Rules or Operating, the domain procedure, then Report or Output.
-- Budget: body word caps per tier are main 1040, lead 700, review 600, worker 400, memory 400,
+- Budget: body word caps per tier are main 1000, lead 700, review 600, worker 400, memory 400,
   quick 350; `tests/test_pack_lint.py` enforces them. They are ceilings, not targets: spend the
   length on load-bearing contracts such as verdict tokens, output schemas, or routing tables.
 - State scope boundaries with a named destination: "X goes to `executor`". When agent A routes to B,
