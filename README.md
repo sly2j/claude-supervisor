@@ -71,13 +71,13 @@ Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
-- `/supervisor-config critic codex|claude|status`: switch the lead's critic to Codex and back ([details](docs/deploy.md#codex-as-critic))
+- `/supervisor-config critic codex|claude|status`: switch this install's critic between Codex and Claude from inside a session; the terminal form `claude-supervisor critic …` is quicker (see [Optional: A Second Model Family For Review](#optional-a-second-model-family-for-review)).
 
 The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
 
 ## How It Works
 
-**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
+**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules. The critic step can also run on OpenAI's Codex CLI, so the work and its review come from different model families; it is off by default (see [Optional: A Second Model Family For Review](#optional-a-second-model-family-for-review)).
 
 **The quick path** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
 
@@ -190,6 +190,10 @@ Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothin
 
 Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
+### Optional: A Second Model Family For Review
+
+The lead's `critic` can run on OpenAI's Codex CLI, so the work and its review come from different model families with different blind spots. It is off by default and needs the `codex` CLI on `PATH`, logged in. Switch it with `claude-supervisor critic enable|disable|status` (`./deploy critic …` for a `--global` install, or `/supervisor-config critic codex|claude|status` from inside a session). `scope-critic` stays on Claude, and a failed Codex review falls back to the Claude critic for that round. Consent, models, and caveats are in [Codex As Critic](docs/deploy.md#codex-as-critic).
+
 ## Maintaining An Install
 
 ```bash
@@ -206,8 +210,6 @@ claude-supervisor --version     # pack and claude versions; -h lists launcher co
 `update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default profile. Files you edited in the install dir are kept.
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
-
-To run the lead's critic on Codex instead of Claude, see [Codex As Critic](docs/deploy.md#codex-as-critic).
 
 A profile uninstall deletes the profile dir, including its sessions, history, login, and token. Run `--dry-run` first.
 
