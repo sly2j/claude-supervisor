@@ -85,7 +85,7 @@ Priority: normal. Effort: M.
   - How are large data files handled?
 - **Done when:** a scientific run leaves a stamped `artefacts/` subdirectory whose README states
   the goal and what was learned, with its outputs beside it; the suite passes.
-- **Pointers:** `.supervisor/working/research/research-memory.md` section 8 item 7.
+- **Pointers:** `.supervisor/archive/working/research/research-memory.md` section 8 item 7.
 
 Priority: low — deferred by the owner 2026-10-21 to a future release. Effort: L.
 
