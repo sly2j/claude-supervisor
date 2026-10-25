@@ -147,7 +147,7 @@ Global installs made before 1.14 had those files rewritten to `opus`; the next p
 
 ## Codex As Critic
 
-An opt-in mode in which the lead's critic step runs OpenAI Codex CLI instead of the Claude `critic` subagent. Only the critic changes: `scope-critic` stays on Claude, and any failed Codex review falls back to the Claude critic for that round, automatically. It needs the `codex` CLI on `PATH` and a logged-in Codex account (`codex login`).
+An opt-in mode in which the lead's critic step runs OpenAI Codex CLI instead of the Claude `critic` subagent. Only the critic changes: `scope-critic` stays on Claude, and any failed Codex review falls back to the Claude critic for that round, automatically. It needs the `codex` CLI on `PATH` and a logged-in Codex account (`codex login`); `enable` checks both before it asks for consent.
 
 ### Consent, Cost, And Data Flow
 

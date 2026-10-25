@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deploy the Supervisor for Claude pack into a Claude Code config dir (default: profile ~/.config/claude-supervisor).
 
-Subcommands: install | update | status | list | uninstall | migrate | doctor.  Run `deploy <cmd> --help`.
+Subcommands: install | update | status | list | uninstall | migrate | doctor | critic.  Run `deploy <cmd> --help`.
 
 Ownership model: every installed file is recorded in a manifest with the
 hash it had when installed (the "baseline").  On re-install each file is

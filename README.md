@@ -71,13 +71,13 @@ Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
-- `/supervisor-config critic codex|claude|status`: switch this install's critic between Codex and Claude from inside a session; the terminal form `claude-supervisor critic …` is quicker (see [Optional: A Second Model Family For Review](#optional-a-second-model-family-for-review)).
+- `/supervisor-config critic codex|claude|status`: switch the critic between Codex and Claude from inside a session (see [Optional: Codex As Critic](#optional-codex-as-critic))
 
 The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
 
 ## How It Works
 
-**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules. The critic step can also run on OpenAI's Codex CLI, so the work and its review come from different model families; it is off by default (see [Optional: A Second Model Family For Review](#optional-a-second-model-family-for-review)).
+**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
 
 **The quick path** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
 
@@ -190,9 +190,22 @@ Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothin
 
 Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
-### Optional: A Second Model Family For Review
+## Optional: Codex As Critic
 
-The lead's `critic` can run on OpenAI's Codex CLI, so the work and its review come from different model families with different blind spots. It is off by default and needs the `codex` CLI on `PATH`, logged in. Switch it with `claude-supervisor critic enable|disable|status` (`./deploy critic …` for a `--global` install, or `/supervisor-config critic codex|claude|status` from inside a session). `scope-critic` stays on Claude, and a failed Codex review falls back to the Claude critic for that round. Consent, models, and caveats are in [Codex As Critic](docs/deploy.md#codex-as-critic).
+Every agent in the pack runs on Claude, including the `critic` that reviews a lead's result. You can run that one agent on OpenAI's Codex CLI instead, so the work and its review come from different model families with different blind spots. Only the critic changes: `scope-critic`, the leads and the workers stay on Claude.
+
+It is off by default, and turning it on has a cost: Codex reviews spend your OpenAI/ChatGPT quota, and each review sends the repository content under the current directory, the review brief and the diff to OpenAI. You need the `codex` CLI on `PATH`, logged in (`codex login`). `enable` checks both, prints that consent text and asks for a yes; if `codex` is already on your `PATH`, `install` ends with a one-line hint naming the enable command.
+
+```bash
+claude-supervisor critic enable            # asks once; `enable gpt-6-astra` picks another model
+claude-supervisor critic status            # backend, model, Codex login, permission rule
+claude-supervisor critic disable
+./deploy critic enable --global            # a --global install has no launcher; --tag <t> for another profile
+```
+
+From inside a session, `/supervisor-config critic codex [model]` enables, `/supervisor-config critic claude` disables and `/supervisor-config critic status` reports. It asks the same consent question, and each of these costs one permission prompt by design, so no agent can turn Codex on unasked. A switch takes effect from the next task, with no reinstall. The default model is `gpt-6.1-sol` at effort `high`.
+
+When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout after 540 s, an error, or an unusable response), that round falls back to the Claude `critic` automatically, and the lead's report names which engine reviewed each round. `critic status` and `./deploy doctor` show the login state. The permission rule `install` writes, per-domain model overrides and the caveats (network access from the sandbox, model IDs, symlinked install paths, review time) are in [Codex As Critic](docs/deploy.md#codex-as-critic).
 
 ## Maintaining An Install
 
@@ -243,7 +256,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-deploy              installer: install | update | status | list | uninstall | doctor | migrate
+deploy              installer: install | update | status | list | uninstall | doctor | migrate | critic
 tests/              deploy tests, pack lint, VERSION check
 docs/               architecture.md, deploy.md (deploy runbook)
 CLAUDE.md           instructions for Claude working in this repo
