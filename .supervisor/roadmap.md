@@ -5,7 +5,7 @@
 - This repo is the source of a Claude Code agent pack. `pack/` deploys via `deploy`
   (stdlib-only, Python 3.9, which macOS ships as `/usr/bin/python3`).
 - Work goes through the supervisor harness: `researcher`/`planner`/`executor`/`writer` leads with
-  worker fan-out and `critic`/`scope-critic` loops; quick tier `clerk`/`git-ops`/`scout`.
+  worker fan-out and `critic`/`scope-critic` loops; quick tier `fixer`/`git-ops`/`scout`.
 - Before touching the pack, read `CLAUDE.md`, `docs/architecture.md`, and the `agent-authoring`
   skill (`pack/skills/agent-authoring/SKILL.md`).
 - Per change set on `main`: edit, bump `VERSION` once (`X.y` -> `X.y+1`; a major branch's squash
@@ -53,7 +53,7 @@ Priority: normal — small. Effort: S.
 
 ### 3. Program logs for flat plans
 
-In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
+In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave fixer;
 flat `## Todo` plans and child plans do not. Owner decision (2026-10-21): flat and child plans get
 the same logging as programs, not deferrals only. `pack/agents/supervisor.md` has 23 words of
 headroom under its Main cap; wording trims need no owner approval, but cutting rules to fit does

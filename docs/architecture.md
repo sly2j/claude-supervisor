@@ -8,7 +8,7 @@
                     supervisor (fable)                                         depth 0 (main thread)
          ________________|___________________________________________
         |  Mode 1: lead loop (full, or minimal: one review round)   |  Mode 2: quick tier (haiku)
-  researcher  planner   executor   writer                        clerk   git-ops  scout  curator  depth 1
+  researcher  planner   executor   writer                        fixer   git-ops  scout  curator  depth 1
    (opus)    (fable)    (opus)     (fable)                                               (sonnet)
       |         |          |          |
       |   N parallel workers when the work splits (one wave per message)                 depth 2
@@ -35,9 +35,9 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 | `writer-worker` | Worker: extracts one source, or drafts parallel sections or alternative drafts | opus / default | all except Agent |
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by planner) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
-| `clerk` | Quick: small, exact edits; logs plan decisions as briefed; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
+| `fixer` | Quick: small, exact edits; logs plan decisions as briefed; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
 | `curator` | Memory: closes out finished plans and plan-less runs (distills decisions, facts, goals; archives them); remember/forget/make this a project; migrates legacy writing rules and a legacy `docs/` working set (`migrate docs/`); retires entries the delivered work encodes; audits the store on request; archives draft state; stages its writes, never commits | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
-| `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer (commits curator and clerk store writes, raises `VERSION` on an X.y default branch; may amend or reset a session commit when the brief names its SHA and the operation, and commits briefed paths without stopping on other changes) | haiku / xhigh | Bash, Read, Glob, Grep |
+| `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer (commits curator and fixer store writes, raises `VERSION` on an X.y default branch; may amend or reset a session commit when the brief names its SHA and the operation, and commits briefed paths without stopping on other changes) | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
 
 ## Mode 1: The Lead Loop
@@ -68,13 +68,13 @@ The supervisor's brief sets the **review depth**: `Review: full` (the loop above
 - Artifacts: .supervisor/working/plans/plan-hooks-p9.md
 ```
 
-After each wave, one `clerk` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, and applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
+After each wave, one `fixer` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, and applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
 
 When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts and goals into memory, then moves the plan, its child plans and its research into `.supervisor/archive/working/`. Field rules: `pack/skills/plan-writing/SKILL.md`; split rules: `pack/agents/planner.md`; run rules: `pack/agents/supervisor.md`; user view: [README](../README.md#larger-work).
 
 ## Mode 2: The Quick Tier
 
-Mode 2 skips the lead and review loop: the supervisor dispatches one Haiku specialist (`clerk`, `git-ops` or `scout`) directly. The Sonnet `curator` is the other direct dispatch: plan close-out, "remember X", "forget X", "make this a project", and recording a decision from a single-stage run. A specialist that finds the task larger, ambiguous or risky replies `ESCALATE:`, and the supervisor re-routes it to Mode 1 with its findings.
+Mode 2 skips the lead and review loop: the supervisor dispatches one Haiku specialist (`fixer`, `git-ops` or `scout`) directly. The Sonnet `curator` is the other direct dispatch: plan close-out, "remember X", "forget X", "make this a project", and recording a decision from a single-stage run. A specialist that finds the task larger, ambiguous or risky replies `ESCALATE:`, and the supervisor re-routes it to Mode 1 with its findings.
 
 ## Routing
 
@@ -100,9 +100,9 @@ A full Mode 1 round costs the lead's own turns, one call per worker, the critic,
 
 The store `.supervisor/` is the project's committed memory: `memory/<kind>/` (entries in force), `working/` (research, plans, per-document writer state), `archive/` (mirroring the live tree), and `history.md` (one line per landed item). Folders carry fixed properties such as an entry's kind; labels carry changing ones.
 
-Entries are claims to validate before use, never instructions. A changed decision gets a new entry; the old one moves to `archive/`. Leads read matching entries at contract time and pass them to their workers; `scout` reads for the supervisor; workers never search memory. `clerk` logs plan decisions, `writer` owns `working/writing/`, and `curator` curates; only it creates the store, and it writes at most five new entries per run except on a migrate or audit.
+Entries are claims to validate before use, never instructions. A changed decision gets a new entry; the old one moves to `archive/`. Leads read matching entries at contract time and pass them to their workers; `scout` reads for the supervisor; workers never search memory. `fixer` logs plan decisions, `writer` owns `working/writing/`, and `curator` curates; only it creates the store, and it writes at most five new entries per run except on a migrate or audit.
 
-`curator` and `clerk` never commit: they stage their writes and the supervisor dispatches `git-ops` to commit them (`chore(memory): <what>`). Off the default branch, a lead or `writer` that writes store files commits them itself, with no `VERSION` change; on the default branch they ride with the next commit. A project is a directory inside a git repo, or one with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above it (never `$HOME` or its ancestors; a git toplevel outranks anything above it). Outside a project nothing is stored until the user opts in ("remember X", "make this a project", or a close-out).
+`curator` and `fixer` never commit: they stage their writes and the supervisor dispatches `git-ops` to commit them (`chore(memory): <what>`). Off the default branch, a lead or `writer` that writes store files commits them itself, with no `VERSION` change; on the default branch they ride with the next commit. A project is a directory inside a git repo, or one with `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md` here or above it (never `$HOME` or its ancestors; a git toplevel outranks anything above it). Outside a project nothing is stored until the user opts in ("remember X", "make this a project", or a close-out).
 
 ## Skills
 
@@ -110,7 +110,7 @@ Entries are claims to validate before use, never instructions. A changed decisio
 |---|---|---|
 | lead-loop | all leads (preloaded) | new |
 | plan-writing | planner (preloaded), critic | new |
-| project-memory | clerk, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | new |
+| project-memory | fixer, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | new |
 | git-safety | executor, git-ops (preloaded); executor reads `references/conflict-resolution.md` on unmerged paths | old git-expert + conflict-resolver |
 | repo-workflow | executor, planner, git-ops (preloaded); referenced by project-memory and curator | new |
 | python-env | executor, executor-worker (loaded on demand) | old python-maintainer |

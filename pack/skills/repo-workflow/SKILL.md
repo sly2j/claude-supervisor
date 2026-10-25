@@ -45,7 +45,7 @@ persisted:
   is major.
 - The agent that lands a change set on the default branch bumps `VERSION` with it, before running
   the checks: the lead in its squash commit, the editing agent for a direct Mode 1 commit, and
-  `git-ops` for a Mode 2 commit. `curator` and `clerk` never commit; `clerk` edits `VERSION` only
+  `git-ops` for a Mode 2 commit. `curator` and `fixer` never commit; `fixer` edits `VERSION` only
   when its brief says so. Never every worker.
 - Other branches leave `VERSION` alone.
 - `git-ops` stages a modified `VERSION` with the commit. On the default branch, when
@@ -56,7 +56,7 @@ persisted:
 - In a git project, each `executor` change set works in its own `git worktree` at
   `<toplevel>/.claude/worktrees/<slug>`, on a new branch cut from the default branch. Name the
   branch like the repo's existing branches, else `<type>/<slug>`. Workers share the lead's
-  worktree, and only the lead changes git state in it. Quick-tier work (`clerk`, `git-ops`),
+  worktree, and only the lead changes git state in it. Quick-tier work (`fixer`, `git-ops`),
   conflict resolution, environment repair and repos with submodules stay in the current checkout.
 - Before cutting a worktree, run `git worktree list`: resume in the one for your own slug, and
   report the other linked worktrees as "other worktrees". If

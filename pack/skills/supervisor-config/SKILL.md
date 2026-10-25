@@ -39,7 +39,7 @@ or heredoc, because a permission check matches the literal command:
 "${CLAUDE_SKILL_DIR}/scripts/codex-critic" status
 ```
 
-Run it with Bash. Without Bash (the `supervisor` main thread), dispatch `clerk` with the exact
+Run it with Bash. Without Bash (the `supervisor` main thread), dispatch `fixer` with the exact
 command line, substituted path included, and relay its output.
 
 ## Report

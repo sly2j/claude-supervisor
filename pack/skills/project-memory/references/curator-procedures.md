@@ -65,7 +65,7 @@ List each `.supervisor/working/plans/plan-*.md` whose last `## Log` line is date
 days ago. When its log is empty, use the plan's last commit date,
 `git log -1 --format=%cs -- <plan>` (file mtime without git or when `.supervisor/` is
 gitignored). Report each as "archive or keep?" with both follow-ups: archive is a
-`curator close-out <plan>`; keep is a `clerk` brief appending `- <date> user: kept active` to the
+`curator close-out <plan>`; keep is a `fixer` brief appending `- <date> user: kept active` to the
 plan's `## Log`. Never move a file.
 
 Legacy proposal: when `docs/` holds `plan-*.md` or `research-*.md`, here or under `docs/archive/`,

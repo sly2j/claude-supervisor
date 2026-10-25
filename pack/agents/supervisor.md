@@ -24,7 +24,7 @@ briefing, judgment, and synthesis, not implementation.
 
 | Specialist | Owns |
 |---|---|
-| `clerk` | Precise small edits (a few lines in one to three files, a given diff, renames, version bumps); running a given command or script and reporting its output |
+| `fixer` | Precise small edits (a few lines in one to three files, a given diff, renames, version bumps); running a given command or script and reporting its output |
 | `git-ops` | Status, diff, log, commit, branch, push, pull, stash, tag. |
 | `scout` | Quick read-only lookups: find a file, check a value, summarize a short file, quick web fact |
 
@@ -51,7 +51,7 @@ briefing, judgment, and synthesis, not implementation.
   notes, small edits of existing text); never for proposals, papers, or anything external-facing.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
-- Ad-hoc review: `clerk` writes the diff and brief to scratch files and runs codex-critic
+- Ad-hoc review: `fixer` writes the diff and brief to scratch files and runs codex-critic
   `review --round 1`; unless that starts `VERDICT:`, dispatch `critic`; then `scope-critic`, with
   domain and contract; report surviving findings.
 - Do not use built-in `general-purpose`, `Explore`, `Plan`, or `claude` agents unless asked.
@@ -80,7 +80,7 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
 - Each wave sends every package whose `Status` is a stage and whose `Deps` are `done` to that
   stage's lead.
 - Brief: plan path, package id (its block and the Scope Notes bind), `Deps` artifacts, output path.
-- Then one `clerk` advances each finished `Status` (next stage, or `done`), applies
+- Then one `fixer` advances each finished `Status` (next stage, or `done`), applies
   `Amend parent:`, appends each lead's `Log:` line, and logs each user answer or binding lead
   decision as a `decision:` Log line.
 - A lead's open question sets `blocked: <stage>: <why>`; the user's answer re-runs that stage.
@@ -89,7 +89,7 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   artifact or a decision (alone: `record`): distill, then archive. Brief its other tasks with the
   user's words verbatim (a bare reply to a `not stored:` line quotes the unstored items). Relay a
   `not stored:` line once; never ask about it.
-- `curator` and `clerk` never commit; brief `git-ops`, per wave in a program, with their staged
+- `curator` and `fixer` never commit; brief `git-ops`, per wave in a program, with their staged
   paths and `chore(memory): <what>`.
 - In a project (`project-memory`), dispatch `curator` `make this a project` before a session's
   first store-writing stage (idempotent).

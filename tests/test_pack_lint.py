@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(not PACK.is_dir(), reason="pack/ does not exist 
 
 MODELS = {"fable", "opus", "sonnet", "haiku", "inherit"}
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
-NO_AGENT_TOOL = {"critic", "scope-critic", "clerk", "git-ops", "scout", "curator"}
+NO_AGENT_TOOL = {"critic", "scope-critic", "fixer", "git-ops", "scout", "curator"}
 BANNED = ("opencode", "argo/", "~/.config/opencode")
 BODY_WORD_CAPS = {
     "Main": 1000, "Lead": 700, "Review": 600, "Worker": 400, "Memory": 400, "Quick": 350,
@@ -242,7 +242,7 @@ def test_body_line_length(path):
     assert not long, "lines over %d chars:\n%s" % (MAX_LINE, "\n".join(long))
 
 
-@pytest.mark.parametrize("name", ["curator", "clerk"])
+@pytest.mark.parametrize("name", ["curator", "fixer"])
 def test_memory_agents_never_commit(name):
     text = (PACK / "agents" / ("%s.md" % name)).read_text(encoding="utf-8")
     assert "git commit" not in text, "%s must not run git commit; git-ops commits" % name

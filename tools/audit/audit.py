@@ -25,7 +25,7 @@ import sys
 DEFAULT_ROOTS = ["~/.config/claude-supervisor/projects", "~/.claude/projects"]
 SHARED_STORE = "~/.claude/projects"  # shared with plain Claude Code: only pack-using sessions count
 LEADS = ["researcher", "planner", "executor", "writer"]
-QUICK = {"scout", "clerk", "git-ops", "curator", "quick-edit"}
+QUICK = {"scout", "fixer", "clerk", "git-ops", "curator", "quick-edit"}
 PACK = set(LEADS) | QUICK | {"critic", "scope-critic", "researcher-worker", "planner-worker",
                              "executor-worker", "writer-worker"}
 DISPATCH = ("Agent", "Task")

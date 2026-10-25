@@ -69,7 +69,7 @@ skill defaults preserved across rounds (recurring Pending Verification items are
 - `override that preserved it:` the convention, Session Decision or author-sample anchor
 
 The user confirms or rejects each candidate individually. Return the approved ones in your report
-as `convention` entries to write: logged by `clerk` as `decision:` lines in a program, briefed to
+as `convention` entries to write: logged by `fixer` as `decision:` lines in a program, briefed to
 `curator record` after a single-stage run. Write no entries.
 
 When the user resolves a repeated finding by suspending a rule for one draft, record it as a

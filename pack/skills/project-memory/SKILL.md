@@ -44,7 +44,7 @@ The store is committed to the project and holds what future sessions must not re
 A linked worktree's `.supervisor/` is its branch's memory and lands with the branch (git merges
 it; see `repo-workflow` landing). Off the default branch, a lead or `writer` that writes store
 files ends its run with a pathspec commit of them, `chore(memory): <what>`, per `git-safety`
-Commits, with no `VERSION` change. `curator` and `clerk` never commit: they stage and report
+Commits, with no `VERSION` change. `curator` and `fixer` never commit: they stage and report
 paths, and supervisor dispatches `git-ops`. On the default branch, store changes ride with the
 next commit in that checkout (`repo-workflow` Store changes).
 
@@ -132,7 +132,7 @@ instead). Nothing is ever written or deleted outside the project tree.
   (without git, a file mtime newer than `verified:`).
 - A `host:/path` reference whose host is not `hostname -s` is unavailable here: cite it, do not
   read it.
-- Workers never search memory; leads pass relevant entries in briefs. `clerk` and `git-ops`
+- Workers never search memory; leads pass relevant entries in briefs. `fixer` and `git-ops`
   never read it. Expiry is a flag on `affects:` change only.
 
 ## Horizons

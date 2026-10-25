@@ -18,7 +18,7 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Review | critic | opus / default | read-only plus Bash; no `Agent` |
 | Review | scope-critic | fable / default | read-only, no Bash, no `Agent` |
 | Memory | curator | sonnet / default | explicit allowlist; no `Agent` |
-| Quick | clerk, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
+| Quick | fixer, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
 - `planner` dispatches `critic` with `model: fable`, and `supervisor` dispatches `writer` with
   `model: opus` for short, low-stakes prose; these per-call overrides are the only exceptions to the

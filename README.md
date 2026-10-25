@@ -47,7 +47,7 @@ The pack is one supervisor, four leads for larger work, their workers, two revie
 - `writer`: scientific and technical prose, slide content, project docs
 - `researcher-worker`, `planner-worker`, `executor-worker`, `writer-worker`: the parallel workers a lead dispatches; you never call them yourself
 - `critic`, `scope-critic`: review a lead's result, for quality and, when needed, for scope creep
-- `clerk`: small, exact edits; runs a given command
+- `fixer`: small, exact edits; runs a given command
 - `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups
@@ -57,7 +57,7 @@ Just ask for what you want. The supervisor picks the path:
 | Situation | Path | Why |
 |---|---|---|
 | Conversation, general advice, one or two small reads | The supervisor answers directly | Nothing to delegate |
-| Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `clerk`, `git-ops`, or `scout` | Cheapest path, no review loop |
+| Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `fixer`, `git-ops`, or `scout` | Cheapest path, no review loop |
 | Specified and local, but it needs a design call or is not cheap to undo | One lead and one review round | Too much for a quick specialist, less than the full shape |
 | Anything else in one area of work | One lead (`researcher`, `planner`, `executor`, or `writer`) with workers when the work splits, and review | Design judgment gets reviewed |
 | Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor` | You approve the plan before code is written |
@@ -162,7 +162,7 @@ The memory model:
 - **Entry kinds:** decisions, facts, goals, conventions, and lessons. A lesson is recorded only after you approve it.
 - **Goal horizons:** long-term goals in `memory/goals/`, a mid-term `roadmap.md`, and short-term plans and research in `working/`.
 - **Superseding:** a changed decision gets a new entry and the old one moves to `archive/`.
-- **How agents use it:** A lead agent retrieves relevant memories when it starts. The `clerk` agent logs user-provided information into the short-term memory (a plan's `## Log`). The `curator` agent turns short-term memory into long-term memory entries.
+- **How agents use it:** A lead agent retrieves relevant memories when it starts. The `fixer` agent logs user-provided information into the short-term memory (a plan's `## Log`). The `curator` agent turns short-term memory into long-term memory entries.
 - **`curator`:** The `curator` agent maintains the memory store by archiving short-term memories, keeping roadmaps up to date, flagging stale short-term memories, and curating the long-term memory store.
 - **Your controls:** You can tell supervisor to "remember X", to "forget X", or to "make this a project".
 - **Where it applies:** Memories are only stored when supervisor considers the working folder part of a project. A project is auto-detected when the folder is inside a git repository, or when it, or a folder above it, holds `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or when you tell supervisor to make the folder a project. Your home directory never counts, either way.

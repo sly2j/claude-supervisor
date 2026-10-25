@@ -141,6 +141,6 @@ Report within these bounds, in this order:
   (one line each), risks and blockers, and the recommended next action.
 - **Log**: when the brief names a plan, one line in its `## Log` format,
   `- YYYY-MM-DD <package id or lead>: <outcome>; deferred: <items and why, or none>`, ready for the
-  post-wave `clerk` to append unchanged.
+  post-wave `fixer` to append unchanged.
 
 Do not return full artifacts, full files, or raw critic output.
