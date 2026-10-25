@@ -209,22 +209,31 @@ When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout
 
 ## Maintaining An Install
 
+Day to day, the launcher is all you need:
+
 ```bash
-./deploy update                 # clone the install's branch from the recorded remote and reinstall
-./deploy update --all           # every registered install
-claude-supervisor update        # claude update first, then this profile's pack
-./deploy status                 # installed files, version, remote, and branch (or: claude-supervisor status)
-./deploy list                   # every registered install: version, branch, commit, launcher
-claude-supervisor --version     # pack and claude versions; -h lists launcher commands
-./deploy uninstall --dry-run    # show what would be removed
-./deploy uninstall --yes        # or: claude-supervisor uninstall
+claude-supervisor update          # claude update, then this profile's pack
+claude-supervisor status          # installed version and per-file state
+claude-supervisor list            # every registered install: version, branch, commit, launcher
+claude-supervisor --version       # pack and claude versions; -h lists the launcher's commands
+claude-supervisor uninstall       # delete this profile: its dir with sessions, history, login, and token, plus its launcher
 ```
 
-`update` follows the branch the install came from (`main` for a normal clone) and clones only what is pushed to it, so it ignores local checkout edits; to deploy those, run `./deploy install` from the checkout. Without `--all` or `--tag`, `update` updates only the default profile. Files you edited in the install dir are kept.
+`update` asks once (`--yes` skips, `--dry-run` shows what would change) and takes only what is pushed to the install's branch (`main` for a normal clone), so local checkout edits are ignored; files you edited in the install dir are kept. `uninstall` asks you to type the tag; run it with `--dry-run` first. For another profile, replace `supervisor` with its tag. The Codex switch, `claude-supervisor critic ...`, is in [Optional: Codex As Critic](#optional-codex-as-critic).
+
+The deploy script covers what the launcher does not: `install`, `doctor`, `migrate`, `--global` installs (which have no launcher), and installs other than the launcher's own. Run it from your checkout:
+
+```bash
+./deploy install                  # deploy the checkout as it is, local edits included
+./deploy doctor                   # PASS/WARN/FAIL checks (claude-supervisor doctor is Claude Code's own doctor)
+./deploy update --all             # every registered install; --tag <t> or --global for one
+./deploy uninstall --dry-run      # then --yes; --global removes only the pack's files
+./deploy migrate                  # move a pack installed in ~/.claude to the default profile
+```
+
+`install`, `doctor`, `status`, `update`, and `uninstall` take `--tag <t>`, `--target <dir>`, or `--global` to pick the install (the default profile when none is given). The full reference (`--from`, `--force`, `--source`, the registry and tool copy each install keeps) is in [docs/deploy.md](docs/deploy.md).
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
-
-A profile uninstall deletes the profile dir, including its sessions, history, login, and token. Run `--dry-run` first.
 
 To route a profile through a token provider (only for a proxy or gateway; omit it to use a normal login), see [docs/deploy.md](docs/deploy.md#token-provider).
 
