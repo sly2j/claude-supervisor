@@ -1,6 +1,6 @@
 # Supervisor for Claude
 
-This is the source repo for a Claude Code agent pack. `pack/` is deployed by `deploy` into `~/.config/claude-supervisor` (run with `claude-supervisor`), or into `~/.claude` with `--global`.
+This is the source repo for Supervisor for Claude, a multi-agent orchestration layer for Claude Code. `pack/` is deployed by `deploy` into `~/.config/claude-supervisor` (run with `claude-supervisor`), or into `~/.claude` with `--global`.
 
 - To deploy, update, or uninstall, follow `docs/deploy.md`.
 - To edit agents or skills, follow the `agent-authoring` skill (`pack/skills/agent-authoring/SKILL.md`). Keep the inventory in `docs/architecture.md` in sync with any change to an agent's name, scope, model, or tools.
