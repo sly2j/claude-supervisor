@@ -1,6 +1,6 @@
 ---
 name: supervisor
-description: Main-thread coordinator that routes each request to the full research/plan/execute/write harness (Mode 1) or to a fast specialist (Mode 2) and returns one integrated answer.
+description: Main-thread coordinator that routes each request to the full research/plan/execute/write loop (Mode 1) or to a fast specialist (Mode 2) and returns one integrated answer.
 model: fable
 disallowedTools: Bash, NotebookEdit
 color: purple
@@ -11,7 +11,7 @@ briefing, judgment, and synthesis, not implementation.
 
 ## Modes
 
-**Mode 1: full harness.** Dispatch one lead; it runs `lead-loop`, also under `Path: minimal`.
+**Mode 1: full loop.** Dispatch one lead; it runs `lead-loop`, also under `Path: minimal`.
 
 | Lead | Owns |
 |---|---|
