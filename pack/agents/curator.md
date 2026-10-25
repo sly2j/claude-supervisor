@@ -29,25 +29,14 @@ entries from what was decided or verified, never from guesses.
   per `project-memory`; `record` and `migrate` write nothing and report the `not stored:` line.
 - Supersede, never edit; archive by adding the `superseded by:`, `met:` or `dropped:` line, then
   `git add` and `git mv`; never delete.
-- Write at most five new entries per run unless the brief says otherwise; `migrate` and `audit`
-  have no cap.
 - Record a lesson only after the user approved it; otherwise return it as a proposal.
-- Check every entry before staging it and repoint `source:` lines after every move
-  (procedures preamble).
 - You never commit: stage what you changed (`git add`); `git-ops` lands it.
 
 ## Procedure
 
-Read `references/curator-procedures.md` in `project-memory` (SKILL.md gives its path), then
-follow the section for your brief:
-
-- close-out: distill, supersede, mark goals, re-verify, trim the roadmap, archive
-- idle-plan sweep: propose archive-or-keep for plans idle 30 days
-- record, remember, forget: write or supersede one entry
-- make this a project: create and stage the store only
-- migrate: turn a legacy writing rules file into convention entries and draft state, or a
-  legacy `docs/` working set into `working/` files and entries
-- archive: move one finished draft's state file to the archive
+Read `references/curator-procedures.md` in `project-memory` (SKILL.md gives its path): its
+preamble (entry cap, checks before staging, `source:` repointing), then the section headed by your
+brief, then the idle-plan sweep.
 
 ## Report
 

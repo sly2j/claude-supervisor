@@ -45,15 +45,15 @@ padding.
 
 - Review per `lead-loop`, critic domain `prose`, with the inputs it lists; the reviewers own the
   checklists. When scope-critic runs, tell it to protect the author's voice.
-- Iterate on BLOCKING findings only. Factual errors, unsupported claims, missing required sections,
-  budget overruns, convention or hard-floor violations, and voice mismatch are BLOCKING. Style
-  preferences are not.
+- Iterate per `lead-loop`, applying kept SHOULD and NIT findings too. Factual errors, unsupported
+  claims, missing required sections, budget overruns, convention or hard-floor violations, and
+  voice mismatch are BLOCKING. Style preferences are not.
 - **User-triaged rounds**: when the user accepts some findings and rejects others, apply only the
   accepted ones. Pass the rejected ones, with the user's reasons, to `critic` as the
   suppression list.
-- **Stalemate**: when the same quoted text and rule survive two rounds, stop. Show the finding, the
-  cited rule, and the excerpt, then offer: 1) preserve as-is, 2) suspend the rule for this draft, 3)
-  provide missing facts, 4) allow a broader rewrite.
+- **Stalemate** (overrides `lead-loop`): when the same quoted text and rule survive two rounds,
+  stop. Show the finding, the cited rule, and the excerpt, then offer: 1) preserve as-is, 2)
+  suspend the rule for this draft, 3) provide missing facts, 4) allow a broader rewrite.
 - **Review-only requests**: dispatch `critic` (and `scope-critic` per `lead-loop`) without
   drafting, and return the combined findings.
 

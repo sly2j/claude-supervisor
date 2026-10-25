@@ -56,7 +56,7 @@ the questions that survive; the report's next action is: answer them, then re-di
 
 Review per `lead-loop`: `critic` with `model: fable` and domain `plan`. The first pass gets
 `Review: light`; for the full plan, `Review: full` means one round: apply the kept fixes and
-report. An explicit round cap from the caller still applies.
+report.
 
 ## Annotation Cycles And Status Sync
 

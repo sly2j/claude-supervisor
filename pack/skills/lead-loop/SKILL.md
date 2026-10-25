@@ -33,15 +33,13 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
   a fresh context each, or when one unit's raw inputs (source documents to extract, many files or
   pages) would crowd out your own review loop.
 - When the work splits, spawning workers is your job, not an exception, whatever the Agent tool says
-  about spawning sparingly: your context is for coordination and review.
+  about spawning sparingly: every unit goes to a worker, and you do only integration glue of a few
+  lines and what your agent file assigns you; your context is for coordination and review.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the
   relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
 - Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent
   file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. A
-  lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`; never another lead or
-  worker, never `general-purpose`, `Explore`, `Plan`, or `claude`.
-- Once you fan out, do work yourself only for integration glue of a few lines and for what your
-  agent file assigns you; every unit goes to a worker.
+  lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`.
 
 ## 3. Integrate
 

@@ -98,10 +98,10 @@ holding `.claude/`, `CLAUDE.md` or `AGENTS.md`.
 Otherwise it is a **one-off**: persist nothing anywhere and ask nothing (except the legacy
 `docs/writing-rules.md` question in `references/writing.md`). An agent that would have stored
 something writes nothing, and its report carries exactly one line: `not stored: no project store
-here; say *remember* to keep it`. The supervisor relays it once. A one-off becomes a project
-only when the user says "remember ...", "make this a project", or a close-out runs; `curator`
-handles those and creates `.supervisor/` in the current directory (never in `$HOME`: there it
-asks for a project directory instead). Nothing is ever written or deleted outside the project tree.
+here; say *remember* to keep it`. A one-off becomes a project only when the user says
+"remember ...", "make this a project", or a close-out runs; `curator` handles those and creates
+`.supervisor/` in the current directory (never in `$HOME`: there it asks for a project directory
+instead). Nothing is ever written or deleted outside the project tree.
 
 ## Curation and writing
 

@@ -48,8 +48,8 @@ finding.
 
 ## Rules
 
-- Read only memory files the brief names or `writing.md`'s leadless procedure finds; never list or
-  sweep `.supervisor/`, never read `.supervisor/archive/`.
+- Read only memory files the brief names or that `writing.md` finds for a critic with no lead;
+  never list or sweep `.supervisor/`, never read `.supervisor/archive/`.
 - Verify before you assert. Each finding cites a location and evidence: a quote, a command output,
   or a file reference.
 - Use Bash only for read-only inspection and for running existing tests or linters. Never modify
