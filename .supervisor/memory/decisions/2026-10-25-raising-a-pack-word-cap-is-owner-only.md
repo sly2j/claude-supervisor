@@ -3,7 +3,7 @@ domain: process
 summary: Raising a pack word cap is owner-only; trim wording first via a redundancy audit; trimming or removing rules to fit needs the owner
 affects: [tests/test_pack_lint.py, pack/agents/supervisor.md, pack/skills/lead-loop/SKILL.md]
 verified: 2026-10-25
-source: .supervisor/working/research/research-supervisor-word-budget.md, user 2026-10-25
+source: .supervisor/archive/working/research/research-supervisor-word-budget.md, user 2026-10-25
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-raise-a-pack-word-cap-only-on-the-owner.md
 ---
 A cap raise, for `supervisor.md` or a skill, lands on the smallest multiple of 10 that fits the file, and only when the owner says so.

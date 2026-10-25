@@ -2,7 +2,7 @@
 domain: process
 summary: No SessionStart or SubagentStart hook injects memory; add one only after a relevant entry was observed missed at contract time
 affects: [pack/agents/supervisor.md]
-verified: 2026-10-24
+verified: 2026-10-25
 source: .supervisor/archive/working/plans/plan-memory-v2.md#open-questions
 supersedes: .supervisor/archive/memory/decisions/2026-10-21-no-retrieval-hooks-in-v2-0-add-one-only.md
 ---
