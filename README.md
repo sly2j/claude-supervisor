@@ -186,7 +186,6 @@ Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothin
 - A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
 - With `--global` (not recommended), plain `claude` becomes the supervisor.
 - `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
-- `doctor`, `status`, `update`, and `uninstall` take the same `--tag` or `--global` (and `--prefix`) as the install.
 
 Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
 
@@ -212,20 +211,20 @@ When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout
 Day to day, the launcher is all you need:
 
 ```bash
-claude-supervisor update          # claude update, then this profile's pack
+claude-supervisor update          # claude update, then this profile's pack; --all updates every install
 claude-supervisor status          # installed version and per-file state
 claude-supervisor list            # every registered install: version, branch, commit, launcher
 claude-supervisor --version       # pack and claude versions; -h lists the launcher's commands
 claude-supervisor uninstall       # delete this profile: its dir with sessions, history, login, and token, plus its launcher
 ```
 
-`update` asks once (`--yes` skips, `--dry-run` shows what would change) and takes only what is pushed to the install's branch (`main` for a normal clone), so local checkout edits are ignored; files you edited in the install dir are kept. `uninstall` asks you to type the tag; run it with `--dry-run` first. For another profile, replace `supervisor` with its tag. The Codex switch, `claude-supervisor critic ...`, is in [Optional: Codex As Critic](#optional-codex-as-critic).
+`update` asks once (`--yes` skips, `--dry-run` shows what would change) and takes only what is pushed to the install's branch (`main` for a normal clone), so local checkout edits are ignored; files you edited in the install dir are kept. `uninstall` asks you to type the tag; run it with `--dry-run` first. Each profile is installed under a tag, and `supervisor` is the default. A profile installed with `--tag foo` has the launcher `claude-foo`, which takes the same commands.
 
-The deploy script covers what the launcher does not: `install`, `doctor`, `migrate`, `--global` installs (which have no launcher), and installs other than the launcher's own. Run it from your checkout:
+A launcher acts on its own profile unless you say `--all`. The `./deploy` script is the tool that created the launchers, and it can act on any install. Use it for the first install, for `doctor` (`claude-supervisor doctor` is Claude Code's own doctor, not this one), for a `--global` install, which has no launcher, for removing every install at once, and for `migrate`. Run it from your checkout:
 
 ```bash
 ./deploy install                  # deploy the checkout as it is, local edits included
-./deploy doctor                   # PASS/WARN/FAIL checks (claude-supervisor doctor is Claude Code's own doctor)
+./deploy doctor                   # PASS/WARN/FAIL checks on the environment and the install
 ./deploy update --all             # every registered install; --tag <t> or --global for one
 ./deploy uninstall --dry-run      # then --yes; --global removes only the pack's files
 ./deploy migrate                  # move a pack installed in ~/.claude to the default profile
@@ -235,7 +234,7 @@ The deploy script covers what the launcher does not: `install`, `doctor`, `migra
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
 
-To route a profile through a token provider (only for a proxy or gateway; omit it to use a normal login), see [docs/deploy.md](docs/deploy.md#token-provider).
+To route a profile through a token provider (only for a proxy or gateway), see [docs/deploy.md](docs/deploy.md#token-provider).
 
 ## Migrating From Older Versions
 
