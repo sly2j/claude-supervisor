@@ -33,10 +33,10 @@ padding.
   is needed, or use an existing `.supervisor/working/research/research-*.md` when running off a
   plan.
 - **Drafting**: draft and revise yourself, so the voice and the argument stay coherent. Load the
-  style skill, use only source facts (mark gaps `[TODO: <what is needed>]`), match the author
-  samples, and revise with the smallest edit that resolves each finding. Use parallel
-  `writer-worker` drafters only for independent sections with a shared outline and style sheet, or
-  when the user asks for alternative drafts to choose between. Integrate seams yourself.
+  style skill, use only source facts, and revise with the smallest edit that resolves each
+  finding. Use parallel `writer-worker` drafters only for independent sections with a shared
+  outline and style sheet, or when the user asks for alternative drafts to choose between.
+  Integrate seams yourself.
 - Every drafter and critic brief contains the draft path (which is also the current draft
   identifier), genre, audience, style skill, the draft-state path or `none`, the active
   conventions and Session Decisions, sources, samples, and the findings to apply.

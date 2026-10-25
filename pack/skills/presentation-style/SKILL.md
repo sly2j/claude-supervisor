@@ -26,6 +26,10 @@ Use WHY, HOW, WHAT unless the talk type calls for another structure.
 - Talk duration outranks slide count; narrative clarity outranks source completeness.
 - When no figure is provided, draft around the intended claim and note the figure's role without
   inventing visual details.
+- Do not invent numbers, results, or claims. Mark each gap on the slide or in its
+  notes as `[TODO: <what is missing>]`.
+- Calibrate title and bullet voice from author samples, such as earlier decks, when given. With
+  fewer than 2 samples, say voice calibration is limited.
 - For outlines, set slide count, motivation depth, and technical depth from talk type and duration
   before writing slide text.
 
@@ -120,4 +124,5 @@ future/outlook, conclusion, questions, backup. Short or special-purpose talks ma
 - Bullets are at most 25 words.
 - No en-dashes, em-dashes, AI-tell phrases, or filler transitions.
 - Figures, datasets, and borrowed material are attributed.
+- No invented numbers or claims; gaps carry `[TODO]` markers.
 - Titles and subtitles follow the conventions above.

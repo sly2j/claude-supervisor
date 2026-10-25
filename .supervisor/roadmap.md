@@ -43,16 +43,7 @@ Only retrieval automation remains; the store itself and its curation shipped (se
 
 Priority: high. Effort: M.
 
-### 2. Make room in supervisor.md
-
-`pack/agents/supervisor.md` is at its Main word cap (raised to the smallest multiple of 10 that
-fit, twice, for the writer-model rule and the Codex critic; now 1039 of 1040), and Program logs for flat plans needs a clause
-there. The owner chose (2026-10-21) to keep the cap and cut: propose specific cuts to the owner
-for approval before adding clauses; a cap raise is minimal, on a multiple of 10, per
-`.supervisor/memory/decisions/2026-10-24-raise-a-pack-word-cap-only-on-the-owner.md`.
-Priority: normal — unblocks Program logs for flat plans. Effort: S.
-
-### 3. Roadmap intake: tell users they can add items
+### 2. Roadmap intake: tell users they can add items
 
 The README does not say the roadmap takes user-added tasks. Candidates: an "Adding to the
 roadmap" README section (hand-editing `.supervisor/roadmap.md`, with the item format), and a
@@ -60,15 +51,16 @@ supervisor "add to the roadmap: ..." path. On 2026-10-21 the owner selected neit
 which, if any, before starting, or drop the item.
 Priority: normal — small. Effort: S.
 
-### 4. Program logs for flat plans
+### 3. Program logs for flat plans
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave clerk;
 flat `## Todo` plans and child plans do not. Owner decision (2026-10-21): flat and child plans get
-the same logging as programs, not deferrals only.
-Depends on: Make room in supervisor.md
+the same logging as programs, not deferrals only. `pack/agents/supervisor.md` has 23 words of
+headroom under its Main cap; wording trims need no owner approval, but cutting rules to fit does
+(`.supervisor/memory/decisions/2026-10-25-raising-a-pack-word-cap-is-owner-only.md`).
 Priority: normal. Effort: M.
 
-### 5. Configurable model tiers for alternative providers
+### 4. Configurable model tiers for alternative providers
 
 Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
 third-party providers that implement the Anthropic API via API keys. Owner direction
@@ -77,7 +69,7 @@ the tiers, lists the provider's available models, and lets the user pick one per
 or by typing a name. `deploy` stays standard-library-only.
 Priority: normal. Effort: M.
 
-### 6. Science artefacts (future release)
+### 5. Science artefacts (future release)
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -97,7 +89,7 @@ Priority: normal. Effort: M.
 
 Priority: low — deferred by the owner 2026-10-21 to a future release. Effort: L.
 
-### 7. Re-measure harness efficiency (from late November 2026)
+### 6. Re-measure harness efficiency (from late November 2026)
 
 Once a few weeks of v6.0 sessions exist, run `python3 -I tools/audit/audit.py` and compare with
 `.supervisor/memory/facts/2026-10-24-efficiency-baseline-for-drift.md`. Tune the scope-critic skip
@@ -108,16 +100,7 @@ Decisions:
 
 Priority: low — opt-in check, not before late November 2026. Effort: S.
 
-### 8. Chore: bring supervisor.md back under 1000 words
-
-`pack/agents/supervisor.md` is at 1039 of 1040 words; cut it back below 1000 with the owner's
-approval of each cut. Optionally do the same for the lead-loop skill (1371 of 1380).
-Decisions:
-- `.supervisor/memory/decisions/2026-10-24-raise-a-pack-word-cap-only-on-the-owner.md`
-
-Priority: low. Effort: S.
-
-### 9. Haiku relay agent for the Codex critic (optional)
+### 7. Haiku relay agent for the Codex critic (optional)
 
 Only if the transcript visibility of the Codex critic step proves insufficient: a thin
 `codex-critic` Haiku relay subagent, so the step shows as an agent launch. The current two-call
@@ -128,7 +111,7 @@ Decisions:
 
 Priority: low. Effort: S.
 
-### 10. Interpreter-path setting so Codex can run tests (optional)
+### 8. Interpreter-path setting so Codex can run tests (optional)
 
 Only if the need shows up: a setting naming the Python interpreter for Codex's sandbox, so Codex
 can run the tests (`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-tests.md`).
