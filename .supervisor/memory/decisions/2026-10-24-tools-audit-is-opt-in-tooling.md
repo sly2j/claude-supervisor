@@ -2,7 +2,7 @@
 domain: process
 summary: tools/audit/ is opt-in tooling: never run by default, lightly documented, outputs never committed
 affects: [tools/audit/]
-verified: 2026-10-24
+verified: 2026-10-25
 source: user 2026-10-24 (owner decision after .supervisor/archive/working/research/research-fold-subagents.md)
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-efficiency-scripts-are-opt-in-tooling.md
 ---

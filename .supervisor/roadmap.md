@@ -55,7 +55,7 @@ Priority: normal — small. Effort: S.
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave fixer;
 flat `## Todo` plans and child plans do not. Owner decision (2026-10-21): flat and child plans get
-the same logging as programs, not deferrals only. `pack/agents/supervisor.md` has 23 words of
+the same logging as programs, not deferrals only. `pack/agents/supervisor.md` has 2 words of
 headroom under its Main cap; wording trims need no owner approval, but cutting rules to fit does
 (`.supervisor/memory/decisions/2026-10-25-raising-a-pack-word-cap-is-owner-only.md`).
 Priority: normal. Effort: M.
