@@ -18,7 +18,7 @@ REPO=~/Work/claude-supervisor
 cd "$REPO" && git pull
 ```
 
-Then, in either case:
+Then, in either case, install into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, login, settings and history; plain `claude` is untouched.
 
 ```bash
 "$REPO/deploy" doctor        # preflight: python, claude version, env overrides (warns "not installed yet" on a fresh machine)
@@ -28,7 +28,7 @@ Then, in either case:
 "$REPO/deploy" doctor        # should now report no FAIL
 ```
 
-Start it with `claude-supervisor` and log in once. A profile is a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher; each profile has its own login, settings, and history, and plain `claude` is untouched. The session runs as `supervisor` because install sets `"agent": "supervisor"` in the profile's `settings.json`. Type `/agents` to see the installed agents.
+Start it with `claude-supervisor` and log in once. The session runs as `supervisor` because install sets `"agent": "supervisor"` in the profile's `settings.json`. Type `/agents` to see the installed agents.
 
 If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$PATH" to your shell profile, then open a new terminal`, `claude-supervisor` will not be found until that line is in the shell profile (`<bin>` is `~/.local/bin` by default).
 
@@ -36,24 +36,28 @@ If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$
 
 ## What Install Does
 
-- Copies `pack/agents/*.md` to `<target>/agents/` and `pack/skills/*` to `<target>/skills/`. The target is a profile, `~/.config/claude-<tag>` (`--tag`, default `supervisor`; `--target DIR` sets another dir), or `~/.claude` with `--global`, which installs as before with no copy and no launcher. `$CLAUDE_CONFIG_DIR` is ignored.
-- Records SHA-256 hashes in `<target>/.claude-supervisor-manifest.json`. An install made before the rename (with `.claude-agents-manifest.json`) is still recognized by `status` and is migrated to the new name by the next `install`. Re-running `install` is the update path and is idempotent:
+- Copies `pack/agents/*.md` to `<target>/agents/` and `pack/skills/*` to `<target>/skills/`. The target is a profile, `~/.config/claude-<tag>` (`--tag`, default `supervisor`; `--target DIR` sets another dir), or `~/.claude` with `--global`, which skips the first-install copy from `~/.claude` (below) and has no launcher. `$CLAUDE_CONFIG_DIR` is ignored.
+- Records SHA-256 hashes in `<target>/.claude-supervisor-manifest.json`. Re-running `install` is the update path and is idempotent:
 
 | Situation | Action |
 |---|---|
 | File not installed yet | copied |
 | Installed and unmodified, source changed | updated |
 | You edited the installed file | kept, with a warning (`--overwrite-local` backs it up as `<file>.bak-<timestamp>` and replaces it) |
-| A file with that name exists that the pack does not manage | refused, exit code 1 (`--overwrite-local` backs it up and replaces it) |
+| An unmanaged file with that name exists | refused, exit code 1 (`--overwrite-local` backs it up and replaces it) |
 | File removed from the pack | deleted if unmodified, otherwise kept and handed over to you |
 
-- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if the pack had set it). Start the supervisor with `claude-supervisor --agent supervisor`. `claude-supervisor --agent <other>` overrides the setting for a single session.
-- In a profile (never with `--global`), also sets `attribution.commit` to `Co-Authored-By: Supervisor for Claude` in `settings.json`, so commits made by the agents carry that trailer instead of Claude Code's default. It also sets `attribution.pr` to `""` and `attribution.sessionUrl` to `false` ([docs](https://code.claude.com/docs/en/settings-reference#attribution-sessionurl)), so commits and PRs carry only the pack trailer, with no session link and no "Generated with Claude Code" footer. Other keys are kept. Each sub-key is set only when absent; a value you set yourself (a different `commit` text, any `pr` or `sessionUrl`, or `attribution: false`) is left alone, and the install message says so; the pre-5.0 trailer `Co-Authored-By: Claude Supervisor` is replaced only where the pack set it. The manifest records which of them the pack set; deleting the profile on uninstall removes it with the rest.
+- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if install had set it). `claude-supervisor --agent <other>` overrides the setting for a single session.
+- In a profile (never with `--global`), also sets `attribution.commit` to `Co-Authored-By: Supervisor for Claude` in `settings.json`, so commits made by the agents carry that trailer instead of Claude Code's default. It also sets `attribution.pr` to `""` and `attribution.sessionUrl` to `false` ([docs](https://code.claude.com/docs/en/settings-reference#attribution-sessionurl)), so commits and PRs carry only the Supervisor for Claude trailer, with no session link and no "Generated with Claude Code" footer. Other keys are kept. Each sub-key is set only when absent; a value you set yourself (a different `commit` text, any `pr` or `sessionUrl`, or `attribution: false`) is left alone, and the install message says so. The manifest records which of them install set; deleting the profile on uninstall removes it with the rest.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
 - Records the checkout's current git branch next to the remote in the registry; `update` follows it. A detached HEAD records `main` and prints a one-line warning; a source that is not a git checkout records `main` silently. `status` prints `Remote: <url or none>` and `Branch: <branch>` from the registry, or `Remote: not registered`.
-- Records the checkout's version as `pack_version` in the manifest and prints `Version: <version>`, with `(was <old>)` on an update. `VERSION` (the file next to `pack/`) holds the `main` version only; the install derives its version from git. On `main` it is plain `X.y`, also when the tree is dirty. On any other branch (or a detached HEAD) it is `<VERSION at the merge-base with main>+<branch>.<commits ahead of main>.g<short sha>`, plus `.dirty` when the pack dir has uncommitted changes, for example `2.3+memory-v2.7.g8b1d7de`. In the branch name, characters other than letters, digits, `.` and `-` become `-`. The base is `origin/main`, else local `main`; with neither, the version is plain `X.y`. Nothing needs editing after a rebase. `status`, `list` and `--version` use the same derived version. `status` prints `Version: installed=<version>, source=<version>` and appends `(MISMATCH: run ./deploy install from your checkout)` when they differ. When the recorded source dir is gone or no longer a valid pack (for example after `update`) and `--source` is not given, `status` prints `Source: <dir> (not available; pass --source <checkout>/pack to compare)` and `Version: installed=<version> (source not available)` with no MISMATCH, and reports file states (ok, modified, missing) from the manifest alone. Manifests from before versioning show `installed=not recorded` until the next install.
+- Records the checkout's version as `pack_version` in the manifest and prints `Version: <version>`, with `(was <old>)` on an update (see Versions).
 - On a profile's first install, copies from `~/.claude`: `settings.json` (without `agent`), `CLAUDE.md`, `commands/`, `output-styles/`, `keybindings.json`, and your own files in `agents/` and `skills/` (not `skills/.trash` or `skills/synced`). Plugins, logins, history, and sessions stay behind.
 - Writes the launcher `<prefix>/bin/claude-<tag>` (`--prefix P`, default `~/.local`), which runs `claude` with `CLAUDE_CONFIG_DIR` set to the profile. The profile dir does not depend on the prefix. The manifest records the prefix, and `install` and `uninstall` refuse a different `--prefix` for an existing install (exit code 2, with the prefix to pass). Install also refuses a tag whose launcher path exists and was not written by the deploy.
+
+### Versions
+
+`VERSION`, the file next to `pack/`, holds the `main` version only; install derives the version it records from git. On `main` it is plain `X.y`, also when the tree is dirty. On any other branch, or a detached HEAD (label `detached`), it is `<VERSION at the merge-base with main>+<branch>.<commits ahead of main>.g<short sha>`, plus `.dirty` when the pack dir has uncommitted changes, for example `2.3+memory-v2.7.g8b1d7de`. In the branch name, characters other than letters, digits, `.` and `-` become `-`. The base is `origin/main`, else local `main`; with neither, the version is plain `X.y`. Nothing needs editing after a rebase. `status`, `list` and `--version` use the same derived version.
 
 ### Token Provider
 
@@ -75,7 +79,7 @@ claude-supervisor --version           # pack and claude versions (or -v)
 claude-supervisor -h                  # the launcher's own help (or --help, help)
 ```
 
-For commands, the launcher checks only its first argument, after removing `--fable-is-opus`. `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. `--fable-is-opus` counts in any position before a `--`, also with a command, where it has no effect. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
+For commands, the launcher checks only its first argument, after removing `--fable-is-opus` (see Fable Or Opus for where the flag may stand). `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this profile (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
@@ -84,13 +88,13 @@ For commands, the launcher checks only its first argument, after removing `--fab
 - `status` reports this install as `deploy status` does; when the recorded source dir is gone, it suggests `./deploy status --tag <tag> --source <checkout>/pack`, with `--target <dir>` added for an install made with `--target`, to compare.
 - `-h` / `--help` / `help` prints the launcher's commands, its tag and config dir, and a note that `install` and `doctor` run from the checkout.
 - `-v` / `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
-- `--fable-is-opus`, in any position before a `--`, runs that session with Fable mapped to Opus; see Fable Or Opus.
+- `--fable-is-opus` runs that session with Fable mapped to Opus; see Fable Or Opus.
 - If `claude` is not on `PATH`, a session start prints `claude-<tag>: claude not found on PATH; install Claude Code, then retry` and exits 127.
 - `--global` installs have no launcher; use the deploy tool.
 
 ## Update
 
-Every install records itself in a registry, `<prefix>/state/claude-supervisor/installs.json`, and writes a copy of the deploy tool to `<prefix>/state/claude-supervisor/deploy` (by default under `~/.local/state/claude-supervisor/`), with the version of the install that last wrote it beside it in `<prefix>/state/claude-supervisor/VERSION` (removed when the source has no `VERSION`). An install is stand-alone: nothing it runs depends on the source checkout existing or being unchanged, and version and update information come from what the install recorded. The registry file and tool copy stay after uninstall (the install's entry is removed). Each prefix has its own registry and tool copy, and installs under different prefixes are independent: `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give. The commands below use the default prefix; add `--prefix P` for another.
+Every install records itself in a registry and writes a copy of the deploy tool beside it, so `update` does not need the checkout. The commands below use the default prefix; add `--prefix P` for another.
 
 ```bash
 ~/.local/state/claude-supervisor/deploy update                # the default profile; or "$REPO/deploy" update
@@ -99,17 +103,22 @@ Every install records itself in a registry, `<prefix>/state/claude-supervisor/in
 ~/.local/state/claude-supervisor/deploy list                  # what is registered
 ```
 
+- Registry: `<prefix>/state/claude-supervisor/installs.json` (by default under `~/.local/state/claude-supervisor/`).
+- Tool copy: `<prefix>/state/claude-supervisor/deploy`, with the version of the install that last wrote it beside it in `VERSION` (removed when the source has no `VERSION`).
+- Installs are stand-alone: nothing an install runs depends on the source checkout existing or being unchanged, and version and update information come from what the install recorded. The registry file and tool copy stay after uninstall; only the install's entry is removed.
+- Each prefix is independent: it has its own registry and tool copy, and `update` and `uninstall` (and `--all`) act on the registry of the `--prefix` you give.
+
 `list [--prefix DIR]` shows each install in that prefix's registry: tag, target, installed version, branch, commit (short, with `-dirty` if the source was dirty), and whether the launcher exists (`yes`, `missing`, or `-` for `--global` or when there is no readable manifest). `./deploy --version` prints the checkout's derived pack version and the `claude:` line; the tool copy's `--version` (`~/.local/state/claude-supervisor/deploy --version`) prints the version recorded by the install that last wrote the tool copy, without the checkout.
 
 `update` clones the branch recorded at install from the git remote recorded at install into a temp dir (shallow for `main`; full history for other branches, so the merge-base with `main` is available for the version) and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
 
 If an install is newer than what `update` would install (main version first, then commits ahead), `update` prints a WARNING naming both versions and asks `Continue with the update? [y/N]`. The default is No: the install is left unchanged and the exit code is 1. Without a terminal it fails (exit code 2) unless `--yes` is passed, and `--dry-run` only warns.
 
-Installs made before this version are not registered, and their launchers have no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher. An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout. Registry entries from before branches were recorded count as `main`.
+An install with no recorded remote (the source was not a git checkout) errors; update it with `--from DIR`, where DIR is a checkout.
 
 If the recorded branch is gone from the remote, `update` leaves that install unchanged and prints `STALE <target>: nothing to update; branch <b> is gone from <remote>; this install is stale. Remove it with: claude-<tag> uninstall (or ./deploy uninstall --tag <tag> --target <target>)` (a `--global` install says `./deploy uninstall --global`). Under `--all` the other installs still update, and the exit code is 3. A network or auth failure reaching the remote is an error (exit code 1), not stale.
 
-After an update, `status` shows `Version: installed=<version> (source not available)` and file states from the manifest, because the manifest names the deleted clone. Pass `--source "$REPO/pack"` to compare versions.
+`status` prints `Version: installed=<version>, source=<version>` and appends `(MISMATCH: run ./deploy install from your checkout)` when they differ. When the recorded source dir is gone or is no longer a valid pack and `--source` is not given, as after an update (the manifest names the deleted clone), it prints `Source: <dir> (not available; pass --source <checkout>/pack to compare)` and `Version: installed=<version> (source not available)` with no MISMATCH, and reports file states (ok, modified, missing) from the manifest alone. Pass `--source "$REPO/pack"` to compare versions.
 
 ### Dev Worktree Install
 
@@ -127,7 +136,7 @@ claude-supervisor-dev update     # pulls the pushed my-feature branch
 
 ## Fable Or Opus
 
-Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for Fable, and `planner` also names `model: fable` when it dispatches `critic`. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans. By default the launcher leaves `ANTHROPIC_DEFAULT_FABLE_MODEL` alone: if it is unset, those agents and that dispatch override run on Fable; if your environment defines it (for example `export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in a shell profile), that value is respected. `claude-<tag> ... --fable-is-opus` strips the flag and exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` for that session, overriding the environment. The flag counts in any position before a `--`; the other arguments reach `claude` in their order. The old `--fable` flag is gone: the launcher strips it, prints a one-line notice on stderr and continues.
+Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for Fable, and `planner` also names `model: fable` when it dispatches `critic`. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans. By default the launcher leaves `ANTHROPIC_DEFAULT_FABLE_MODEL` alone: if it is unset, those agents and that dispatch override run on Fable; if your environment defines it (for example `export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in a shell profile), that value is respected. `claude-<tag> ... --fable-is-opus` strips the flag and exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` for that session, overriding the environment. The flag counts in any position before a `--`, also next to a launcher command, where it has no effect; the other arguments reach `claude` in their order.
 
 The value is a full model ID, the `OPUS_MODEL` constant in `deploy`. When a new Opus ships, update the constant and re-run `install` to regenerate the launchers.
 
@@ -143,8 +152,6 @@ export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5
 
 A profile created later copies `~/.claude/settings.json`, and there a settings value applies to every session, whatever the shell environment or `--fable-is-opus` say. Setting the variable in your shell profile also reaches the launchers of existing profiles.
 
-Global installs made before 1.14 had those files rewritten to `opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
-
 ## Codex As Critic
 
 An opt-in mode in which the lead's critic step runs OpenAI Codex CLI instead of the Claude `critic` subagent. Only the critic changes: `scope-critic` stays on Claude, and any failed Codex review falls back to the Claude critic for that round, automatically. It needs the `codex` CLI on `PATH` and a logged-in Codex account (`codex login`); `enable` checks both before it asks for consent.
@@ -156,7 +163,7 @@ An opt-in mode in which the lead's critic step runs OpenAI Codex CLI instead of 
 
 `enable` prints this consent text and asks for a yes; without a terminal it needs `--yes`. Codex runs read-only and ephemeral.
 
-Every install (profile, `--global` or `--target`) adds one permission rule for its own read-only review script to the install's `settings.json`: `Bash(<abs script path> review *)`, where the path is the installed `skills/supervisor-config/scripts/codex-critic`. `update` keeps it and `uninstall` removes it. The rule covers only `review`, so the lead's probe and review calls never prompt, in either mode; `enable`, `disable` and `status` are not covered, so an in-session enable costs one permission prompt by design and no agent can turn Codex on unasked. `enable` and `disable` never touch `settings.json`.
+Every install (profile, `--global` or `--target`) adds one permission rule for its own read-only review script to `permissions.allow` in the install's `settings.json`: `Bash(<abs script path> review *)`, where the path is the installed `skills/supervisor-config/scripts/codex-critic` under the resolved install dir. The rule is added when absent, so `install` and `update` keep or restore it; `uninstall` removes it (a profile uninstall, with the dir). The rule covers only `review`, so the lead's probe and review calls never prompt, in either mode; `enable`, `disable` and `status` are not covered, so an in-session enable costs one permission prompt by design and no agent can turn Codex on unasked. `enable` and `disable` never touch `settings.json`.
 
 ### Switching
 
@@ -186,7 +193,7 @@ When Codex is off for a domain, missing, times out, exits non-zero, writes nothi
 - Model IDs are account-specific. A wrong one makes `codex` exit non-zero, so the review falls back with the reason on stderr. `doctor` and `critic status` show the login state.
 - If the install path is reached through a symlink, the allow rule can miss and every review prompts. `critic status` prints the rule for the path it ran from; if the lead types the other form (literal or symlink-resolved), add that form to `permissions.allow` too.
 - Install a branch's pack with that branch's own `deploy` (`<checkout>/deploy install --source <checkout>/pack`): an older `deploy` copies the pack but writes no review rule, so every Codex round prompts; `critic status` then shows `rule present: no`.
-- Codex runs tests only through an interpreter its read-only sandbox may execute. On macOS that sandbox refused a conda `python3` here, and the Homebrew one had no pytest, so a Codex review may report that tests were not independently run.
+- Codex runs tests only through an interpreter its read-only sandbox may execute. On macOS the sandbox can refuse a conda `python3`, and a Homebrew one may lack pytest, so a Codex review may report that tests were not independently run.
 - Codex's severities tend to run hot; `scope-critic`'s ruling is the calibrating layer.
 - Reviews take from tens of seconds to several minutes. The script stops Codex after 540 s (`review --timeout SECS`) and falls back.
 
@@ -232,14 +239,27 @@ Uninstall removes the unmodified managed files and keeps the ones you edited; `-
 "$REPO/deploy" migrate
 ```
 
-`migrate` moves a pack installed straight into `~/.claude` (versions before 1.10) to the default profile, after one confirmation:
+`migrate` moves a pack installed straight into `~/.claude` (see Older Installs) to the default profile, after one confirmation:
 
-1. It finds the old install by its manifest in `~/.claude`: `.claude-supervisor-manifest.json`, or `.claude-agents-manifest.json` (lock `.claude-agents.lock`) for installs from before 1.6.
+1. It finds the old install by its manifest in `~/.claude`: `.claude-supervisor-manifest.json`, or the older `.claude-agents-manifest.json` (lock `.claude-agents.lock`).
 2. It copies the pack files you edited to a timestamped backup directory at the top level of `~/.claude`, removes all of the pack's files and its manifest, and restores the `agent` setting as `uninstall` does. `settings.json` is backed up first; nothing else in `~/.claude` is touched besides these backups.
 3. It installs and registers the default profile and its launcher, as `install` does.
 4. It checks that `~/.local/bin` is on `PATH`.
 
 With no old install, it just installs. It removes edited pack files too, after the backup: a pack file left in `~/.claude` without its manifest is seeded into the next new profile and refused as unmanaged. Plain `claude` then starts plain Claude Code.
+
+## Older Installs
+
+What changes with the version an install was made with; `status` prints the installed version.
+
+- Before 1.0 the manifest recorded no version; `status` shows `installed=not recorded` until the next install.
+- Before 1.6 the manifest was `.claude-agents-manifest.json` (lock `.claude-agents.lock`). `status` still recognizes it and says so; the next `install` renames it.
+- Before 1.10 every install went into `~/.claude`, where `--global` still installs; `migrate` moves such an install to the default profile.
+- Before 1.12 installs were not registered, and before 1.13 launchers had no `update` or `uninstall` subcommands. Run `"$REPO/deploy" install` once from the checkout; it registers the install and rewrites the launcher.
+- Global installs made before 1.14 had the agent files rewritten to `model: opus`; the next plain `install` restores `model: fable` without `--overwrite-local`.
+- Registry entries from before 1.19 record no branch and count as `main`.
+- Before 4.17 the launcher took `--fable`; it now strips the flag, prints a one-line notice on stderr and continues.
+- Before 5.0 the trailer was `Co-Authored-By: Claude Supervisor`; install replaces it where install set it and leaves a value you set yourself alone.
 
 ## Notes For Claude Running This
 

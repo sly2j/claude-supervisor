@@ -58,12 +58,12 @@ Just ask for what you want. The supervisor picks the path:
 |---|---|---|
 | Conversation, general advice, one or two small reads | The supervisor answers directly | Nothing to delegate |
 | Fully specified, small, local, no design decision, cheap to undo | One quick specialist: `fixer`, `git-ops`, or `scout` | Cheapest path, no review loop |
-| Specified and local, but it needs a design call or is not cheap to undo | One lead and one review round | Too much for a quick specialist, less than the full shape |
+| Specified and local, but it needs a design call or is not cheap to undo | One lead and one review round | Too much for a quick specialist, less than the full loop |
 | Anything else in one area of work | One lead (`researcher`, `planner`, `executor`, or `writer`) with workers when the work splits, and review | Design judgment gets reviewed |
 | Investigation, then design, then code | `researcher` -> `planner` -> your approval -> `executor` | You approve the plan before code is written |
 | Streams that each need their own research, plan, or write stage | Work packages, run in waves | Independent streams run in parallel |
 | "review this diff/plan/draft" | Reviewers only, no edits | You asked for a review |
-| A quick specialist finds the task bigger than it looked | Re-routed to one lead, with the specialist's findings | The quick path no longer fits |
+| A quick specialist finds the task bigger than it looked | Re-routed to one lead, with the specialist's findings | The quick tier no longer fits |
 
 To choose yourself, say "quick" or "just do it" for a quick specialist, or "full", "thorough", or "with review" for a lead.
 
@@ -77,9 +77,9 @@ The full inventory, with models, effort, workers, reviewers, and internal skills
 
 ## How It Works
 
-**The full path** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
+**The full loop** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
 
-**The quick path** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
+**The quick tier** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
 
 ```mermaid
 flowchart LR
@@ -91,6 +91,8 @@ flowchart LR
   S -->|independent streams| W[Work packages in waves]
   Q -->|ESCALATE| L
 ```
+
+**Why this design.** Long contexts fail in known ways: a bad fact gets repeated, the model leans on its history over its training, extra tools and stale facts crowd out the task. These failures get worse as context accumulates over a long task or a long project history. Supervisor for Claude is built to counter these failures. Context quarantine and offloading are central to the design: the supervisor reads almost nothing, every lead and worker gets a fresh window and returns a capped report, and plans and research live in files. See [docs/context-engineering.md](docs/context-engineering.md) for the design rationale.
 
 ## Larger Work
 
@@ -148,7 +150,7 @@ flowchart LR
   P3e ~~~ P6e
 ```
 
-The mechanics (package fields, `Amend parent:`, the log, the archive move) are in [docs/architecture.md](docs/architecture.md#mode-1-the-lead-loop).
+The mechanics (package fields, `Amend parent:`, the log, the archive move) are in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop).
 
 ## Persistence And Memory
 
