@@ -69,7 +69,17 @@ the tiers, lists the provider's available models, and lets the user pick one per
 or by typing a name. `deploy` stays standard-library-only.
 Priority: normal. Effort: M.
 
-### 5. Science artefacts (future release)
+### 5. Dangling memory references after archiving working files
+
+Archiving a working file (plan, research, draft state) leaves citations of its old path in live
+entries and archived plans. The `project-memory` skill and the `curator` archive step in `pack/`
+need a way to keep those references resolving; the fix belongs in the pack, not in this repo's
+memory. Recurring: five files cite `.supervisor/working/research/research-fold-subagents.md`,
+which exists only under `.supervisor/archive/working/research/`. It must be backward compatible:
+stores and entries written before the change keep working unchanged.
+Priority: normal. Effort: M.
+
+### 6. Science artefacts (future release)
 
 - **Goal:** support scientific workflows, the third use the supervisor targets alongside coding
   and writing/information management.
@@ -89,7 +99,7 @@ Priority: normal. Effort: M.
 
 Priority: low — deferred by the owner 2026-10-21 to a future release. Effort: L.
 
-### 6. Re-measure harness efficiency (from late November 2026)
+### 7. Re-measure harness efficiency (from late November 2026)
 
 Once a few weeks of v6.0 sessions exist, run `python3 -I tools/audit/audit.py` and compare with
 `.supervisor/memory/facts/2026-10-24-efficiency-baseline-for-drift.md`. Tune the scope-critic skip
@@ -100,7 +110,7 @@ Decisions:
 
 Priority: low — opt-in check, not before late November 2026. Effort: S.
 
-### 7. Haiku relay agent for the Codex critic (optional)
+### 8. Haiku relay agent for the Codex critic (optional)
 
 Only if the transcript visibility of the Codex critic step proves insufficient: a thin
 `codex-critic` Haiku relay subagent, so the step shows as an agent launch. The current two-call
@@ -111,7 +121,7 @@ Decisions:
 
 Priority: low. Effort: S.
 
-### 8. Interpreter-path setting so Codex can run tests (optional)
+### 9. Interpreter-path setting so Codex can run tests (optional)
 
 Only if the need shows up: a setting naming the Python interpreter for Codex's sandbox, so Codex
 can run the tests (`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-tests.md`).
