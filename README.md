@@ -11,12 +11,6 @@ Supervisor for Claude is built for long-horizon software and scientific-research
 - **Parallel work:** a plan splits large jobs into independent pieces (work packages) that run side by side (waves).
 - **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
-## Documentation
-
-- [docs/deploy.md](docs/deploy.md): how to install, update, check or remove an install, and how to set up Codex as critic.
-- [docs/architecture.md](docs/architecture.md): every agent and skill, how the two modes and routing work, and how git work, models and memory are handled.
-- [docs/context-engineering.md](docs/context-engineering.md): why the design is built around a supervisor that keeps its context small, and what that costs.
-
 ## Quick Start
 
 Requirements:
@@ -213,6 +207,12 @@ claude-supervisor critic disable
 From inside a session, `/supervisor-config critic codex [model]` enables, `/supervisor-config critic claude` disables and `/supervisor-config critic status` reports. It asks the same consent question, and each of these costs one permission prompt by design, so no agent can turn Codex on unasked. A switch takes effect from the next task, with no reinstall. The default model is `gpt-6.1-sol` at effort `high`.
 
 When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout after 540 s, an error, or an unusable response), that round falls back to the Claude `critic` automatically, and the lead's report names which engine reviewed each round. `critic status` and `./deploy doctor` show the login state. The permission rule `install` writes, per-domain model overrides and the caveats (network access from the sandbox, model IDs, symlinked install paths, review time) are in [Codex As Critic](docs/deploy.md#codex-as-critic).
+
+## Documentation
+
+- [docs/deploy.md](docs/deploy.md): Detailed installation instructions. In most cases the "Quick Start" instructions should be sufficient.
+- [docs/architecture.md](docs/architecture.md): Overview of the workflow architecture and every agent and skill.
+- [docs/context-engineering.md](docs/context-engineering.md): Context engineering considerations to allow for long-horizon tasks.
 
 ## Maintaining An Install
 
