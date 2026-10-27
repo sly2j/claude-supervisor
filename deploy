@@ -2,6 +2,7 @@
 """Deploy the Supervisor for Claude pack into a Claude Code config dir (default: profile ~/.config/claude-supervisor).
 
 Subcommands: install | update | status | list | uninstall | migrate | doctor | critic.  Run `deploy <cmd> --help`.
+A profile can use an API provider instead of a subscription: install --provider or --base-url, with --model-<tier>.
 
 Ownership model: every installed file is recorded in a manifest with the
 hash it had when installed (the "baseline").  On re-install each file is
@@ -17,11 +18,14 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -55,6 +59,24 @@ REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 # Fable agents run on this Opus model when the launcher gets --fable-is-opus; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
 LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status", "critic")
+# Pack tiers a provider profile maps to the provider's models, in picker order.
+TIERS = ("fable", "opus", "sonnet", "haiku")
+# --provider presets; models_url None means <base_url>/v1/models.
+PROVIDERS: Dict[str, dict] = {
+    "openrouter": {"base_url": "https://openrouter.ai/api", "auth": "token", "helper": None,
+                   "models_url": "https://openrouter.ai/api/v1/models?supported_parameters=tools",
+                   "login": "create a key at https://openrouter.ai/keys"},
+    "nrp": {"base_url": "https://ellm.nrp-nautilus.io/anthropic", "auth": "token", "helper": None,
+            "models_url": "https://ellm.nrp-nautilus.io/v1/models",
+            "login": "get a token at https://nrp.ai/llmtoken"},
+    "alcf": {"base_url": "https://inference-api.alcf.anl.gov/resource_server/minerva/api", "auth": "helper",
+             "helper": "alcf-tokens get-token inference", "models_url": None,
+             "login": "run `alcf-tokens login inference` first "
+                      "(see https://docs.alcf.anl.gov/services/inference-endpoints/)"},
+}
+MODELS_TIMEOUT = 20  # seconds for the model-list request
+HELPER_TIMEOUT = 30  # seconds a token helper gets to print its token
+PICK_SHOW = 30  # model ids the picker lists at once
 
 
 LAUNCHER_HELP = """\
@@ -77,8 +99,20 @@ Any other arguments go unchanged to claude (see claude --help).
 """
 
 
-def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool) -> str:
+def sh_quote(value: str) -> str:
+    """`value` as one single-quoted sh word."""
+    return "'%s'" % value.replace("'", "'\"'\"'")
+
+
+def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool,
+                  models: Optional[Dict[str, str]] = None, helper: bool = False,
+                  provider: Optional[str] = None) -> str:
+    """The claude-TAG script; with no base_url, models or helper it is the subscription launcher, unchanged."""
     d = state_dir(prefix) / "deploy"
+    help_text = LAUNCHER_HELP % {"tag": tag, "target": target}
+    if base_url:  # provider profiles name their provider in the help; subscription help stays as it is
+        help_text = help_text.replace("\n\nUsage:", "\nProvider: %s   Base URL: %s\n\nUsage:"
+                                      % (provider or "custom", base_url), 1)
     # --fable-is-opus (and the retired --fable) count anywhere before a "--"; every other argument keeps its place
     lines = ["#!/bin/sh", "%s (tag: %s)" % (LAUNCHER_MARKER, tag),
              "o=; g=; e=", "for a do", "  shift",
@@ -87,7 +121,7 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
              'if [ -n "$g" ]; then echo "claude-%s: --fable is now the default; use --fable-is-opus to run Fable-tier agents on Opus" >&2; fi' % tag,
              'case "$1" in',
              "-h|--help|help) cat <<'EOF'",
-             LAUNCHER_HELP % {"tag": tag, "target": target} + "EOF",
+             help_text + "EOF",
              "  exit 0;;",
              "-v|--version)",
              "  v=$(sed -n 's/^  \"pack_version\": \"\\([^\"]*\\)\".*/\\1/p' '%s/%s' 2>/dev/null)" % (target, MANIFEST_NAME),
@@ -102,11 +136,23 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
              "esac",
              "CLAUDE_CONFIG_DIR='%s'; export CLAUDE_CONFIG_DIR" % target]
     if base_url:
-        lines.append("ANTHROPIC_BASE_URL='%s'; export ANTHROPIC_BASE_URL" % base_url)
-    if has_token:
+        lines.append("ANTHROPIC_BASE_URL=%s; export ANTHROPIC_BASE_URL" % sh_quote(base_url))
+    if helper:
+        # settings.json apiKeyHelper supplies the token; either variable would outrank it and never refresh
+        lines.append("unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY")
+    elif has_token:
         lines.append("ANTHROPIC_AUTH_TOKEN=\"$(cat '%s/token')\"; export ANTHROPIC_AUTH_TOKEN"
                      % target)
-    lines.append("if [ -n \"$o\" ]; then ANTHROPIC_DEFAULT_FABLE_MODEL='%s'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi" % OPUS_MODEL)
+        if base_url:  # keep an inherited Anthropic key away from the provider (sent as X-Api-Key)
+            lines.append("ANTHROPIC_API_KEY=''; export ANTHROPIC_API_KEY")
+    if models:
+        for tier in TIERS:
+            var = "ANTHROPIC_DEFAULT_%s_MODEL" % tier.upper()
+            lines.append("%s=%s; export %s" % (var, sh_quote(models[tier]), var))
+        # the main model, which the tier variables do not remap
+        lines.append("ANTHROPIC_MODEL=%s; export ANTHROPIC_MODEL" % sh_quote(models["opus"]))
+    lines.append("if [ -n \"$o\" ]; then ANTHROPIC_DEFAULT_FABLE_MODEL=%s; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi"
+                 % sh_quote(models["opus"] if models else OPUS_MODEL))
     lines.append('command -v claude >/dev/null 2>&1 || '
                  '{ echo "claude-%s: claude not found on PATH; install Claude Code, then retry" >&2; exit 127; }' % tag)
     lines.append('exec claude "$@"')
@@ -202,7 +248,8 @@ def confirm_typed(prompt: str, expected: str, assume_yes: bool) -> bool:
 def target_tag(args: argparse.Namespace) -> Optional[str]:
     """Profile tag, or None for --global."""
     if args.use_global:
-        for name in ("tag", "target", "base_url", "token", "token_file"):
+        for name in ("tag", "target", "base_url", "token", "token_file", "provider", "token_helper") \
+                + tuple("model_" + t for t in TIERS):
             if getattr(args, name, None) is not None:
                 raise DeployError("--global cannot be combined with --%s" % name.replace("_", "-"))
         return None
@@ -657,6 +704,33 @@ def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, 
     return dict(settings, attribution=new_attr), rec, "; ".join(msgs)
 
 
+def plan_api_key_helper(settings: dict, prev: dict, command: Optional[str]) -> Tuple[Optional[dict], dict, str]:
+    """Decide what to do with settings['apiKeyHelper'] (provider profiles; command None = no helper wanted).
+
+    Like plan_attribution: sets the key when absent or when install set it, never replaces or removes
+    a value the user set. Returns (new_settings or None, record fields, message).
+    """
+    current = settings.get("apiKeyHelper")
+    managed = bool(prev.get("managed_api_key_helper"))
+    if command is not None:
+        if current == command:
+            return None, {"managed_api_key_helper": managed}, "apiKeyHelper already set"
+        if current is None or managed:
+            return dict(settings, apiKeyHelper=command), {"managed_api_key_helper": True}, \
+                "set apiKeyHelper = %r" % command
+        return None, {"managed_api_key_helper": False}, \
+            "WARNING: apiKeyHelper is %r (yours); not changed, so it supplies the token instead of %r" \
+            % (current, command)
+    if current is None:
+        return None, {}, ""
+    if managed:
+        new = dict(settings)
+        del new["apiKeyHelper"]
+        return new, {"managed_api_key_helper": False}, "removed apiKeyHelper"
+    return None, {"managed_api_key_helper": False}, \
+        "WARNING: apiKeyHelper is %r (yours); not changed" % (current,)
+
+
 # --------------------------------------------------------------------------- registry
 
 def state_dir(prefix: Path) -> Path:
@@ -732,8 +806,11 @@ def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
             d = d.parent
 
 
-def seed_profile(target: Path, dry_run: bool) -> None:
-    """Copy the user's own ~/.claude items into a new profile; pack files come from install."""
+def seed_profile(target: Path, dry_run: bool, provider: bool = False) -> None:
+    """Copy the user's own ~/.claude items into a new profile; pack files come from install.
+
+    A provider profile leaves out settings env ANTHROPIC_* keys and apiKeyHelper, which would outrank the launcher.
+    """
     home = Path("~/.claude").expanduser()
     names = [n for n in SEED if (home / n).exists() and not (target / n).exists()]
     if not names:
@@ -754,6 +831,10 @@ def seed_profile(target: Path, dry_run: bool) -> None:
                 if not isinstance(data, dict):
                     raise ValueError("not a JSON object")
                 data.pop("agent", None)
+                if provider:
+                    data.pop("apiKeyHelper", None)
+                    if isinstance(data.get("env"), dict):
+                        data["env"] = {k: v for k, v in data["env"].items() if not k.startswith("ANTHROPIC_")}
                 write_json_atomic(target / n, data)
             elif (home / n).is_dir():
                 shutil.copytree(home / n, target / n, ignore=ignore, dirs_exist_ok=True, symlinks=True)
@@ -783,16 +864,232 @@ def launcher_config_dir(launcher: Path) -> Optional[str]:
     return m.group(1) if m else None
 
 
+def check_helper(command: str, hint: str) -> Tuple[str, str]:
+    """Run a token helper once; return (command with its program as an absolute path, the token).
+
+    The token must be exactly one word on one line. Neither the token nor the helper's output is ever printed.
+    """
+    try:
+        words = shlex.split(command)
+    except ValueError as exc:
+        raise DeployError("cannot parse token helper %r: %s" % (command, exc))
+    found = shutil.which(words[0]) if words else None
+    if found is None:
+        raise DeployError("token helper %r not found on PATH; install it, or pass --token-helper with its path; %s"
+                          % (words[0] if words else command, hint))
+    resolved = " ".join(shlex.quote(w) for w in [os.path.abspath(found)] + words[1:])
+    try:
+        p = subprocess.run([os.path.abspath(found)] + words[1:], capture_output=True, text=True,
+                           timeout=HELPER_TIMEOUT, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        raise DeployError("token helper %s gave no token within %d s; %s" % (resolved, HELPER_TIMEOUT, hint))
+    except OSError as exc:
+        raise DeployError("cannot run token helper %s: %s; %s" % (resolved, exc, hint))
+    if p.returncode != 0:
+        raise DeployError("token helper %s failed (exit %d); %s" % (resolved, p.returncode, hint))
+    words_out = p.stdout.split()
+    if len(words_out) != 1 or len(p.stdout.strip().splitlines()) != 1:
+        raise DeployError("token helper %s must print just the token on one line; %s" % (resolved, hint))
+    return resolved, words_out[0]
+
+
+def fetch_models(url: str, bearer: Optional[str]) -> List[dict]:
+    """The provider's models as [{id, name?, context_length?}], sorted by id; [] with a WARNING on any failure."""
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    if bearer:
+        req.add_header("Authorization", "Bearer " + bearer)
+    try:
+        with urllib.request.urlopen(req, timeout=MODELS_TIMEOUT) as resp:
+            items = json.loads(resp.read().decode("utf-8"))["data"]
+        if not isinstance(items, list):
+            raise ValueError("data is not a list")
+    except urllib.error.HTTPError as exc:
+        reason = "HTTP %d%s" % (exc.code, " (the provider refused the token)" if exc.code in (401, 403) else "")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        reason = str(getattr(exc, "reason", None) or exc) or type(exc).__name__
+    else:
+        entries = []
+        for item in items:
+            if not (isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]):
+                continue
+            entry = {"id": item["id"]}
+            if isinstance(item.get("name"), str):
+                entry["name"] = item["name"]
+            if isinstance(item.get("context_length"), int):
+                entry["context_length"] = item["context_length"]
+            entries.append(entry)
+        return sorted(entries, key=lambda e: e["id"])
+    print("WARNING: cannot list models from %s: %s; type model ids instead" % (url, reason))
+    return []
+
+
+def pick_model(tier: str, entries: List[dict], default: Optional[str]) -> str:
+    """Ask for one tier's model: a number from the last list, an exact id, or text that filters the ids."""
+    ids = {e["id"] for e in entries}
+    shown: List[str] = []
+    filt = ""
+
+    def show(text: str) -> List[str]:
+        matches = [e for e in entries if text.lower() in e["id"].lower()]
+        for i, e in enumerate(matches[:PICK_SHOW], 1):
+            ctx = e.get("context_length")
+            print("  %3d  %s%s" % (i, e["id"], "  (%d tokens)" % ctx if ctx else ""))
+        if len(matches) > PICK_SHOW:
+            print("  and %d more; narrow the filter" % (len(matches) - PICK_SHOW))
+        return [e["id"] for e in matches[:PICK_SHOW]]
+
+    label = "%s-tier model" % tier.capitalize()
+    while True:
+        answer = input("%s%s: " % (label, " [%s]" % default if default else "")).strip()
+        if not answer and default:
+            return default
+        if answer in ("", "?"):
+            if not entries:
+                print("  no model list; type a model id")
+                continue
+            shown = show(filt)
+            continue
+        if answer in ids:
+            return answer
+        if answer.isdigit() and shown:
+            n = int(answer)
+            if 1 <= n <= len(shown):
+                return shown[n - 1]
+            print("  pick 1 to %d" % len(shown))
+            continue
+        if not entries:
+            if any(c.isspace() for c in answer):
+                print("  a model id has no spaces")
+                continue
+            return answer
+        if any(answer.lower() in i.lower() for i in ids):
+            filt = answer
+            shown = show(filt)
+            continue
+        if any(c.isspace() for c in answer):
+            print("  a model id has no spaces")
+        elif confirm("%s is not in the list; use it anyway?" % answer, False):
+            return answer
+
+
+def choose_models(cfg: dict, flags: Dict[str, str], bearer: Optional[str], interactive: bool) -> Dict[str, str]:
+    """All four tier models: flags, then the manifest's (cfg['models']), then the picker on a terminal."""
+    models = dict(cfg.get("models") or {})
+    models.update(flags)
+    missing = [t for t in TIERS if not models.get(t)]
+    if missing and not interactive:
+        raise DeployError("a provider profile needs a model for every tier; pass %s (or run on a terminal to "
+                          "pick from the provider's list)" % " ".join("--model-%s ID" % t for t in missing))
+    if missing:
+        entries = fetch_models(cfg["models_url"], bearer)
+        if entries:
+            known = {e["id"] for e in entries}
+            for tier in TIERS:
+                if models.get(tier) and tier not in missing and models[tier] not in known:
+                    print("WARNING: model %s for the %s tier is not in %s" % (models[tier], tier, cfg["models_url"]))
+        print("Pick a model per tier from %s: a number, an exact id, or text to filter by (? lists)"
+              % (cfg["provider"] or cfg["base_url"]))
+        last = None
+        for tier in TIERS:
+            if tier in missing:
+                models[tier] = pick_model(tier, entries, last)
+            last = models[tier]
+    return {t: models[t] for t in TIERS}
+
+
+def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, token: Optional[bytes]) -> dict:
+    """The provider config this install writes: flags over the manifest (base URL set = provider profile).
+
+    Keys: provider, base_url, auth (token|helper|None), token_helper, models_url, models. Validates the
+    helper and picks missing tier models before any write; a base URL taken from the manifest never asks.
+    """
+    flags = {t: getattr(args, "model_" + t) for t in TIERS if getattr(args, "model_" + t, None) is not None}
+    for tier, value in flags.items():
+        if not value or any(c.isspace() or c in "'\"" for c in value):
+            raise DeployError("invalid --model-%s %r; pass a model id" % (tier, value))
+    name = getattr(args, "provider", None)
+    helper_flag = getattr(args, "token_helper", None)
+    if name and name not in PROVIDERS:
+        raise DeployError("unknown --provider %r; use %s, or --base-url URL" % (name, ", ".join(sorted(PROVIDERS))))
+    if args.base_url == "" and name:
+        raise DeployError("--base-url '' clears the provider; drop --provider %s" % name)
+    cleared = args.base_url == "" or name == ""
+    prev = {} if cleared else manifest
+    if name is None:
+        name = prev.get("provider")
+    name = name or None
+    preset = PROVIDERS.get(name) if name else None
+    if name and preset is None:
+        raise DeployError("%s records unknown provider %r; pass --provider or --base-url" % (target, name))
+    if args.base_url:
+        base_url = args.base_url
+    elif args.provider:
+        base_url = prev.get("base_url") if prev.get("provider") == name and prev.get("base_url") \
+            else preset["base_url"]
+    else:
+        base_url = prev.get("base_url")
+    none = {"provider": None, "base_url": None, "auth": None, "token_helper": None, "models_url": None,
+            "models": None}
+    if not base_url:
+        if flags or helper_flag:
+            raise DeployError("--model-* and --token-helper need --provider or --base-url")
+        return none
+    same = prev if base_url == prev.get("base_url") else {}
+    hint = preset["login"] if preset else "check the provider's login instructions"
+    token_file = target / "token"
+    if helper_flag:
+        auth, helper = "helper", helper_flag
+    elif token is not None:
+        auth, helper = "token", None
+    elif same.get("auth") == "helper" and same.get("token_helper"):
+        auth, helper = "helper", same["token_helper"]
+    elif same.get("auth") == "token" and token_file.exists():
+        auth, helper = "token", None  # a recorded static token beats the preset's helper default
+    elif preset and preset["auth"] == "helper":
+        auth, helper = "helper", preset["helper"]
+    else:
+        auth, helper = ("token" if token_file.exists() else None), None
+    if preset and preset["auth"] == "token" and auth is None:
+        raise DeployError("--provider %s needs a token: pass --token-file PATH or --token VALUE; %s" % (name, hint))
+    bearer = None
+    if auth == "helper":
+        helper, bearer = check_helper(helper, hint)
+    elif token is not None:
+        bearer = token.decode("utf-8", "replace").strip()
+    elif auth == "token":
+        with contextlib.suppress(OSError):
+            bearer = token_file.read_text(encoding="utf-8", errors="replace").strip()
+    cfg = dict(none, provider=name, base_url=base_url, auth=auth, token_helper=helper,
+               models_url=(preset or {}).get("models_url") or base_url.rstrip("/") + "/v1/models",
+               models=same.get("models") if isinstance(same.get("models"), dict) else None)
+    interactive = sys.stdin.isatty() and not args.yes
+    need = bool(preset or flags or cfg["models"])
+    if not need and args.base_url and interactive:
+        need = confirm("Map the model tiers to this provider's models?", False)
+    cfg["models"] = choose_models(cfg, flags, bearer, interactive) if need else None
+    return cfg
+
+
+def provider_summary(cfg: dict) -> str:
+    """One line naming a provider profile's provider, base URL, auth and tier models; never the token."""
+    auth = {"token": "token file", "helper": "token helper"}.get(cfg.get("auth") or "", "none")
+    models = cfg.get("models")
+    tiers = ", ".join("%s=%s" % (t, models.get(t)) for t in TIERS) if isinstance(models, dict) else "tiers not mapped"
+    return "%s (%s), auth: %s, %s" % (cfg.get("provider") or "custom", cfg.get("base_url"), auth, tiers)
+
+
 def install_preflight(args: argparse.Namespace) -> Tuple[Path, Path, Optional[str], Path, Optional[Path],
-                                                         Optional[bytes], Dict[str, Path]]:
+                                                         Optional[bytes], Dict[str, Path], dict]:
     """Everything install can refuse on, before any write.
 
-    Returns (source, target, tag, prefix, launcher, token, src_files); migrate calls it before it uninstalls.
+    Returns (source, target, tag, prefix, launcher, token, src_files, provider config); migrate calls it
+    before it uninstalls.
     """
     source, target = resolve_source(args), resolve_target(args)
     tag = target_tag(args)
     prefix = resolve_prefix(args)
-    check_prefix(args, target, load_manifest(target))
+    manifest = load_manifest(target)
+    check_prefix(args, target, manifest)
     launcher = prefix / "bin" / ("claude-" + tag) if tag else None
     if launcher and os.path.lexists(launcher):
         if not is_launcher(launcher):
@@ -811,11 +1108,12 @@ def install_preflight(args: argparse.Namespace) -> Tuple[Path, Path, Optional[st
         token = args.token.encode()
     src_files = collect_source(source)
     load_registry(prefix)
-    return source, target, tag, prefix, launcher, token, src_files
+    provider = resolve_provider(args, target, manifest or {}, token) if tag else None
+    return source, target, tag, prefix, launcher, token, src_files, provider
 
 
 def install_cmd(args: argparse.Namespace) -> int:
-    source, target, tag, prefix, launcher, token, src_files = install_preflight(args)
+    source, target, tag, prefix, launcher, token, src_files, provider = install_preflight(args)
     pack_version = derive_version(source)
     if args.overwrite_local and not args.dry_run:
         if not confirm("--overwrite-local will back up and replace locally modified/unmanaged files in %s. Continue?"
@@ -832,8 +1130,11 @@ def install_cmd(args: argparse.Namespace) -> int:
         migrate_legacy(target, args.dry_run)
         manifest = load_manifest(target) or {}
         if tag and not manifest:
-            seed_profile(target, args.dry_run)
-        base_url = manifest.get("base_url") if args.base_url is None else args.base_url
+            seed_profile(target, args.dry_run, bool(provider and provider["base_url"]))
+        if provider is None:
+            base_url = manifest.get("base_url") if args.base_url is None else args.base_url
+        else:
+            base_url = provider["base_url"]
         if not tag:
             print("Note: set ANTHROPIC_DEFAULT_FABLE_MODEL to run fable agents on Opus (see docs/deploy.md)")
         prev = manifest.get("pack_version")
@@ -927,6 +1228,14 @@ def install_cmd(args: argparse.Namespace) -> int:
                 settings_rec = dict(settings_rec, **attr_rec)
                 settings_msg += "; " + attr_msg
                 new_settings = attr_settings or new_settings
+            if provider is not None and (base_url or (manifest.get("settings") or {}).get("managed_api_key_helper")):
+                helper_settings, helper_rec, helper_msg = plan_api_key_helper(
+                    new_settings or settings, manifest.get("settings") or {},
+                    provider["token_helper"] if provider["auth"] == "helper" else None)
+                settings_rec = dict(settings_rec, **helper_rec)
+                if helper_msg:
+                    settings_msg += "; " + helper_msg
+                new_settings = helper_settings or new_settings
             rule_settings, rule_msg = plan_critic_rule(new_settings or settings, target)
             settings_msg += "; " + rule_msg
             new_settings = rule_settings or new_settings
@@ -955,10 +1264,17 @@ def install_cmd(args: argparse.Namespace) -> int:
             "prefix": str(prefix),
             "base_url": base_url or None,
         }
+        if provider is not None:
+            new_manifest.update((k, provider[k]) for k in ("provider", "auth", "token_helper", "models"))
         if not args.dry_run:
             # Order the writes so a crash between them never leaves an unmanaged "supervisor" key:
             # record a key before setting it, and restore a released key before un-recording it.
-            claim = new_settings is not None and settings_rec["managed_agent_key"]
+            # A released apiKeyHelper is removed before the manifest stops recording it. This protects one
+            # key at a time: a run that claims one key and releases the other has a crash window for the other.
+            released = bool((manifest.get("settings") or {}).get("managed_api_key_helper")) \
+                and not settings_rec.get("managed_api_key_helper")
+            claim = new_settings is not None and not released and \
+                (settings_rec["managed_agent_key"] or bool(settings_rec.get("managed_api_key_helper")))
             if new_settings is not None and not claim:
                 bak = save_settings(target, new_settings)
             write_json_atomic(target / MANIFEST_NAME, new_manifest)
@@ -967,9 +1283,15 @@ def install_cmd(args: argparse.Namespace) -> int:
             if new_settings is not None and bak:
                 settings_msg += " (backup: %s)" % bak.name
             if launcher:
-                if token is not None:
+                helper = provider["auth"] == "helper"
+                if helper or (manifest.get("base_url") and not base_url and token is None):
+                    # the helper supplies the token, or the provider was cleared: a static one must not linger
+                    with contextlib.suppress(FileNotFoundError):
+                        (target / "token").unlink()
+                elif token is not None:
                     atomic_write_bytes(target / "token", token, mode=0o600)
-                text = launcher_text(tag, target, prefix, base_url, (target / "token").exists())
+                text = launcher_text(tag, target, prefix, base_url, (target / "token").exists(),
+                                     provider["models"], helper, provider["provider"])
                 atomic_write_bytes(launcher, text.encode(), mode=0o755)
             remote, old = git_remote(source), load_registry(prefix).get(str(target))
             if old is not None and (old.get("remote") != remote or entry_branch(old) != (branch or "main")):
@@ -987,6 +1309,8 @@ def install_cmd(args: argparse.Namespace) -> int:
     print("Settings: " + settings_msg)
     if launcher:
         print("Launcher: %s" % launcher)
+        if provider["base_url"]:
+            print("Provider: %s" % provider_summary(provider))
         if not getattr(args, "migrating", False) and not on_path(prefix / "bin"):
             print('WARNING %s is not on your PATH; add export PATH="%s:$PATH" to your shell profile, '
                   "then open a new terminal" % (prefix / "bin", prefix / "bin"))
@@ -1067,6 +1391,15 @@ def status_cmd(args: argparse.Namespace) -> int:
         print("Installed: %s" % manifest.get("installed_at"))
         if manifest.get("launcher"):
             print("Launcher: %s" % manifest["launcher"])
+        if manifest.get("base_url"):
+            print("Provider: %s" % (manifest.get("provider") or "custom"))
+            print("Base URL: %s" % manifest["base_url"])
+            auth = manifest.get("auth")
+            print("Auth: %s" % ("token helper %s" % manifest.get("token_helper") if auth == "helper"
+                                else "token file %s" % (target / "token") if auth == "token" else "none"))
+            models = manifest.get("models") if isinstance(manifest.get("models"), dict) else {}
+            for tier in TIERS:
+                print("Model %s: %s" % (tier, models.get(tier) or "not mapped"))
         recorded = manifest.get("pack_version")
         if src_files is None:
             print("Version: installed=%s (source not available)" % (recorded or "not recorded"))
@@ -1666,6 +1999,25 @@ def doctor_cmd(args: argparse.Namespace) -> int:
         if env.get("CLAUDE_CODE_EFFORT_LEVEL") not in (None, ""):
             add("WARN", "CLAUDE_CODE_EFFORT_LEVEL set in %s; it overrides per-agent effort; %s" % (origin, UNSET))
 
+    if manifest and manifest.get("base_url"):
+        name = manifest.get("provider")
+        add("PASS", "provider: %s, %s" % (name or "custom", manifest["base_url"]))
+        auth, token_file = manifest.get("auth"), target / "token"
+        if auth == "token" and not token_file.is_file():
+            add("FAIL", "%s is missing; run %s --token-file PATH" % (token_file, hint))
+        elif auth == "token" and token_file.stat().st_mode & 0o777 != 0o600:
+            add("FAIL", "%s is mode %o, not 600; run chmod 600 %s"
+                % (token_file, token_file.stat().st_mode & 0o777, token_file))
+        elif auth == "helper":
+            try:
+                check_helper(str(manifest.get("token_helper") or ""),
+                             PROVIDERS.get(name or "", {}).get("login", "check the helper's login"))
+                add("PASS", "token helper prints a token")
+            except DeployError as exc:
+                add("FAIL", str(exc))
+        for key in sorted(k for k in env_block if k.startswith("ANTHROPIC_")):
+            add("WARN", "%s in settings.json env overrides the launcher; remove it" % key)
+
     if shutil.which("git"):
         add("PASS", "git found")
     else:
@@ -1754,10 +2106,18 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     g.add_argument("--no-default-agent", action="store_true", help="do not set settings.json agent")
     g.add_argument("--force-default-agent", action="store_true",
                    help="replace an existing different settings.json agent value")
-    sp.add_argument("--base-url", metavar="URL", help="profile: export ANTHROPIC_BASE_URL ('' clears)")
+    sp.add_argument("--provider", metavar="NAME",
+                    help="profile: API provider preset openrouter, nrp or alcf (base URL, auth, model list; '' clears)")
+    sp.add_argument("--base-url", metavar="URL",
+                    help="profile: export ANTHROPIC_BASE_URL; with --provider, replaces its URL ('' clears the provider)")
     tok = sp.add_mutually_exclusive_group()
     tok.add_argument("--token-file", metavar="PATH", help="profile: copy to <dir>/token for ANTHROPIC_AUTH_TOKEN")
     tok.add_argument("--token", metavar="VALUE", help="like --token-file, from a value (stays in shell history)")
+    tok.add_argument("--token-helper", metavar="CMD",
+                     help="profile: settings.json apiKeyHelper command that prints an expiring token")
+    for tier in TIERS:
+        sp.add_argument("--model-" + tier, metavar="ID",
+                        help="profile: provider model for the %s tier (default: pick from a list)" % tier.capitalize())
     sp.set_defaults(func=install_cmd)
 
     sp = add_parser("status", help="show installed files and their state",

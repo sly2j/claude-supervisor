@@ -2,7 +2,7 @@
 domain: code
 summary: Install target comes from flags only; CLAUDE_CONFIG_DIR is ignored and ~/.claude is never a profile
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-24
+verified: 2026-10-27
 source: .supervisor/archive/working/plans/plan-sandboxed-install.md; user 2026-10-21
 supersedes: .supervisor/archive/memory/decisions/2026-10-22-deploy-install-model-rationale.md
 ---

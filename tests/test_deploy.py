@@ -2994,3 +2994,559 @@ def test_doctor_codex_on_fail(pack, target, tmp_path, codex, fragment):
     assert r.returncode == 1, r.stdout + r.stderr
     assert row(r, fragment).startswith("FAIL")
     assert "1 FAIL" in r.stdout
+
+
+# --------------------------------------------------------------------------- API providers
+
+# The subscription launcher as shipped before provider presets; tag TAG, paths /TARGET and /PREFIX.
+SUBSCRIPTION_LAUNCHER = """\
+#!/bin/sh
+# managed by claude-supervisor (tag: TAG)
+o=; g=; e=
+for a do
+  shift
+  [ -z "$e" ] && case $a in --) e=1;; --fable-is-opus) o=1; continue;; --fable) g=1; continue;; esac
+  set -- "$@" "$a"
+done
+if [ -n "$g" ]; then echo "claude-TAG: --fable is now the default; use --fable-is-opus to run Fable-tier agents on Opus" >&2; fi
+case "$1" in
+-h|--help|help) cat <<'EOF'
+claude-TAG: Claude Code with the Supervisor for Claude pack
+Tag: TAG   Config dir: /TARGET
+
+Usage: claude-TAG COMMAND [OPTIONS] | [CLAUDE ARGS...]
+  update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
+  uninstall [--yes] [--dry-run]        delete this profile, its launcher and its login
+  status                               show this install's version and file states
+  list                                 list every registered install
+  critic enable|disable|status         switch the lead's critic to Codex (codex-critic)
+  -v, --version                        show the installed pack version and the claude version
+  --fable-is-opus                      run Fable-tier agents on Opus this session
+  -h, --help, help                     show this help
+
+A command, -h or -v counts only as the first argument; --fable-is-opus counts anywhere before a --.
+install and doctor run from your checkout: ./deploy <command> --tag TAG
+Any other arguments go unchanged to claude (see claude --help).
+EOF
+  exit 0;;
+-v|--version)
+  v=$(sed -n 's/^  "pack_version": "\\([^"]*\\)".*/\\1/p' '/TARGET/.claude-supervisor-manifest.json' 2>/dev/null)
+  printf 'claude-supervisor %s (claude-TAG, %s)\\n' "${v:-unknown}" '/TARGET'
+  if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi
+  exit 0;;
+critic) shift; exec '/TARGET/skills/supervisor-config/scripts/codex-critic' "$@";;
+update|uninstall|list|status)
+  d='/PREFIX/state/claude-supervisor/deploy'
+  [ -x "$d" ] || { echo "claude-TAG: $d missing; run ./deploy install from your checkout" >&2; exit 1; }
+  exec "$d" --launcher '/PREFIX' 'TAG' '/TARGET' "$@";;
+esac
+CLAUDE_CONFIG_DIR='/TARGET'; export CLAUDE_CONFIG_DIR
+if [ -n "$o" ]; then ANTHROPIC_DEFAULT_FABLE_MODEL='claude-opus-5-5'; export ANTHROPIC_DEFAULT_FABLE_MODEL; fi
+command -v claude >/dev/null 2>&1 || { echo "claude-TAG: claude not found on PATH; install Claude Code, then retry" >&2; exit 127; }
+exec claude "$@"
+"""
+PROVIDER_FIELDS = ("provider", "auth", "token_helper", "models")
+MODEL_FLAGS = ["--model-fable", "A", "--model-opus", "B", "--model-sonnet", "C", "--model-haiku", "D"]
+PROVIDER_VARS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_DEFAULT_FABLE_MODEL",
+                 "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+                 "ANTHROPIC_MODEL")
+
+
+def provider_stub(tmp_path: Path) -> dict:
+    """A stub `claude` that prints NAME=value (or NAME unset) for each provider variable, then its args."""
+    stub = tmp_path / "bin" / "claude"
+    stub.parent.mkdir(exist_ok=True)
+    stub.write_text("#!/bin/sh\n" + "".join(
+        "if [ -n \"${%s+x}\" ]; then echo \"%s=$%s\"; else echo '%s unset'; fi\n" % (v, v, v, v)
+        for v in PROVIDER_VARS) + "printf '%s\\n' \"$@\"\n")
+    stub.chmod(0o755)
+    return {"PATH": "%s:/usr/bin:/bin" % (tmp_path / "bin"), "HOME": str(tmp_path)}
+
+
+def provider_vars(launcher: Path, env: dict, *args: str) -> dict:
+    """The provider variables a launcher hands to claude: {NAME: value, or None when unset}."""
+    r = run_launcher(launcher, env, *args)
+    assert r.returncode == 0, r.stderr
+    out = {}
+    for line in r.stdout.splitlines():
+        if line.endswith(" unset"):
+            out[line[:-6]] = None
+        elif line.startswith("ANTHROPIC_") and "=" in line:
+            k, v = line.split("=", 1)
+            out[k] = v
+    return out
+
+
+def helper_bin(tmp_path: Path, body: str = "echo tok123") -> Path:
+    """A dir holding a stub `alcf-tokens` that runs `body`."""
+    d = tmp_path / "hbin"
+    d.mkdir(exist_ok=True)
+    stub = d / "alcf-tokens"
+    stub.write_text("#!/bin/sh\n%s\n" % body)
+    stub.chmod(0o755)
+    return d
+
+
+def doctor_tag(pack, target, tmp_path, tag):
+    return run(pack, target, "doctor", target_args=["--tag", tag], path=doctor_bin(tmp_path, "2.1.300"))
+
+
+def test_subscription_launcher_unchanged(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "TAG")
+    r = run(pack, target, "install", target_args=["--tag", "TAG"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    prefix = (tmp_path / ".local").resolve()
+    assert launcher.read_text() == SUBSCRIPTION_LAUNCHER.replace("/TARGET", str(sbx)).replace("/PREFIX", str(prefix))
+    m = manifest(sbx)
+    assert all(m.get(k) is None for k in PROVIDER_FIELDS + ("base_url",))
+    assert "managed_api_key_helper" not in m["settings"] and "apiKeyHelper" not in settings(sbx)
+    assert "Provider" not in r.stdout
+    status = run(pack, target, "status", target_args=["--tag", "TAG"])
+    assert "Provider:" not in status.stdout and "Model " not in status.stdout
+    deploy = load_deploy()
+    assert deploy.launcher_text("TAG", Path("/TARGET"), Path("/PREFIX"), None, False) == SUBSCRIPTION_LAUNCHER
+
+
+def test_openrouter_preset_static_token(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "or")
+    r = run(pack, target, "install", "--provider", "openrouter", "--token", "s3cret", *MODEL_FLAGS,
+            target_args=["--tag", "or"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (sbx / "token").read_text() == "s3cret" and (sbx / "token").stat().st_mode & 0o777 == 0o600
+    m = manifest(sbx)
+    assert (m["provider"], m["auth"], m["token_helper"], m["base_url"]) == \
+        ("openrouter", "token", None, "https://openrouter.ai/api")
+    assert m["models"] == {"fable": "A", "opus": "B", "sonnet": "C", "haiku": "D"}
+    env = dict(provider_stub(tmp_path), ANTHROPIC_API_KEY="real-anthropic-key")
+    assert provider_vars(launcher, env, "-p", "x") == {
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api", "ANTHROPIC_AUTH_TOKEN": "s3cret",
+        "ANTHROPIC_API_KEY": "", "ANTHROPIC_DEFAULT_FABLE_MODEL": "A", "ANTHROPIC_DEFAULT_OPUS_MODEL": "B",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "C", "ANTHROPIC_DEFAULT_HAIKU_MODEL": "D", "ANTHROPIC_MODEL": "B"}
+    assert provider_vars(launcher, env, "--fable-is-opus")["ANTHROPIC_DEFAULT_FABLE_MODEL"] == "B"
+    assert "claude-opus-5-5" not in launcher.read_text()
+    assert "Provider: openrouter   Base URL: https://openrouter.ai/api" in run_launcher(launcher, env, "--help").stdout
+    status = run(pack, target, "status", target_args=["--tag", "or"])
+    for line in ("Provider: openrouter", "Base URL: https://openrouter.ai/api", "Auth: token file %s/token" % sbx,
+                 "Model fable: A", "Model opus: B", "Model sonnet: C", "Model haiku: D"):
+        assert line in status.stdout.splitlines(), line
+    for seen in (r.stdout, r.stderr, (sbx / MANIFEST).read_text(), (sbx / "settings.json").read_text(),
+                 launcher.read_text(), status.stdout, status.stderr):
+        assert "s3cret" not in seen
+
+
+def test_status_shows_provider_not_secret(pack, target, tmp_path):
+    r = run(pack, target, "install", "--provider", "nrp", "--token", "s3cret", *MODEL_FLAGS, target_args=["--tag", "n"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    status = run(pack, target, "status", target_args=["--tag", "n"])
+    lines = status.stdout.splitlines()
+    assert "Provider: nrp" in lines and "Base URL: https://ellm.nrp-nautilus.io/anthropic" in lines
+    assert len([l for l in lines if l.startswith("Model ")]) == 4
+    assert "s3cret" not in status.stdout + status.stderr
+
+
+def test_alcf_preset_helper(pack, target, tmp_path):
+    hbin = helper_bin(tmp_path)
+    path = "%s:/usr/bin:/bin" % hbin
+    sbx, launcher = profile_paths(tmp_path, "alcf")
+    r = run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS, target_args=["--tag", "alcf"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    helper = "%s get-token inference" % (hbin / "alcf-tokens")
+    assert settings(sbx)["apiKeyHelper"] == helper
+    m = manifest(sbx)
+    assert m["settings"]["managed_api_key_helper"] is True
+    assert (m["provider"], m["auth"], m["token_helper"]) == ("alcf", "helper", helper)
+    assert not (sbx / "token").exists()
+    text = launcher.read_text()
+    assert "unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY" in text and "ANTHROPIC_AUTH_TOKEN=" not in text
+    env = dict(provider_stub(tmp_path), ANTHROPIC_AUTH_TOKEN="stale", ANTHROPIC_API_KEY="key")
+    got = provider_vars(launcher, env)
+    assert got["ANTHROPIC_AUTH_TOKEN"] is None and got["ANTHROPIC_API_KEY"] is None
+    assert got["ANTHROPIC_BASE_URL"] == "https://inference-api.alcf.anl.gov/resource_server/minerva/api"
+    assert "tok123" not in r.stdout + r.stderr + (sbx / MANIFEST).read_text() + (sbx / "settings.json").read_text()
+
+    r = run(pack, target, "install", "--token", "x", target_args=["--tag", "alcf"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "apiKeyHelper" not in settings(sbx)
+    assert (sbx / "token").read_text() == "x"
+    m = manifest(sbx)
+    assert m["auth"] == "token" and m["token_helper"] is None and m["settings"]["managed_api_key_helper"] is False
+    assert m["models"]["opus"] == "B"
+    assert provider_vars(launcher, provider_stub(tmp_path))["ANTHROPIC_AUTH_TOKEN"] == "x"
+
+
+def test_alcf_tara_via_base_url(pack, target, tmp_path):
+    path = "%s:/usr/bin:/bin" % helper_bin(tmp_path)
+    tara = "https://inference-api.alcf.anl.gov/resource_server/tara/api"
+    sbx, launcher = profile_paths(tmp_path, "tara")
+    r = run(pack, target, "install", "--provider", "alcf", "--base-url", tara, *MODEL_FLAGS,
+            target_args=["--tag", "tara"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (manifest(sbx)["provider"], manifest(sbx)["base_url"]) == ("alcf", tara)
+    assert "ANTHROPIC_BASE_URL='%s'" % tara in launcher.read_text()
+    # re-running with the preset alone keeps the recorded base URL
+    assert run(pack, target, "install", "--provider", "alcf", target_args=["--tag", "tara"], path=path).returncode == 0
+    assert manifest(sbx)["base_url"] == tara and manifest(sbx)["models"]["haiku"] == "D"
+
+
+@pytest.mark.parametrize("body, fragment", [("exit 1", "failed (exit 1)"),
+                                            ("echo a; echo b", "just the token on one line"),
+                                            ("echo", "just the token on one line")])
+def test_helper_failing_is_a_clean_error(pack, target, tmp_path, body, fragment):
+    path = "%s:/usr/bin:/bin" % helper_bin(tmp_path, body)
+    r = run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS, target_args=["--tag", "alcf"], path=path)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert fragment in r.stderr and "alcf-tokens login inference" in r.stderr and "Traceback" not in r.stderr
+    assert not (tmp_path / ".config").exists() and not (tmp_path / ".local").exists()
+
+
+def test_helper_not_on_path_is_a_clean_error(pack, target, tmp_path):
+    r = run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS, target_args=["--tag", "alcf"])
+    assert r.returncode == 2 and "not found on PATH" in r.stderr and "alcf-tokens login inference" in r.stderr
+    assert not (tmp_path / ".config").exists()
+
+
+def test_user_api_key_helper_is_kept(pack, target, tmp_path):
+    sbx, _ = profile_paths(tmp_path, "alcf")
+    sbx.mkdir(parents=True)
+    (sbx / "settings.json").write_text(json.dumps({"apiKeyHelper": "mine"}))
+    path = "%s:/usr/bin:/bin" % helper_bin(tmp_path)
+    r = run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS, target_args=["--tag", "alcf"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert settings(sbx)["apiKeyHelper"] == "mine"
+    assert "WARNING: apiKeyHelper is 'mine'" in r.stdout
+    assert manifest(sbx)["settings"]["managed_api_key_helper"] is False
+
+
+@pytest.mark.parametrize("clear", [["--base-url", ""], ["--provider", ""]])
+def test_base_url_clears_provider_config(pack, target, tmp_path, clear):
+    path = "%s:/usr/bin:/bin" % helper_bin(tmp_path)
+    sbx, launcher = profile_paths(tmp_path, "alcf")
+    assert run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS,
+               target_args=["--tag", "alcf"], path=path).returncode == 0
+    r = run(pack, target, "install", *clear, target_args=["--tag", "alcf"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    deploy = load_deploy()
+    assert launcher.read_text() == deploy.launcher_text("alcf", sbx, (tmp_path / ".local").resolve(), None, False)
+    m = manifest(sbx)
+    assert all(m.get(k) is None for k in PROVIDER_FIELDS + ("base_url",))
+    assert "apiKeyHelper" not in settings(sbx) and m["settings"]["managed_api_key_helper"] is False
+
+
+def test_base_url_clear_with_provider_is_refused(pack, target, tmp_path):
+    r = run(pack, target, "install", "--base-url", "", "--provider", "nrp", target_args=["--tag", "n"])
+    assert r.returncode == 2 and "clears the provider" in r.stderr
+
+
+def test_update_replays_provider(remote, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "n")
+    install_from_clone(remote, "--tag", "n", "--provider", "nrp", "--token", "x", *MODEL_FLAGS)
+    before = launcher.read_text()
+    fields = {k: manifest(sbx)[k] for k in PROVIDER_FIELDS + ("base_url",)}
+    push_change(remote, "v2 provider")
+    r = update(remote, "--tag", "n", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "v2 provider" in helper_text(sbx)
+    assert launcher.read_text() == before
+    assert {k: manifest(sbx)[k] for k in PROVIDER_FIELDS + ("base_url",)} == fields
+    assert fields["models"]["haiku"] == "D" and fields["auth"] == "token" and fields["provider"] == "nrp"
+
+
+@pytest.mark.parametrize("flag, value", [("--provider", "nrp"), ("--token-helper", "h"),
+                                         ("--model-fable", "a"), ("--model-opus", "a"),
+                                         ("--model-sonnet", "a"), ("--model-haiku", "a")])
+def test_global_rejects_provider_flags(pack, global_target, flag, value):
+    r = run(pack, global_target, "install", flag, value)
+    assert r.returncode == 2 and "--global cannot be combined with " + flag in r.stderr
+    assert not global_target.exists()
+
+
+def test_unknown_provider_is_refused(pack, target):
+    r = run(pack, target, "install", "--provider", "acme", target_args=["--tag", "a"])
+    assert r.returncode == 2 and "unknown --provider 'acme'" in r.stderr
+
+
+def test_preset_token_provider_needs_a_token(pack, target):
+    r = run(pack, target, "install", "--provider", "nrp", *MODEL_FLAGS, target_args=["--tag", "n"])
+    assert r.returncode == 2 and "needs a token" in r.stderr and "nrp.ai/llmtoken" in r.stderr
+
+
+def test_provider_seed_drops_anthropic_env(pack, target, tmp_path):
+    home = tmp_path / ".claude"
+    home.mkdir()
+    (home / "settings.json").write_text(json.dumps(
+        {"env": {"ANTHROPIC_DEFAULT_OPUS_MODEL": "x", "FOO": "1"}, "apiKeyHelper": "h", "theme": "dark"}))
+    r = run(pack, target, "install", "--provider", "nrp", "--token", "t", *MODEL_FLAGS, target_args=["--tag", "p"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    s = settings(profile_paths(tmp_path, "p")[0])
+    assert s["env"] == {"FOO": "1"} and "apiKeyHelper" not in s and s["theme"] == "dark"
+    assert run(pack, target, "install", target_args=["--tag", "s"]).returncode == 0
+    s = settings(profile_paths(tmp_path, "s")[0])
+    assert s["env"] == {"ANTHROPIC_DEFAULT_OPUS_MODEL": "x", "FOO": "1"} and s["apiKeyHelper"] == "h"
+
+
+@pytest.mark.parametrize("extra", [[], ["--yes"], ["--dry-run"]])
+def test_preset_without_tty_needs_flags(pack, target, tmp_path, extra):
+    r = run(pack, target, "install", "--provider", "nrp", "--token", "x", *extra, target_args=["--tag", "n"])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "pass --model-fable ID --model-opus ID --model-sonnet ID --model-haiku ID" in r.stderr
+    assert not (tmp_path / ".config").exists() and not (tmp_path / ".local").exists()
+
+
+def test_partial_tier_flags_fail(pack, target, tmp_path):
+    r = run(pack, target, "install", "--base-url", "https://llm.example", "--token", "x", "--model-opus", "M",
+            target_args=["--tag", "g"])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "pass --model-fable ID --model-sonnet ID --model-haiku ID" in r.stderr
+    assert not (tmp_path / ".config").exists()
+
+
+def test_generic_without_models_is_quiet(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "g")
+    r = run(pack, target, "install", "--base-url", "https://llm.example", "--token", "x", target_args=["--tag", "g"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    text = launcher.read_text()
+    assert "ANTHROPIC_DEFAULT_OPUS_MODEL" not in text and "ANTHROPIC_MODEL" not in text
+    assert "ANTHROPIC_API_KEY=''; export ANTHROPIC_API_KEY" in text
+    m = manifest(sbx)
+    assert (m["provider"], m["auth"], m["models"]) == (None, "token", None)
+
+
+# in-process: model list and picker
+
+class FakeResponse:
+    def __init__(self, data: bytes):
+        self.data = data
+
+    def read(self) -> bytes:
+        return self.data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def fake_urlopen(monkeypatch, deploy, payload=None, error=None) -> list:
+    seen = []
+
+    def urlopen(req, timeout=None):
+        seen.append((req, timeout))
+        if error is not None:
+            raise error
+        return FakeResponse(json.dumps(payload).encode())
+
+    monkeypatch.setattr(deploy.urllib.request, "urlopen", urlopen)
+    return seen
+
+
+def test_fetch_models_parses_openai_shape(monkeypatch):
+    deploy = load_deploy()
+    seen = fake_urlopen(monkeypatch, deploy, {"data": [{"id": "a", "context_length": 1, "pricing": {}}, {"x": 1}]})
+    assert deploy.fetch_models("https://p/v1/models", "t") == [{"id": "a", "context_length": 1}]
+    req, timeout = seen[0]
+    assert req.full_url == "https://p/v1/models" and req.get_header("Authorization") == "Bearer t"
+    assert timeout == deploy.MODELS_TIMEOUT
+    assert deploy.fetch_models("https://p/v1/models", None) == [{"id": "a", "context_length": 1}]
+    assert seen[1][0].get_header("Authorization") is None
+
+
+@pytest.mark.parametrize("error, fragment", [
+    ("url", "down"), ("401", "HTTP 401 (the provider refused the token)"), ("json", "Expecting value")])
+def test_fetch_models_failure_warns_and_continues(monkeypatch, capsys, error, fragment):
+    import io
+    import urllib.error
+    deploy = load_deploy()
+    if error == "url":
+        fake_urlopen(monkeypatch, deploy, error=urllib.error.URLError("down"))
+    elif error == "401":
+        fake_urlopen(monkeypatch, deploy, error=urllib.error.HTTPError("u", 401, "no", {}, io.BytesIO()))
+    else:
+        monkeypatch.setattr(deploy.urllib.request, "urlopen", lambda req, timeout=None: FakeResponse(b"<html>"))
+    assert deploy.fetch_models("https://p/v1/models", "t") == []
+    out = capsys.readouterr().out.splitlines()
+    assert len(out) == 1 and out[0].startswith("WARNING") and "https://p/v1/models" in out[0] and fragment in out[0]
+
+
+def test_openrouter_list_url_filters_tools():
+    deploy = load_deploy()
+    assert "supported_parameters=tools" in deploy.PROVIDERS["openrouter"]["models_url"]
+    assert set(deploy.PROVIDERS) == {"openrouter", "nrp", "alcf"}
+
+
+def picker_cfg() -> dict:
+    return {"provider": "x", "base_url": "https://p", "models_url": "https://p/v1/models", "models": None}
+
+
+def test_pick_by_number_filter_and_exact(monkeypatch):
+    deploy, asked = tty_deploy(monkeypatch, ["b", "2", "a1", "", "zz", "y"])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [{"id": i} for i in ("a1", "b2", "b3")])
+    got = deploy.choose_models(picker_cfg(), {}, None, True)
+    assert got == {"fable": "b3", "opus": "a1", "sonnet": "a1", "haiku": "zz"}
+    assert asked[-1] == "zz is not in the list; use it anyway? [y/N] "
+
+
+def test_pick_keeps_flags_and_asks_only_missing(monkeypatch):
+    deploy, asked = tty_deploy(monkeypatch, ["", ""])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [{"id": "m"}])
+    got = deploy.choose_models(picker_cfg(), {"fable": "f", "opus": "o"}, None, True)
+    assert got == {"fable": "f", "opus": "o", "sonnet": "o", "haiku": "o"}
+    assert len(asked) == 2
+
+
+def test_pick_without_list_takes_typed_ids(monkeypatch):
+    deploy, _ = tty_deploy(monkeypatch, ["?", "my-model", "", "", "small"])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [])
+    assert deploy.choose_models(picker_cfg(), {}, None, True) == \
+        {"fable": "my-model", "opus": "my-model", "sonnet": "my-model", "haiku": "small"}
+
+
+def test_pick_shows_at_most_30(monkeypatch, capsys):
+    deploy, _ = tty_deploy(monkeypatch, ["", "m001", "", "", ""])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [{"id": "m%03d" % i} for i in range(460)])
+    deploy.choose_models(picker_cfg(), {}, None, True)
+    out = capsys.readouterr().out.splitlines()
+    assert len([l for l in out if l.split() and l.split()[0].isdigit()]) == 30
+    assert "  and 430 more; narrow the filter" in out
+
+
+def tty_install(deploy, pack: Path, *args: str) -> int:
+    return deploy.main(["install", "--source", str(pack)] + list(args))
+
+
+def test_generic_asks_before_mapping(pack, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy, asked = tty_deploy(monkeypatch, ["n"])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [{"id": "a1"}])
+    assert tty_install(deploy, pack, "--tag", "g", "--base-url", "https://llm.example", "--token", "x") == 0
+    assert asked == ["Map the model tiers to this provider's models? [y/N] "]
+    assert "ANTHROPIC_DEFAULT_OPUS_MODEL" not in profile_paths(tmp_path, "g")[1].read_text()
+
+    deploy, asked = tty_deploy(monkeypatch, ["y", "a1", "", "", ""])
+    urls = []
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: urls.append((url, bearer)) or [{"id": "a1"}])
+    assert tty_install(deploy, pack, "--tag", "h", "--base-url", "https://llm.example/", "--token", "x") == 0
+    assert urls == [("https://llm.example/v1/models", "x")]
+    text = profile_paths(tmp_path, "h")[1].read_text()
+    for tier in ("FABLE", "OPUS", "SONNET", "HAIKU"):
+        assert "ANTHROPIC_DEFAULT_%s_MODEL='a1'" % tier in text
+    # a re-install takes the base URL and the models from the manifest and asks nothing
+    deploy, asked = tty_deploy(monkeypatch, [])
+    assert tty_install(deploy, pack, "--tag", "h") == 0 and asked == []
+
+
+def test_tty_install_end_to_end(pack, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy, _ = tty_deploy(monkeypatch, ["qwen", "1", "gemma", "", "small", "1"])
+    entries = [{"id": i} for i in ("gemma", "gpt-oss", "qwen3", "qwen3-small")]
+    calls = []
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: calls.append((url, bearer)) or entries)
+    assert tty_install(deploy, pack, "--tag", "n", "--provider", "nrp", "--token", "s3cret") == 0
+    assert calls == [("https://ellm.nrp-nautilus.io/v1/models", "s3cret")]
+    sbx, launcher = profile_paths(tmp_path, "n")
+    m = manifest(sbx)
+    assert m["models"] == {"fable": "qwen3", "opus": "gemma", "sonnet": "gemma", "haiku": "qwen3-small"}
+    assert (m["provider"], m["auth"]) == ("nrp", "token")
+    text = launcher.read_text()
+    assert "ANTHROPIC_MODEL='gemma'" in text and "ANTHROPIC_DEFAULT_HAIKU_MODEL='qwen3-small'" in text
+
+
+def test_picker_ctrl_d_aborts(pack, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    deploy, _ = tty_deploy(monkeypatch, [EOFError()])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [])
+    assert tty_install(deploy, pack, "--tag", "n", "--provider", "nrp", "--token", "x") == 1
+    assert "aborted" in capsys.readouterr().err
+    assert not (tmp_path / ".config").exists()
+
+
+# doctor and help
+
+def test_doctor_provider_rows(pack, target, tmp_path):
+    hbin = helper_bin(tmp_path)
+    assert run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS,
+               target_args=["--tag", "alcf"], path="%s:/usr/bin:/bin" % hbin).returncode == 0
+    r = doctor_tag(pack, target, tmp_path, "alcf")
+    assert row(r, "provider: alcf").startswith("PASS")
+    assert row(r, "token helper prints a token").startswith("PASS")
+    (hbin / "alcf-tokens").write_text("#!/bin/sh\nexit 1\n")
+    r = doctor_tag(pack, target, tmp_path, "alcf")
+    assert r.returncode == 1 and row(r, "failed (exit 1)").startswith("FAIL")
+
+    assert run(pack, target, "install", "--provider", "nrp", "--token", "x", *MODEL_FLAGS,
+               target_args=["--tag", "n"]).returncode == 0
+    sbx, _ = profile_paths(tmp_path, "n")
+    (sbx / "token").chmod(0o644)
+    s = settings(sbx)
+    s["env"] = {"ANTHROPIC_API_KEY": "k"}
+    (sbx / "settings.json").write_text(json.dumps(s))
+    r = doctor_tag(pack, target, tmp_path, "n")
+    assert row(r, "provider: nrp").startswith("PASS")
+    assert row(r, "is mode 644, not 600").startswith("FAIL")
+    assert row(r, "ANTHROPIC_API_KEY in settings.json env overrides the launcher").startswith("WARN")
+    (sbx / "token").unlink()
+    assert row(doctor_tag(pack, target, tmp_path, "n"), "token is missing").startswith("FAIL")
+
+    assert run(pack, target, "install", target_args=["--tag", "s"]).returncode == 0
+    r = doctor_tag(pack, target, tmp_path, "s")
+    assert not [l for l in rows_of(r) if "provider" in l or "token" in l]
+
+
+def test_help_lists_provider_flags():
+    r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
+    assert r.returncode == 0
+    for flag in ("--provider", "--token-helper", "--model-fable", "--model-opus", "--model-sonnet", "--model-haiku"):
+        assert flag in r.stdout, flag
+
+
+def test_static_token_survives_reinstall_on_helper_preset(pack, target, tmp_path):
+    path = "%s:/usr/bin:/bin" % helper_bin(tmp_path)
+    sbx, _ = profile_paths(tmp_path, "alcf")
+    args = ["--tag", "alcf"]
+    assert run(pack, target, "install", "--provider", "alcf", *MODEL_FLAGS, target_args=args, path=path).returncode == 0
+    assert run(pack, target, "install", "--token", "x", target_args=args, path=path).returncode == 0
+    r = run(pack, target, "install", target_args=args, path="/usr/bin:/bin")  # no helper needed any more
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (sbx / "token").read_text() == "x" and manifest(sbx)["auth"] == "token"
+    assert "apiKeyHelper" not in settings(sbx)
+
+
+def test_clearing_a_token_provider_removes_its_token(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "n")
+    args = ["--tag", "n"]
+    assert run(pack, target, "install", "--provider", "nrp", "--token", "sec", *MODEL_FLAGS,
+               target_args=args).returncode == 0
+    assert run(pack, target, "install", "--provider", "", target_args=args).returncode == 0
+    assert not (sbx / "token").exists() and "ANTHROPIC_AUTH_TOKEN" not in launcher.read_text()
+
+
+def test_generic_token_helper(pack, target, tmp_path):
+    hbin = helper_bin(tmp_path, "echo tok")
+    path = "%s:/usr/bin:/bin" % hbin
+    sbx, launcher = profile_paths(tmp_path, "g")
+    r = run(pack, target, "install", "--base-url", "https://llm.example", "--token-helper", "alcf-tokens arg",
+            target_args=["--tag", "g"], path=path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert settings(sbx)["apiKeyHelper"] == "%s arg" % (hbin / "alcf-tokens")
+    assert "unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY" in launcher.read_text()
+    r = run(pack, target, "install", "--token-helper", "h", "--token", "x", target_args=["--tag", "g"], path=path)
+    assert r.returncode == 2
+
+
+@pytest.mark.parametrize("flags, fragment", [
+    (["--model-opus", "X"], "--model-* and --token-helper need --provider or --base-url"),
+    (["--base-url", "https://u", "--token", "x", "--model-opus", "a b"], "invalid --model-opus"),
+])
+def test_provider_flag_errors(pack, target, tmp_path, flags, fragment):
+    r = run(pack, target, "install", *flags, target_args=["--tag", "e"])
+    assert r.returncode == 2 and fragment in r.stderr
+    assert not (tmp_path / ".config").exists()
+
+
+def test_preset_flags_not_in_list_warn(monkeypatch, capsys):
+    deploy, _ = tty_deploy(monkeypatch, ["", ""])
+    monkeypatch.setattr(deploy, "fetch_models", lambda url, bearer: [{"id": "m"}])
+    deploy.choose_models(picker_cfg(), {"fable": "f", "opus": "m"}, None, True)
+    out = capsys.readouterr().out
+    assert "WARNING: model f for the fable tier is not in https://p/v1/models" in out
+    assert "model m for" not in out

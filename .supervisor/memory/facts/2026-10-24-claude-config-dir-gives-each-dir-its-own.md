@@ -2,7 +2,7 @@
 domain: code
 summary: CLAUDE_CONFIG_DIR gives each dir its own login; the Keychain entry is keyed to the literal dir string
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-24
+verified: 2026-10-27
 source: .supervisor/archive/working/research/research-sandboxed-install.md#1-is-claude_config_dir-the-supported-mechanism
 supersedes: .supervisor/archive/memory/facts/2026-10-21-claude-config-dir-gives-each-dir-a-login.md
 ---

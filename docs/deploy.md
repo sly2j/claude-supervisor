@@ -47,7 +47,7 @@ If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$
 | An unmanaged file with that name exists | refused, exit code 1 (`--overwrite-local` backs it up and replaces it) |
 | File removed from the pack | deleted if unmodified, otherwise kept and handed over to you |
 
-- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if install had set it). `claude-supervisor --agent <other>` overrides the setting for a single session.
+- Sets `"agent": "supervisor"` in `settings.json`. It backs up the file first, writes atomically, and keeps every other key. If you already have a different `agent`, the script leaves it alone unless you pass `--force-default-agent`. `--no-default-agent` skips this step (and restores your previous value if install had set it). `claude-supervisor --agent <other>` overrides the setting for a single session. A provider profile with a token helper also gets `apiKeyHelper` (see [API Providers](#api-providers)).
 - In a profile (never with `--global`), also sets `attribution.commit` to `Co-Authored-By: Supervisor for Claude` in `settings.json`, so commits made by the agents carry that trailer instead of Claude Code's default. It also sets `attribution.pr` to `""` and `attribution.sessionUrl` to `false` ([docs](https://code.claude.com/docs/en/settings-reference#attribution-sessionurl)), so commits and PRs carry only the Supervisor for Claude trailer, with no session link and no "Generated with Claude Code" footer. Other keys are kept. Each sub-key is set only when absent; a value you set yourself (a different `commit` text, any `pr` or `sessionUrl`, or `attribution: false`) is left alone, and the install message says so. The manifest records which of them install set; deleting the profile on uninstall removes it with the rest.
 - Validates every source agent and skill before writing anything, and holds a lock so two deploys cannot run at once.
 - Records the checkout's current git branch next to the remote in the registry; `update` follows it. A detached HEAD records `main` and prints a one-line warning; a source that is not a git checkout records `main` silently. `status` prints `Remote: <url or none>` and `Branch: <branch>` from the registry, or `Remote: not registered`.
@@ -65,7 +65,7 @@ If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$
 "$REPO/deploy" install --tag work --base-url https://llm.example.com --token-file ~/work.token
 ```
 
-Use this only for a proxy or gateway; omit it to use a normal login. Install copies the token to `<dir>/token` (mode 0600), and the launcher exports `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`. `--token VALUE` also works but leaves the value in your shell history, so prefer `--token-file`. A later plain `install` keeps both; `--base-url ''` drops the URL, and deleting `<dir>/token` drops the token at the next install.
+Routes the profile through a proxy or gateway that serves the Anthropic API; omit it to use a normal login. Presets for OpenRouter, NRP and ALCF, expiring tokens, mapping the model tiers to the provider's models, and changing or removing a provider are in [API Providers](#api-providers).
 
 ## The Launcher
 
@@ -110,7 +110,7 @@ Every install records itself in a registry and writes a copy of the deploy tool 
 
 `list [--prefix DIR]` shows each install in that prefix's registry: tag, target, installed version, branch, commit (short, with `-dirty` if the source was dirty), and whether the launcher exists (`yes`, `missing`, or `-` for `--global` or when there is no readable manifest). `./deploy --version` prints the checkout's derived pack version and the `claude:` line; the tool copy's `--version` (`~/.local/state/claude-supervisor/deploy --version`) prints the version recorded by the install that last wrote the tool copy, without the checkout.
 
-`update` clones the branch recorded at install from the git remote recorded at install into a temp dir (shallow for `main`; full history for other branches, so the merge-base with `main` is available for the version) and reinstalls with each install's recorded options (prefix, `--no-default-agent`, base URL and token). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
+`update` clones the branch recorded at install from the git remote recorded at install into a temp dir (shallow for `main`; full history for other branches, so the merge-base with `main` is available for the version) and reinstalls with each install's recorded options (prefix, `--no-default-agent`, and a provider profile's base URL, token or token helper, and tier models; see [API Providers](#api-providers)). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
 
 If an install is newer than what `update` would install (main version first, then commits ahead), `update` prints a WARNING naming both versions and asks `Continue with the update? [y/N]`. The default is No: the install is left unchanged and the exit code is 1. Without a terminal it fails (exit code 2) unless `--yes` is passed, and `--dry-run` only warns.
 
@@ -136,7 +136,7 @@ claude-supervisor-dev update     # pulls the pushed my-feature branch
 
 ## Fable Or Opus
 
-Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for Fable, and `planner` also names `model: fable` when it dispatches `critic`. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans. By default the launcher leaves `ANTHROPIC_DEFAULT_FABLE_MODEL` alone: if it is unset, those agents and that dispatch override run on Fable; if your environment defines it (for example `export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in a shell profile), that value is respected. `claude-<tag> ... --fable-is-opus` strips the flag and exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` for that session, overriding the environment. The flag counts in any position before a `--`, also next to a launcher command, where it has no effect; the other arguments reach `claude` in their order.
+Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for Fable, and `planner` also names `model: fable` when it dispatches `critic`. Deployed files always say `model: fable`, byte for byte as in `pack/`. Fable is billed to usage credits on some plans. By default the launcher leaves `ANTHROPIC_DEFAULT_FABLE_MODEL` alone: if it is unset, those agents and that dispatch override run on Fable; if your environment defines it (for example `export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in a shell profile), that value is respected. `claude-<tag> ... --fable-is-opus` strips the flag and exports `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` for that session, overriding the environment. The flag counts in any position before a `--`, also next to a launcher command, where it has no effect; the other arguments reach `claude` in their order. On a provider profile the flag maps Fable to the model you picked for the Opus tier instead (see [API Providers](#api-providers)).
 
 The value is a full model ID, the `OPUS_MODEL` constant in `deploy`. When a new Opus ships, update the constant and re-run `install` to regenerate the launchers.
 
@@ -151,6 +151,56 @@ export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5
 ```
 
 A profile created later copies `~/.claude/settings.json`, and there a settings value applies to every session, whatever the shell environment or `--fable-is-opus` say. Setting the variable in your shell profile also reaches the launchers of existing profiles.
+
+## API Providers
+
+A profile can run on an API provider instead of your Claude subscription: any endpoint that serves the Anthropic Messages API, with the provider's models mapped to the four pack tiers (Fable, Opus, Sonnet, Haiku). Install it into a profile of its own, with its own tag and launcher; the subscription profile stays as it is, and `--global` refuses the provider flags. Anthropic does not support Claude Code on non-Claude models, and how well a model follows the agents' tool calls varies by model, so try a candidate on a small task first.
+
+### Presets
+
+```bash
+"$REPO/deploy" install --tag or --provider openrouter --token-file ~/openrouter.key
+"$REPO/deploy" install --tag nrp --provider nrp --token-file ~/nrp.token
+"$REPO/deploy" install --tag alcf --provider alcf
+```
+
+A preset fills in the base URL, how the token is supplied and where the model list comes from. Install then asks for a model per tier on a terminal (see Model Tiers); without one it needs the four `--model-<tier>` flags.
+
+- **OpenRouter**, `https://openrouter.ai/api`: a static key, created at https://openrouter.ai/keys. The list offers OpenRouter's models that support tool calling.
+- **NRP**, `https://ellm.nrp-nautilus.io/anthropic`: a static token from https://nrp.ai/llmtoken.
+- **ALCF**, `https://inference-api.alcf.anl.gov/resource_server/minerva/api` (the Minerva cluster): access tokens expire after 48 hours, so the preset uses the token helper `alcf-tokens get-token inference` instead of a static token. Install `alcf-tokens` and run `alcf-tokens login inference` once. `install`, `update` and `doctor` run the helper once each and fail with that login command when it prints no token. For Tara, add `--base-url https://inference-api.alcf.anl.gov/resource_server/tara/api`. ALCF's Claude Code recipe names only Minerva and Tara; Sophia and Metis would need a bridge outside this tool. The helper command and the model list at `<base URL>/v1/models` follow ALCF's documentation and are not yet confirmed against the live service; when the list cannot be fetched, the picker takes typed model ids.
+
+A static token (`--token-file PATH`, or `--token VALUE`, which leaves the value in your shell history) is copied to `<dir>/token` (mode 0600), and the launcher exports it as `ANTHROPIC_AUTH_TOKEN` with `ANTHROPIC_API_KEY` set empty, so a real Anthropic key in your environment never reaches the provider. A token helper (`--token-helper CMD` for any provider; the ALCF preset's default) goes into the profile's `settings.json` as `apiKeyHelper`, with the command's program as an absolute path, and the launcher unsets `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY`, so Claude Code calls the helper and refreshes the token when it expires. The helper must exit 0 and print just the token on one line. Install sets `apiKeyHelper` when the key is absent or install set it before; a value you set yourself is kept, with a warning. Neither the token nor the helper's output ever appears in the manifest, `settings.json`, install output or `status`.
+
+Any other provider that serves the Anthropic Messages API takes `--base-url URL` with one of the token flags, as under Token Provider. Given with `--provider`, `--base-url` replaces only the preset's URL.
+
+### Model Tiers
+
+Claude Code resolves the `fable`, `opus`, `sonnet` and `haiku` aliases in the agent files through `ANTHROPIC_DEFAULT_<TIER>_MODEL`, so a provider profile's launcher exports those four variables with the provider's models, plus `ANTHROPIC_MODEL` (the main model) as the Opus-tier model; the deployed agent files are unchanged. On a terminal, install asks for one model per tier, Fable first:
+
+```
+Pick a model per tier from openrouter: a number, an exact id, or text to filter by (? lists)
+Fable-tier model:
+```
+
+`?` or an empty answer lists the first 30 models, with the context length when the provider reports it; other text filters the list (`qwen`); a number picks from the last list shown; an exact id picks it. From the second tier on, an empty answer repeats the previous pick, so a single-model provider takes one pick and three Enters. An id that is not in the list asks `is not in the list; use it anyway?`. When the list cannot be fetched (no network, or a token the provider refuses), install prints one WARNING and takes typed ids.
+
+For scripts, or without a terminal, give every tier on the command line; `--yes` also skips the picker:
+
+```bash
+"$REPO/deploy" install --tag nrp --provider nrp --token-file ~/nrp.token \
+  --model-fable <id> --model-opus <id> --model-sonnet <id> --model-haiku <id>
+```
+
+A preset, or any `--model-<tier>` flag, needs all four tiers. A re-install keeps the recorded ones, so a single flag changes one tier; a tier that is still missing without a terminal is an error listing the flags to pass, under `--dry-run` too. The list is fetched only when the picker runs, so scripted installs and `update` never fetch it; when it runs, a model given by flag that the list does not contain gets one WARNING.
+
+With `--base-url` and no preset, install asks `Map the model tiers to this provider's models? [y/N]` on a terminal. Declined, or without a terminal, the tiers stay unset, which suits a gateway that serves Claude model ids; once mapped, the all-or-nothing rule above applies.
+
+On a provider profile, `--fable-is-opus` maps Fable to the Opus-tier model. An `ANTHROPIC_*` value in the profile's `settings.json` `env` overrides the launcher: a provider profile's first install leaves such keys (and `apiKeyHelper`) out when it copies `~/.claude/settings.json`, and `doctor` warns about any added later.
+
+### Changing Or Removing A Provider
+
+A plain `install`, and `update`, keep the recorded provider, token or helper, and models. `status` prints `Provider:`, `Base URL:`, `Auth:` and one `Model <tier>:` line each; `doctor` checks the token file, the helper and the `env` block (see Doctor Checks). Re-run `install` with new flags to change part of it: a `--model-<tier>` flag replaces that tier, `--token-file` replaces the token or turns a helper profile into a static-token one (`--token-helper` does the reverse), and a different `--base-url` drops the recorded models, so the tiers are picked, or passed, again. `--provider ''` or `--base-url ''` removes the whole provider config: the launcher goes back to the subscription form, `<dir>/token` is deleted and a managed `apiKeyHelper` is removed (one you set yourself is kept, with a warning); the profile then uses a normal login. `uninstall` deletes the token with the profile.
 
 ## Codex As Critic
 
@@ -217,6 +267,9 @@ When Codex is off for a domain, missing, times out, exits non-zero, writes nothi
 | `git` | WARN | Needed for `./deploy update` and to clone; optional otherwise (`git-ops` uses it) |
 | `zip` | WARN | Optional; used by `project-backup` |
 | Codex critic (only when `critic.backend` is `codex`) | FAIL | `codex` missing from `PATH` or not logged in; install it, run `codex login`, or run `critic disable` |
+| Provider profile: `<dir>/token` missing or not mode 600 | FAIL | Re-run `./deploy install --tag <tag> --token-file PATH`, or `chmod 600` the file |
+| Provider profile: token helper prints no token | FAIL | Log in again (ALCF: `alcf-tokens login inference`), or re-run `install` with a working `--token-helper` |
+| `ANTHROPIC_*` in `settings.json` `env` (provider profile) | WARN | It overrides the launcher's export; remove it |
 
 The three environment variables are checked both in the shell environment and in the `env` block of the target's `settings.json`. Doctor exits 1 if any row is FAIL; WARN rows do not change the exit code.
 

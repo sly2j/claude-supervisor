@@ -60,15 +60,6 @@ headroom under its Main cap; wording trims need no owner approval, but cutting r
 (`.supervisor/memory/decisions/2026-10-25-raising-a-pack-word-cap-is-owner-only.md`).
 Priority: normal. Effort: M.
 
-### 4. Configurable model tiers for alternative providers
-
-Let users map the Opus/Fable, Sonnet and Haiku tiers to custom model names when using local or
-third-party providers that implement the Anthropic API via API keys. Owner direction
-(2026-10-21): when an install is configured with an API key, `deploy` asks whether to configure
-the tiers, lists the provider's available models, and lets the user pick one per tier by number
-or by typing a name. `deploy` stays standard-library-only.
-Priority: normal. Effort: M.
-
 ### 5. Dangling memory references after archiving working files
 
 Archiving a working file (plan, research, draft state) leaves citations of its old path in live
@@ -126,3 +117,11 @@ Priority: low. Effort: S.
 Only if the need shows up: a setting naming the Python interpreter for Codex's sandbox, so Codex
 can run the tests (`.supervisor/memory/facts/2026-10-24-codex-read-only-sandbox-cannot-run-tests.md`).
 Priority: low. Effort: S.
+
+### 10. Verify the ALCF preset on first live use
+
+On first live ALCF use, check that `alcf-tokens get-token inference` prints only the bare token
+and that `<base URL>/v1/models` exists. If either differs, fix `deploy`'s ALCF preset. Until then
+the code fails loudly or falls back to typed model ids.
+Source: `.supervisor/archive/working/plans/api-access-install.md`.
+Priority: normal — needs live ALCF access. Effort: S.

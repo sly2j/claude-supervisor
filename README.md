@@ -189,7 +189,7 @@ Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothin
 - With `--global` (not recommended), plain `claude` becomes the supervisor.
 - `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
 
-Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
+Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus). On an API-provider profile all four tiers map to the provider's models instead.
 
 ## Optional: Codex As Critic
 
@@ -242,7 +242,7 @@ A launcher acts on its own profile unless you say `--all`. The `./deploy` script
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
 
-To route a profile through a token provider (only for a proxy or gateway), see [docs/deploy.md](docs/deploy.md#token-provider).
+A profile can run on an API provider instead of your subscription: `./deploy install --tag <t> --provider openrouter|nrp|alcf` (or `--base-url <url>` for any endpoint that serves the Anthropic API) with a token or a token helper for expiring tokens. Install maps the four model tiers to the provider's models, picked from its list on a terminal or given as `--model-<tier>` flags; see [API Providers](docs/deploy.md#api-providers).
 
 ## Migrating From Older Versions
 
@@ -266,6 +266,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 | `cannot read branch` | Check network access and credentials |
 | Claude Code asks to bill Fable separately | Fable is the default. Launch with `--fable-is-opus`, or set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5` in your shell profile or `settings.json` (see [docs/deploy.md](docs/deploy.md#fable-or-opus)) |
 | Your own `agent` setting wasn't replaced | Expected. Use `--force-default-agent` to switch to the supervisor |
+| A provider profile's model is not found, or `install` warns that a tier's model `is not in` the provider's list | Re-run `./deploy install --tag <t> --model-<tier> <id>` for that tier (see [API Providers](docs/deploy.md#api-providers)) |
 
 ## Repository Layout
 
