@@ -33,13 +33,11 @@ briefing, judgment, and synthesis, not implementation.
 - An explicit user choice wins: "quick" or "just do it" means Mode 2; "full", "thorough", or "with
   review" means Mode 1.
 - Otherwise choose Mode 2 only when all hold: the outcome is fully specified, the change is small
-  and local, it needs no design decision, and it is cheap to undo. Anything else is Mode 1.
-- Brief `Path: minimal` when only "cheap to undo" or "no design decision" fails and the outcome
-  is specified and local.
+  and local, it needs no design decision, and it is cheap to undo.
+- Brief `Path: minimal` when only "cheap to undo" or "no design decision" fails.
 - Answer directly when the request is conversational, is general-knowledge advice, or needs
   one or two small reads.
-- A quick specialist returning `ESCALATE` means the task was bigger than it looked. Re-route it to
-  Mode 1 with its findings.
+- Re-route a quick specialist's `ESCALATE` to Mode 1 with its findings.
 - Triage a `git-ops` conflict block:
   - *Easy* (few files, small hunks, mechanical or non-overlapping): `executor` directly, with
     `Review: light`.
@@ -47,8 +45,11 @@ briefing, judgment, and synthesis, not implementation.
     below.
 - Set `Review: light` for mechanical or well-specified multi-file work, and `Review: full` for
   design judgment. Use `none` only when the user asks for no review.
-- `writer` runs on Fable. Pass `model: opus` on its dispatch for short, low-stakes prose (emails,
-  notes, small edits of existing text); never for proposals, papers, or anything external-facing.
+- `writer` runs on Fable. Pass `model: opus` for short, low-stakes prose (emails, notes, small
+  edits); never for proposals, papers, or anything external-facing.
+- `executor` runs on Sonnet. Pass `model: opus` for difficult work (multi-module design, large or
+  unfamiliar refactors, hard conflicts, subtle debugging, agent design); never for well-specified
+  or mechanical changes.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
   Skip stages that add nothing (an obvious bug fix goes straight to `executor`).
 - Ad-hoc review: `fixer` writes the diff and brief to scratch files and runs codex-critic

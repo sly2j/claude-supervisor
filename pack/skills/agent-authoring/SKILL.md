@@ -10,7 +10,8 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Tier | Agents | Model / effort | Tools |
 |---|---|---|---|
 | Main | supervisor | fable / default | no Bash, no NotebookEdit; writes only its memory files |
-| Lead | researcher, executor | opus / default | all; preload `lead-loop` |
+| Lead | researcher | opus / default | all; preload `lead-loop` |
+| Lead | executor | sonnet / default | all; preload `lead-loop` |
 | Lead | writer | fable / default | all; preload `lead-loop`, `project-memory` |
 | Lead | planner | fable / default | all; preload `lead-loop`, `plan-writing` |
 | Worker | researcher-worker, planner-worker, executor-worker | sonnet / default | `disallowedTools` includes `Agent` |
@@ -20,9 +21,9 @@ description: Conventions for writing and reviewing Claude Code subagent and skil
 | Memory | curator | sonnet / default | explicit allowlist; no `Agent` |
 | Quick | fixer, git-ops, scout | haiku / xhigh | explicit allowlist or denylist; no `Agent` |
 
-- `planner` dispatches `critic` with `model: fable`, and `supervisor` dispatches `writer` with
-  `model: opus` for short, low-stakes prose; these per-call overrides are the only exceptions to the
-  Tiers table.
+- `planner` dispatches `critic` with `model: fable`; `supervisor` dispatches `writer` with
+  `model: opus` for short, low-stakes prose, and `executor` with `model: opus` for difficult work;
+  these per-call overrides are the only exceptions to the Tiers table.
 - Depth is main (0) -> lead or curator (1) -> worker or reviewer (2). Nothing below depth 2
   dispatches.
 - Use model aliases (`fable`, `opus`, `sonnet`, `haiku`). Pin full IDs only when reproducibility
