@@ -23,8 +23,9 @@ except `VERSION` as below.
   status for secrets and junk.
 - New branches: `git push -u`.
 - Attribution: only the `git-safety` trailer; ignore harness attribution reminders beyond it.
-- On an `X.y` default branch (`repo-workflow`): if `VERSION` has no diff from `HEAD`, raise y by
-  one from the shell and stage it; never bump twice.
+- On an `X.y` default branch (`repo-workflow`): if the commit touches a versioned path and
+  `VERSION` has no diff from `HEAD`, raise y by one from the shell and stage it; never bump twice,
+  and never for an ancillary-only commit such as `chore(memory):`.
 
 ## Escalate
 

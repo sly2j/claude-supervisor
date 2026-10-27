@@ -7,7 +7,8 @@ worktree and refuses commands against the parent checkout. Run everything in the
    Branch) and rerun the checks.
 2. `git checkout --detach origin/<default>`, then `git merge --squash <branch>`, then
    `git add .supervisor`.
-3. Bump `VERSION` in an `X.y` repo and run the checks.
+3. Bump `VERSION` in an `X.y` repo when the change set touches a versioned path (`SKILL.md`, The
+   X.y Scheme), and run the checks.
 4. Apply the step-4 guard unchanged: commit only once
    `git diff --cached --quiet <branch> -- . ':!VERSION'` (with `':!.supervisor'` as step 4 says)
    confirms the staged tree is the branch. Commit with the `git-safety` trailer.

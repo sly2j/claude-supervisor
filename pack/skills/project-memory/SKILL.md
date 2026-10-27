@@ -140,5 +140,5 @@ instead). Nothing is ever written or deleted outside the project tree.
 Goals are long-term (`memory/goals/`). The roadmap is mid-term, one ordered file
 `.supervisor/roadmap.md` whose items cite by path, under `Decisions:`, only the `decision`
 entries that still bind; an item's Background states only the current gap.
-Items never name a minor version, which moves with every commit.
+Items never name a minor version, which moves as versioned change sets land.
 Plans and research are short-term, in `working/`.

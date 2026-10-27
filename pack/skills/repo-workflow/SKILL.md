@@ -40,16 +40,22 @@ persisted:
 
 ## The X.y Scheme
 
-- `VERSION` holds `X.y`. y rises by one once per change set that lands on the default branch. X
-  rises, and y resets to 0, when a major change lands; the user, `CLAUDE.md` or the plan says what
-  is major.
-- The agent that lands a change set on the default branch bumps `VERSION` with it, before running
-  the checks: the lead in its squash commit, the editing agent for a direct Mode 1 commit, and
-  `git-ops` for a Mode 2 commit. `curator` and `fixer` never commit; `fixer` edits `VERSION` only
-  when its brief says so. Never every worker.
+- `VERSION` holds `X.y` and tracks the repo's primary deliverable: its shipped code, or the prime
+  documents in a writing repo. The repo's `CLAUDE.md` may name these versioned paths; when it is
+  silent, apply that principle. Ancillary paths (the `.supervisor/` store, developer-facing docs,
+  `CLAUDE.md`, plan files) are never versioned.
+- y rises by one once per change set that lands on the default branch and touches a versioned
+  path. A change set that touches only ancillary paths, such as a `chore(memory):` commit, leaves
+  `VERSION` alone. X rises, and y resets to 0, when a major change lands; the user, `CLAUDE.md`
+  or the plan says what is major.
+- The agent that lands a versioned change set on the default branch bumps `VERSION` with it,
+  before running the checks: the lead in its squash commit, the editing agent for a direct Mode 1
+  commit, and `git-ops` for a Mode 2 commit. `curator` and `fixer` never commit; `fixer` edits
+  `VERSION` only when its brief says so. Never every worker.
 - Other branches leave `VERSION` alone.
-- `git-ops` stages a modified `VERSION` with the commit. On the default branch, when
-  `git diff HEAD --stat -- VERSION` is empty, it raises y itself before committing.
+- `git-ops` stages a modified `VERSION` with the commit. On the default branch, when the commit
+  touches a versioned path and `git diff HEAD --stat -- VERSION` is empty, it raises y itself
+  before committing.
 
 ## Branches And Worktrees
 
@@ -113,11 +119,11 @@ the store changes; until then the lead leaves it ready and reports.
    `git merge-base --is-ancestor <default> <branch>` fails, go back to step 2.
 4. There, `git merge --squash <branch>`; if git refuses because it would overwrite uncommitted
    changes only under `.supervisor/`, commit those first with `git add .supervisor` and
-   `git commit -m "chore(memory): <what>" -- .supervisor` (in an `X.y` repo, with `VERSION` bumped
-   in the pathspec), then go back to step 2; if it names other paths, stop: leave the branch ready
+   `git commit -m "chore(memory): <what>" -- .supervisor` (no `VERSION` bump), then go back to
+   step 2; if it names other paths, stop: leave the branch ready
    and report. Otherwise `git add .supervisor`, so
    this checkout's pending store changes join the squash. Bump `VERSION` if the repo uses
-   the `X.y` scheme, run the checks, and commit once
+   the `X.y` scheme and the change set touches a versioned path, run the checks, and commit once
    `git diff --cached --quiet <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit
    takes those store changes) confirms the staged tree is the branch. Unrelated
    uncommitted changes stay out of the commit. If the checks or that test fail, do not commit;
