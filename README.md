@@ -11,6 +11,12 @@ Supervisor for Claude is built for long-horizon software and scientific-research
 - **Parallel work:** a plan splits large jobs into independent pieces (work packages) that run side by side (waves).
 - **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
+## Documentation
+
+- [docs/deploy.md](docs/deploy.md): how to install, update, check or remove an install, and how to set up Codex as critic.
+- [docs/architecture.md](docs/architecture.md): every agent and skill, how the two modes and routing work, and how git work, models and memory are handled.
+- [docs/context-engineering.md](docs/context-engineering.md): why the design is built around a supervisor that keeps its context small, and what that costs.
+
 ## Quick Start
 
 Requirements:
@@ -268,7 +274,7 @@ pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
 deploy              installer: install | update | status | list | uninstall | doctor | migrate | critic
 tests/              deploy tests, pack lint, VERSION check
-docs/               architecture.md, deploy.md (deploy runbook)
+docs/               architecture.md, context-engineering.md, deploy.md (deploy runbook)
 CLAUDE.md           instructions for Claude working in this repo
 REVIEW.md           review rules for this repo
 .supervisor/        project memory; roadmap.md holds open work items
