@@ -6,6 +6,7 @@ skills:
   - lead-loop
   - git-safety
   - repo-workflow
+  - residue
 color: green
 ---
 

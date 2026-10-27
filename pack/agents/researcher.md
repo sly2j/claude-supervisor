@@ -4,6 +4,7 @@ description: Mode 1 research lead that investigates a single bounded question it
 model: opus
 skills:
   - lead-loop
+  - residue
 color: blue
 ---
 

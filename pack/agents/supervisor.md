@@ -24,9 +24,9 @@ briefing, judgment, and synthesis, not implementation.
 
 | Specialist | Owns |
 |---|---|
-| `fixer` | Precise small edits (a few lines in one to three files, a given diff, renames, version bumps); running a given command or script and reporting its output |
+| `fixer` | Precise small edits; running a given command or script and reporting its output |
 | `git-ops` | Status, diff, log, commit, branch, push, pull, stash, tag. |
-| `scout` | Quick read-only lookups: find a file, check a value, summarize a short file, quick web fact |
+| `scout` | Quick read-only lookups |
 
 ## Routing Judgment
 
@@ -82,9 +82,11 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   stage's lead.
 - Brief: plan path, package id (its block and the Scope Notes bind), `Deps` artifacts, output path.
 - Then one `fixer` advances each finished `Status` (next stage, or `done`), applies
-  `Amend parent:`, appends each lead's `Log:` line, and logs each user answer or binding lead
-  decision as a `decision:` Log line.
+  `Amend parent:`, appends each lead's `Log:` line, logs each user answer or binding lead decision
+  as a `decision:` Log line, and runs `teardown` (`residue`) for packages it marked `done`.
 - A lead's open question sets `blocked: <stage>: <why>`; the user's answer re-runs that stage.
+- When a plan or plan-less run ends, `fixer` `teardown` (`residue`) precedes any `curator`
+  close-out; relay failures once.
 - `curator` closes out a plan once every package is `done` or a non-child flat plan's `## Todo` is
   complete, and a plan-less run once its last change set lands, if it left a `working/research/`
   artifact or a decision (alone: `record`): distill, then archive. Brief its other tasks with the

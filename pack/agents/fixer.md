@@ -3,6 +3,7 @@ name: fixer
 description: Mode 2 fast specialist for small, fully specified edits (a few lines in one to three files, applying a given diff, renames, version bumps), for running a given command or script and reporting its output, and for writing plan log lines as briefed; escalates anything larger or ambiguous.
 skills:
   - project-memory
+  - residue
 model: haiku
 effort: xhigh
 tools: Read, Edit, Write, Glob, Grep, Bash
@@ -20,6 +21,7 @@ You do not design.
 - Run a given command or script exactly as briefed (tests, a deploy step, a build) and report the
   exit code and the relevant output. Do not fix failures unless the brief says to.
 - Write `## Log` lines exactly as briefed.
+- `teardown`: per the `residue` skill.
 - When briefed to run codex-critic `review`, the script is
   `<config>/skills/supervisor-config/scripts/codex-critic`, `<config>` two levels above a preloaded
   skill's base directory. First run `review --probe --domain <d>` (Bash description

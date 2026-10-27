@@ -47,7 +47,7 @@ The pack is one supervisor, four leads for larger work, their workers, two revie
 - `writer`: scientific and technical prose, slide content, project docs
 - `researcher-worker`, `planner-worker`, `executor-worker`, `writer-worker`: the parallel workers a lead dispatches; you never call them yourself
 - `critic`, `scope-critic`: review a lead's result, for quality and, when needed, for scope creep
-- `fixer`: small, exact edits; runs a given command
+- `fixer`: small, exact edits; runs a given command; tears down recorded test residue
 - `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups

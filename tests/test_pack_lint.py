@@ -276,3 +276,22 @@ def test_attribution_ignores_harness_reminders(rel):
     assert "harness attribution reminders" in text, rel
     if rel == "skills/git-safety/SKILL.md":
         assert "claude-session" in text
+
+
+RESIDUE_PRELOADERS = ["executor", "executor-worker", "researcher", "researcher-worker", "fixer"]
+
+
+@pytest.mark.parametrize("rel", RESIDUE_PRELOADERS)
+def test_residue_skill_preloaded(rel):
+    """Agents that create test artifacts, and fixer that tears them down, preload `residue`."""
+    skills = frontmatter(PACK / "agents" / ("%s.md" % rel)).get("skills") or []
+    assert "residue" in skills, rel
+
+
+def test_residue_skill_caps():
+    assert body_words(PACK / "skills" / "residue" / "SKILL.md") <= 350
+
+
+@pytest.mark.parametrize("rel", ["agents/supervisor.md", "agents/fixer.md"])
+def test_teardown_wired(rel):
+    assert "teardown" in (PACK / rel).read_text(encoding="utf-8"), rel

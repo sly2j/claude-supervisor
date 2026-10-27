@@ -6,7 +6,7 @@ collaborators share it; to keep it local, add `.supervisor/` to `.gitignore`.
 - `memory/<kind>/`: entries in force, written by `curator`, one folder per kind
   (decisions, facts, lessons, goals, conventions).
 - `working/`: current state, `writing/` by `writer`, `research/` by `researcher`, `plans/` by
-  `planner`.
+  `planner`; `residue/` is a local-only ledger of test artifacts awaiting teardown.
 - `archive/`: mirrors the tree above; superseded or finished files, moved, never edited.
 - `roadmap.md`: the mid-term roadmap, one ordered file; `curator` removes landed items.
 - `history.md`: one line per landed roadmap item, by `curator`.

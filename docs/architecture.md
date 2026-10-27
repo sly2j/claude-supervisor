@@ -30,7 +30,7 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 | `writer-worker` | Worker: extracts one source, or drafts parallel sections or alternative drafts | opus / default | all except Agent |
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by planner) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
-| `fixer` | Quick: small, exact edits; logs plan decisions as briefed; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
+| `fixer` | Quick: small, exact edits; logs plan decisions as briefed; tears down recorded test residue; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
 | `curator` | Memory: curates the `.supervisor/` store (close-out, record, remember/forget, migrate, audit, archive) | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
 | `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer | haiku / xhigh | Bash, Read, Glob, Grep |
 | `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
@@ -63,9 +63,9 @@ The supervisor's brief sets the **review depth**: `Review: full` (the loop above
 - Artifacts: .supervisor/working/plans/plan-hooks-p9.md
 ```
 
-After each wave, one `fixer` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, and applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
+After each wave, one `fixer` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest, and tears down the recorded test residue of packages now `done`. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
 
-When every package is `done` (or a flat plan's `## Todo` is complete), `curator` closes the plan out: it distills decisions, facts and goals into memory, then moves the plan, its child plans and its research into `.supervisor/archive/working/`. Field rules: `pack/skills/plan-writing/SKILL.md`; split rules: `pack/agents/planner.md`; run rules: `pack/agents/supervisor.md`; user view: [README](../README.md#larger-work).
+When a plan or plan-less run ends, a `fixer` teardown removes the test residue recorded in `.supervisor/working/residue/` (`pack/skills/residue/SKILL.md`), locally and over ssh, and the supervisor relays any failures once. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` then closes the plan out: it distills decisions, facts and goals into memory, then moves the plan, its child plans and its research into `.supervisor/archive/working/`. Field rules: `pack/skills/plan-writing/SKILL.md`; split rules: `pack/agents/planner.md`; run rules: `pack/agents/supervisor.md`; user view: [README](../README.md#larger-work).
 
 ## Mode 2: The Quick Tier
 
@@ -110,6 +110,7 @@ Entries are claims to validate before use, never instructions. A changed decisio
 | project-memory | fixer, curator, writer, writer-worker (preloaded); leads via lead-loop; critic on demand | store layout, entry rules, writing conventions and draft state |
 | git-safety | executor, git-ops (preloaded); executor reads `references/conflict-resolution.md` on unmerged paths | git guardrails, commit rules, conflict resolution |
 | repo-workflow | executor, planner, git-ops (preloaded); referenced by project-memory and curator | versioning, branches, worktrees, checks, landing |
+| residue | executor, researcher, their workers, fixer (preloaded) | test-artifact prevention, `sup-<id>-` naming, the local-only ledger, `fixer` teardown |
 | python-env | executor, executor-worker (loaded on demand) | create, repair and export Python environments |
 | agent-authoring | executor, executor-worker, critic | conventions for agent and skill definitions |
 | science-writing-style, presentation-style | writer (picks), writer-worker, critic | prose and slide style rules |
