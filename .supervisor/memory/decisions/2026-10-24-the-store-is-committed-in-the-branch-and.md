@@ -2,7 +2,7 @@
 domain: process
 summary: The store is committed in the branch and only curator creates it; one-off directories persist nothing
 affects: [pack/skills/project-memory/, pack/skills/repo-workflow/SKILL.md, pack/skills/git-safety/references/conflict-resolution.md, pack/agents/curator.md, pack/agents/supervisor.md]
-verified: 2026-10-24
+verified: 2026-10-27
 source: user 2026-10-23 (commit ownership); .supervisor/archive/working/plans/plan-memory-v2.md#scope-notes (D1, D13); .supervisor/archive/working/plans/plan-store-persistence.md#decisions (D1-D7); user 2026-10-21 and 2026-10-22
 supersedes: .supervisor/archive/memory/decisions/2026-10-23-store-lives-in-the-branch-2.md
 ---
