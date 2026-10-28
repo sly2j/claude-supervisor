@@ -6,7 +6,7 @@ worktree and refuses commands against the parent checkout. Run everything in the
 1. `git fetch origin`, then `git rebase origin/<default> <branch>` (step 2 of Landing A Work
    Branch) and rerun the checks.
 2. `git checkout --detach origin/<default>`, then `git merge --squash <branch>`, then
-   `git add .supervisor`.
+   `git add .supervisor` for a tracked store.
 3. Bump `VERSION` in an `X.y` repo when the change set touches a versioned path (`SKILL.md`, The
    X.y Scheme), and run the checks.
 4. Apply the step-4 guard unchanged: commit only once

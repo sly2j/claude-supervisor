@@ -1,7 +1,8 @@
 # .supervisor
 
-Project memory kept by the Supervisor for Claude pack, committed with the project by default so
-collaborators share it; to keep it local, add `.supervisor/` to `.gitignore`.
+Project memory kept by the Supervisor for Claude pack. A tracked store is committed with the
+project, so collaborators share it; a local store is listed in the git exclude file and never
+committed. `git check-ignore -q .supervisor` succeeds only for a local store.
 
 - `memory/<kind>/`: entries in force, written by `curator`, one folder per kind
   (decisions, facts, lessons, goals, conventions).

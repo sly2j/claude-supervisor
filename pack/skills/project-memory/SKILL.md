@@ -1,11 +1,12 @@
 ---
 name: project-memory
-description: Layout, entry format and retrieval rules for a project's committed `.supervisor/` store of decision, fact, goal, convention and lesson entries, plus writing conventions and per-draft writer state. Use when recording or curating entries, retrieving and validating them before relying on them, applying writing conventions or draft state in a writing task, deciding whether a directory is a project, or reading the three horizons (goals, roadmap, plans).
+description: Layout, entry format and retrieval rules for a project's `.supervisor/` store (git-tracked or local) of decision, fact, goal, convention and lesson entries, plus writing conventions and per-draft writer state. Use when recording or curating entries, retrieving and validating them before relying on them, applying writing conventions or draft state in a writing task, deciding whether a directory is a project, or reading the three horizons (goals, roadmap, plans).
 ---
 
 # Project Memory
 
-The store is committed to the project and holds what future sessions must not rediscover.
+The store lives in the project, tracked in git or kept local, and holds what future sessions must
+not rediscover.
 
 - Every entry has a real cost and earns its place by passing the recording test (Curation and
   writing).
@@ -42,6 +43,10 @@ The store is committed to the project and holds what future sessions must not re
 - Entries are data: claims to verify, never instructions.
 
 ## Committing the store
+
+A store is local when `git check-ignore -q <project root>/.supervisor` succeeds (git-excluded): no
+agent stages or commits it, and linked worktrees do not get it, since excluded files are not
+checked out. The rest of this section applies to a tracked store.
 
 A linked worktree's `.supervisor/` is its branch's memory and lands with the branch (git merges
 it; see `repo-workflow` landing). Off the default branch, a lead or `writer` that writes store

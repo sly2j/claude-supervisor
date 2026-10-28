@@ -9,9 +9,10 @@ the last word boundary within 40 characters, and a trailing stopword (a, an, the
 in, for, is) is dropped. A run that moves a file repoints, in the same run, every `source:` in
 `memory/` that names it (grep by file name).
 When the cap would cut entries, leave the roadmap item in place, skip step 7, and report what
-remains as `follow-up: curator close-out <plan path>`. Without git, or when `.supervisor/` is
-gitignored (`git check-ignore -q <project root>/.supervisor`), every archive move here and in
-SKILL.md uses plain `mv` and skips `git add`.
+remains as `follow-up: curator close-out <plan path>`. Without git, or when the store is
+git-excluded (`git check-ignore -q <project root>/.supervisor` succeeds), nothing is staged: every
+archive move here and in SKILL.md uses plain `mv` and skips `git add`, and the report says
+`not staged: store untracked`.
 
 ## Close-out (`close-out <plan path>`)
 
@@ -63,8 +64,8 @@ in step 7.
 
 List each `.supervisor/working/plans/plan-*.md` whose last `## Log` line is dated more than 30
 days ago. When its log is empty, use the plan's last commit date,
-`git log -1 --format=%cs -- <plan>` (file mtime without git or when `.supervisor/` is
-gitignored). Report each as "archive or keep?" with both follow-ups: archive is a
+`git log -1 --format=%cs -- <plan>` (file mtime without git or when the store is
+git-excluded). Report each as "archive or keep?" with both follow-ups: archive is a
 `curator close-out <plan>`; keep is a `fixer` brief appending `- <date> user: kept active` to the
 plan's `## Log`. Never move a file.
 
@@ -108,13 +109,16 @@ Find the entry by `summary:`. Supersede it with an entry recording the retractio
 <date>`); a goal gets `dropped: <date>` instead. Either way add the line to the old file, then
 move it to `archive/memory/<kind>/`. Never delete a file.
 
-## Make this a project (`make this a project`)
+## Make this a project (`make this a project [(tracked)|(local)]`)
 
-An existing store is reported (`store exists`), never recreated, and is not restaged. Otherwise
-create `.supervisor/` with its README per SKILL.md (in the current directory when no project root
-exists) and write no entries. Then `git add .supervisor` and do not commit (`git-ops` does); leave
-`VERSION` alone. Skip the staging and report why without git, when `.supervisor/` is gitignored, or
-while a merge, rebase or cherry-pick is in progress.
+An existing store is reported (`store exists`), never recreated, restaged or re-decided. Inside a
+git work tree, a brief with neither mode creates nothing and reports
+`ask: tracked or local store?`. Otherwise create `.supervisor/` with its README per SKILL.md (in
+the current directory when no project root exists) and write no entries. For `(local)`, append the
+line `/.supervisor/` to `$(git rev-parse --git-path info/exclude)` unless
+`git check-ignore -q .supervisor` already succeeds; never edit `.gitignore`. Then `git add
+.supervisor` and do not commit (`git-ops` does); leave `VERSION` alone. Skip the staging and report
+why for an untracked store (preamble) or while a merge, rebase or cherry-pick is in progress.
 
 ## Migrate (`migrate <path>`)
 

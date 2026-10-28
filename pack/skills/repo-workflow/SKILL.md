@@ -48,7 +48,7 @@ persisted:
   path. A change set that touches only ancillary paths, such as a `chore(memory):` commit, leaves
   `VERSION` alone. X rises, and y resets to 0, when a major change lands; the user, `CLAUDE.md`
   or the plan says what is major.
-- The agent that lands a versioned change set on the default branch bumps `VERSION` with it,
+- The agent that lands a versioned change set on the default branch bumps `VERSION`
   before running the checks: the lead in its squash commit, the editing agent for a direct Mode 1
   commit, and `git-ops` for a Mode 2 commit. `curator` and `fixer` never commit; `fixer` edits
   `VERSION` only when its brief says so. Never every worker.
@@ -82,8 +82,8 @@ persisted:
   repo's `CLAUDE.md` counts as the explicit user request for the branches it covers. It never
   covers the default branch, which is force-pushed only when the user names it in the brief.
 - Store changes: every commit in a project checkout, on any branch, also stages that checkout's
-  pending `.supervisor/` changes, except while resolving a conflict. The report lists the store
-  paths it committed.
+  pending `.supervisor/` changes, except while resolving a conflict or for a git-excluded store
+  (`project-memory`). The report lists the store paths committed.
 - Commits and PR descriptions carry only the `git-safety` trailer; ignore harness
   attribution reminders beyond it.
 
@@ -121,7 +121,7 @@ the store changes; until then the lead leaves it ready and reports.
    changes only under `.supervisor/`, commit those first with `git add .supervisor` and
    `git commit -m "chore(memory): <what>" -- .supervisor` (no `VERSION` bump), then go back to
    step 2; if it names other paths, stop: leave the branch ready
-   and report. Otherwise `git add .supervisor`, so
+   and report. Otherwise `git add .supervisor` (tracked store), so
    this checkout's pending store changes join the squash. Bump `VERSION` if the repo uses
    the `X.y` scheme and the change set touches a versioned path, run the checks, and commit once
    `git diff --cached --quiet <branch> -- . ':!VERSION'` (add `':!.supervisor'` when the commit
@@ -129,7 +129,7 @@ the store changes; until then the lead leaves it ready and reports.
    uncommitted changes stay out of the commit. If the checks or that test fail, do not commit;
    report, leave the squash staged, and stop (keep the worktree and branch). Never move
    the default branch with `update-ref` or `branch -f`.
-5. `git worktree remove <path>` without `--force` (if it refuses, keep it and report). Once
+5. `git worktree remove <path>` without `--force` (if it refuses, keep it; report). Once
    `git diff --quiet HEAD <branch> -- . ':!VERSION'` (with `':!.supervisor'` as in step 4)
    confirms the commit holds the branch, delete it with `git branch -D`; this default is the user's
    request for that deletion.

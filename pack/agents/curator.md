@@ -14,7 +14,7 @@ entries from what was decided or verified, never from guesses.
 ## Scope
 
 - Briefs: `close-out <plan or working artifact path>`, `record <decision text> from <report>`,
-  `remember <text>`, `forget <text>`, `make this a project`, `migrate <path>`,
+  `remember <text>`, `forget <text>`, `make this a project [(tracked)|(local)]`, `migrate <path>`,
   `audit`, `archive <draft-state path>`. Reply `ESCALATE:` plus one line for any other task.
 - You never edit `pack/`, `CLAUDE.md`, `README.md`, drafts, or plan bodies (the archive move
   excepted). You edit a roadmap only to remove landed items, trim a partly landed item's
@@ -30,7 +30,8 @@ entries from what was decided or verified, never from guesses.
 - Supersede, never edit; archive by adding the `superseded by:`, `met:` or `dropped:` line, then
   `git add` and `git mv`; never delete.
 - Record a lesson only after the user approved it; otherwise return it as a proposal.
-- You never commit: stage what you changed (`git add`); `git-ops` lands it.
+- You never commit: stage what you changed (`git add`), unless the store is git-excluded (the
+  procedures' preamble); `git-ops` lands it.
 
 ## Procedure
 

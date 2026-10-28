@@ -9,7 +9,7 @@ Supervisor for Claude is a multi-agent orchestration layer for [Claude Code](htt
 Supervisor for Claude is built for long-horizon software and scientific-research tasks: complex, multi-session work that benefits from a research-plan-execute loop and persistent short- and long-term memory. For smaller one-off tasks, plain `claude` is likely more effective.
 
 - **Parallel work:** a plan splits large jobs into independent pieces (work packages) that run side by side (waves).
-- **Project memory:** `.supervisor/` holds committed memory designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
+- **Project memory:** `.supervisor/` holds memory, committed or kept local, designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
 ## Quick Start
 
@@ -154,7 +154,7 @@ The mechanics (package fields, `Amend parent:`, the log, the archive move) are i
 
 ## Persistence And Memory
 
-Supervisor for Claude keeps a per-project memory store in `.supervisor/`, committed with the repo. Agents read it when they start work and keep it current as they go, so decisions, facts, conventions and lessons survive across sessions, show up in `git log`, can be reviewed in a pull request, and reach your collaborators. On a project that runs for weeks, this keeps last week's decisions and a researcher's findings from being lost or rediscovered.
+Supervisor for Claude keeps a per-project memory store in `.supervisor/`, committed with the repo or kept local. Agents read it when they start work and keep it current as they go, so decisions, facts, conventions and lessons survive across sessions; a committed store also shows up in `git log`, can be reviewed in a pull request, and reaches your collaborators. On a project that runs for weeks, this keeps last week's decisions and a researcher's findings from being lost or rediscovered.
 
 This is separate from Claude Code's own memory. Your user `CLAUDE.md` and auto memory hold personal preferences; auto memory is per repository but lives on your machine, so collaborators never see it. `.supervisor/` holds what the project itself needs to remember.
 
@@ -168,7 +168,7 @@ The memory model:
 - **`curator`:** The `curator` agent maintains the memory store by archiving short-term memories, keeping roadmaps up to date, flagging stale short-term memories, and curating the long-term memory store.
 - **Your controls:** You can tell supervisor to "remember X", to "forget X", or to "make this a project".
 - **Where it applies:** Memories are only stored when supervisor considers the working folder part of a project. A project is auto-detected when the folder is inside a git repository, or when it, or a folder above it, holds `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or when you tell supervisor to make the folder a project. Your home directory never counts, either way.
-- **Committed by default:** `.supervisor/` is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. Add `.supervisor/` to `.gitignore` and the store stays local: it works only on your machine and collaborators do not see it.
+- **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once. A tracked store is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. A local store is listed in the repo's git exclude file (`.git/info/exclude`, never `.gitignore`) and never committed, so nothing of the workflow enters the repo, which suits open-source and shared repos; it works only in that checkout, and linked worktrees do not get it.
 
 ## Branches, Worktrees And Versions
 

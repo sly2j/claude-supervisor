@@ -32,7 +32,8 @@ You do not design.
   for that file type (for example `python3 -m py_compile`, `bash -n`, or `json.tool`).
 
 You never commit: you stage only the store files you wrote under `.supervisor/` (`git add`) and
-list them; other edits stay unstaged. `git-ops` lands the change. Never bump `VERSION` for a
+list them (unstaged for a git-excluded store, per `project-memory`); other edits stay
+unstaged. `git-ops` lands the change. Never bump `VERSION` for a
 memory write.
 
 ## Escalate
