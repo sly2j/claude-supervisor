@@ -125,3 +125,26 @@ and that `<base URL>/v1/models` exists. If either differs, fix `deploy`'s ALCF p
 the code fails loudly or falls back to typed model ids.
 Source: `.supervisor/archive/working/plans/api-access-install.md`.
 Priority: normal — needs live ALCF access. Effort: S.
+
+### 11. Argo preset (ANL), including argo-proxy URLs
+
+Add `--provider argo` beside `openrouter`, `nrp` and `alcf`, with a section in `docs/deploy.md`
+(API Providers) and tests. Findings from a manual setup (2026-10-29, Claude Code 2.1.312):
+- Base URL `https://apps.inside.anl.gov/argoapi` is reachable only inside ANL or over VPN. The
+  "token" is the user's ANL domain username, supplied through the token helper `echo <username>`
+  (Argo's own recipe). That username can differ from `$USER`, so the preset needs a way to pass it.
+- `/v1/models` lists display names (`Claude Opus 5.5`), not ids. Messages accepts the standard ids
+  (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`). There is no Fable, so the default
+  tiers should map Fable to Opus and skip the picker, or the picker should offer the standard ids.
+- Argo's recipe also sets `CLAUDE_CODE_AUTO_MODE_SERVER=0`, which turns off the server-side
+  auto-mode classifier, and `CLAUDE_CODE_SKIP_ANTHROPIC_AUTH=1`, which 2.1.312 never reads (drop
+  it). `deploy` has no way to set extra env vars, so a preset needs a managed `env` mechanism
+  (launcher exports or managed `settings.json` keys).
+- argo-proxy (a local tunnel) serves Argo at another URL. `--base-url` with `--provider argo`
+  should replace only the URL, as it does for ALCF. Planner to confirm argo-proxy's path, and
+  whether it needs the username helper.
+- Done when: `./deploy install --tag argo-supervisor --provider argo` (with the username flag)
+  reproduces the manual setup with no hand-edited `settings.json`, the same works with an
+  argo-proxy `--base-url`, and the suite passes.
+
+Priority: normal. Effort: S–M.
