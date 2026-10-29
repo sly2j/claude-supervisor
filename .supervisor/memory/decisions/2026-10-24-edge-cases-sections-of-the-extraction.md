@@ -2,7 +2,7 @@
 domain: process
 summary: The Edge cases sections of document-extraction and email-extraction stay by owner decision; a reviewer must not flag them as restatements
 affects: [pack/skills/document-extraction/SKILL.md, pack/skills/email-extraction/SKILL.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-full-review.md#open-questions
 supersedes: .supervisor/archive/memory/decisions/2026-10-21-edge-case-sections-in-the-extraction.md
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: The writer lead runs on Fable like the planner; writer-worker stays Opus; the supervisor may dispatch writer on opus for short low-stakes prose
 affects: [pack/agents/supervisor.md, pack/agents/writer.md, pack/agents/writer-worker.md, pack/skills/agent-authoring/SKILL.md, docs/architecture.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: user 2026-10-24 ("make writer fable lead"; "(unless supervisor can change the model but that may be too much scaffolding)")
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-writer-lead-runs-on-fable.md
 ---

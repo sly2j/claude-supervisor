@@ -2,7 +2,7 @@
 domain: code
 summary: On a provider profile --fable-is-opus maps Fable to the Opus-tier model picked for that profile, never a Claude model id
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/api-access-install.md; user 2026-10-27
 supersedes:
 ---

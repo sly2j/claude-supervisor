@@ -2,7 +2,7 @@
 domain: process
 summary: Review-only rules live in REVIEW.md, kept to one screen; CLAUDE.md keeps edit, test, deploy and commit rules
 affects: [REVIEW.md, CLAUDE.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-full-review.md#approach
 supersedes: .supervisor/archive/memory/decisions/2026-10-21-review-only-rules-live-in-review-md-one.md
 ---

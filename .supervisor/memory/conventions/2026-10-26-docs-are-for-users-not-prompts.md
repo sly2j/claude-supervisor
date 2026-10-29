@@ -2,7 +2,7 @@
 domain: writing
 summary: Docs are written for users, not as prompts; they need to be clear and correct, not exhaustive
 affects: [docs/, README.md]
-verified: 2026-10-26
+verified: 2026-10-29
 source: user 2026-10-26
 supersedes:
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: The Mode 2 specialist is named fixer, not clerk or chore
 affects: [pack/agents/fixer.md, pack/agents/supervisor.md, docs/architecture.md, tests/test_pack_lint.py]
-verified: 2026-10-25
+verified: 2026-10-29
 source: user 2026-10-25
 supersedes:
 ---

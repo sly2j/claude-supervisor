@@ -2,7 +2,7 @@
 domain: writing
 summary: Docs and README prose describe what the project does and why; what it does not do appears only with strong informational value
 affects: [docs/, README.md]
-verified: 2026-10-26
+verified: 2026-10-29
 source: user 2026-10-26
 supersedes:
 ---

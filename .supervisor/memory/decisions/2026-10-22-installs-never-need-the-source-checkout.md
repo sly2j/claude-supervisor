@@ -2,7 +2,7 @@
 domain: code
 summary: An installed instance must not depend on the source checkout; a run-time need for it is a defect
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-install-lifecycle.md; user 2026-10-21
 supersedes: .supervisor/archive/memory/decisions/2026-10-22-deploy-install-model-rationale.md
 ---

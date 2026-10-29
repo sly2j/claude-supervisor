@@ -2,7 +2,7 @@
 domain: process
 summary: VERSION tracks the primary deliverable; ancillary-only change sets (memory, dev docs, tests, plans) never bump it
 affects: [CLAUDE.md, pack/skills/repo-workflow/SKILL.md, tests/test_version.py]
-verified: 2026-10-27
+verified: 2026-10-29
 source: user 2026-10-27
 supersedes:
 ---

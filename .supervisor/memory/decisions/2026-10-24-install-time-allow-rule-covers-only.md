@@ -2,7 +2,7 @@
 domain: process
 summary: The install-time allow rule covers only codex-critic review, not enable, so an in-session enable costs one prompt by design
 affects: [deploy, pack/skills/supervisor-config/scripts/codex-critic]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-codex-critic.md, user 2026-10-24
 supersedes: 
 ---

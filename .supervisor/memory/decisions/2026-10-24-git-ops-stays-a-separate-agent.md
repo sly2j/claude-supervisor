@@ -2,7 +2,7 @@
 domain: process
 summary: git-ops stays a separate agent and is not folded into the supervisor; the owner prefers fixing git-safety to removing the agent
 affects: [pack/agents/git-ops.md, pack/skills/git-safety/SKILL.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: user 2026-10-24 (owner decision after .supervisor/archive/working/research/research-fold-subagents.md)
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-git-ops-stays-separate-fix-git-safety.md
 ---

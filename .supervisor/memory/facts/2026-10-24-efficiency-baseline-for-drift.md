@@ -2,7 +2,7 @@
 domain: process
 summary: efficiency baseline 2026-10-24 (27 sessions, 816 subagent transcripts, 89 lead runs) for drift monitoring
 affects: [pack/skills/lead-loop/SKILL.md, pack/agents/]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/research/research-fold-subagents.md
 supersedes:
 ---

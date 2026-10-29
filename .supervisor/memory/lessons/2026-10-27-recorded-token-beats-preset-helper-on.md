@@ -2,7 +2,7 @@
 domain: code
 summary: On re-install of a provider profile, a recorded static token must win over the preset's helper default, or the profile gets both.
 affects: [deploy]
-verified: 2026-10-27
+verified: 2026-10-29
 source: user 2026-10-27
 supersedes:
 ---

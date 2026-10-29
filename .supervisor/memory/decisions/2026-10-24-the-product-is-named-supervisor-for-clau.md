@@ -2,7 +2,7 @@
 domain: process
 summary: The product is named "Supervisor for Claude" in prose and printed strings; identifiers keep the old names; a rename is a major release
 affects: [deploy, README.md, docs/, pack/, VERSION]
-verified: 2026-10-24
+verified: 2026-10-29
 source: user 2026-10-23 ("pursue a rebrand ... to \"Supervisor for Claude\" instead of \"Claude Supervisor\" - including the entry added to git commits"); landed in 905f3b7 (v5.0)
 supersedes: .supervisor/archive/memory/decisions/2026-10-23-product-name-is-supervisor-for-claude.md
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: /usr/bin/python3 (3.9.6) has no pytest, so the 3.9 check of deploy is a py_compile, a help run and a dry-run install
 affects: [deploy, CLAUDE.md]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-install-lifecycle.md#risks-and-compatibility
 supersedes: .supervisor/archive/memory/facts/2026-10-21-usr-bin-python3-has-no-pytest-check-3.md
 ---

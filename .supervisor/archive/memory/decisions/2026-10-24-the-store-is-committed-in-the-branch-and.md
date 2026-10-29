@@ -12,3 +12,4 @@ Behaviour is in the pack (`project-memory`, `repo-workflow`, `git-safety`); this
 - Conflicts keep both sides of `history.md` and plan Logs; an entry changed on both sides keeps the default-branch text.
 - Only curator creates the store, idempotently, because deciders never saw the detection rule. Rejected: preloading `project-memory` into more agents (about 910 words of context).
 - One-off directories persist nothing and ask nothing: `~/.claude/` made every directory under `~` a project, and ask-once flows cost more than they saved.
+superseded by: .supervisor/memory/decisions/2026-10-29-the-store-is-tracked-or-local-by.md

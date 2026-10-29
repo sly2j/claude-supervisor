@@ -2,7 +2,7 @@
 domain: code
 summary: Provider installs pick models per tier interactively or by flag; subscription installs never prompt about the model
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/api-access-install.md; user 2026-10-27
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-deploy-never-detects-the-plan-or-model.md
 ---

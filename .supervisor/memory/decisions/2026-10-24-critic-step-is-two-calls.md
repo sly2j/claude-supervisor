@@ -2,7 +2,7 @@
 domain: process
 summary: The lead's critic step is two calls (once-per-task probe, then per-round Codex call) so Claude-mode users never see codex; scope-critic stays on Claude
 affects: [pack/skills/lead-loop/SKILL.md, pack/skills/supervisor-config/scripts/codex-critic]
-verified: 2026-10-24
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/plan-codex-critic.md, user 2026-10-24
 supersedes: 
 ---

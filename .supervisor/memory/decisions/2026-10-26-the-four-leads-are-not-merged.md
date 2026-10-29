@@ -2,7 +2,7 @@
 domain: process
 summary: Keep supervisor, leads, workers and the Haiku quick tier as separate agents; the four leads are not planned to merge
 affects: [pack/agents/, docs/architecture.md]
-verified: 2026-10-26
+verified: 2026-10-29
 source: user 2026-10-26 (owner ruling; earlier owner decision followed .supervisor/archive/working/research/research-fold-subagents.md)
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-keep-supervisor-leads-workers-and-the-ha.md
 ---

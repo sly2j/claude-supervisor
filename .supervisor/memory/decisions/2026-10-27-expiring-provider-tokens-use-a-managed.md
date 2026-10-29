@@ -2,7 +2,7 @@
 domain: code
 summary: Expiring provider tokens use a managed apiKeyHelper and no static ANTHROPIC_AUTH_TOKEN; a static token flag replaces the helper
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/api-access-install.md
 supersedes:
 ---

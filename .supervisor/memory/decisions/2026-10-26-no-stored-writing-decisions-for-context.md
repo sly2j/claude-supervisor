@@ -2,7 +2,7 @@
 domain: writing
 summary: docs/context-engineering.md keeps no draft state and no stored writing decisions or conventions; the owner keeps editorial freedom
 affects: [docs/context-engineering.md]
-verified: 2026-10-26
+verified: 2026-10-29
 source: user 2026-10-26
 supersedes:
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: git-ops, not curator or fixer, commits memory writes
 affects: [pack/agents/curator.md, pack/agents/fixer.md, pack/agents/git-ops.md, pack/skills/git-safety/]
-verified: 2026-10-24
+verified: 2026-10-29
 source: user 2026-10-23 ("should curator and clerk be doing commits in the first place? That's git-ops job"; approved the proposal: "yes, that sounds good")
 supersedes: .supervisor/archive/memory/decisions/2026-10-23-only-git-ops-commits-memory-writes-2.md
 ---

@@ -2,7 +2,7 @@
 domain: process
 summary: Every lead does a single unit itself and dispatches workers only for two or more independent units or heavy raw inputs
 affects: [pack/skills/lead-loop/SKILL.md, pack/agents/supervisor.md, pack/agents/executor.md, pack/agents/researcher.md, pack/agents/planner.md, pack/agents/writer.md, pack/agents/scope-critic.md, docs/architecture.md, tools/audit/audit.py]
-verified: 2026-10-24
+verified: 2026-10-29
 source: user 2026-10-24 (owner decisions after .supervisor/archive/working/research/research-fold-subagents.md and .supervisor/archive/working/plans/plan-fold-subagents.md)
 supersedes: .supervisor/archive/memory/decisions/2026-10-24-every-lead-does-a-single-unit-itself.md
 ---

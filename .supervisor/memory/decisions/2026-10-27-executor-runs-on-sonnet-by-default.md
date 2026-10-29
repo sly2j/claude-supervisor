@@ -2,7 +2,7 @@
 domain: process
 summary: Executor runs on Sonnet by default; supervisor passes model opus per dispatch only for difficult work
 affects: [pack/agents/executor.md, pack/agents/supervisor.md, pack/skills/agent-authoring/SKILL.md, docs/architecture.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: user 2026-10-27
 supersedes:
 ---

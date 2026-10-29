@@ -2,7 +2,7 @@
 domain: code
 summary: Provider tier models and credentials live in launcher exports, never in the profile's settings.json env
 affects: [deploy, docs/deploy.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: .supervisor/archive/working/plans/api-access-install.md
 supersedes:
 ---

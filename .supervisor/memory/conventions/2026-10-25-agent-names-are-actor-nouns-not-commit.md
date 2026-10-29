@@ -2,7 +2,7 @@
 domain: process
 summary: Agent names are actor nouns and must not collide with conventional-commit types
 affects: [pack/agents/, docs/architecture.md]
-verified: 2026-10-25
+verified: 2026-10-29
 source: user 2026-10-25
 supersedes:
 ---
