@@ -30,15 +30,15 @@ instead of guessing. Pass the contract verbatim to every critic dispatch.
   subsystem, or option. Units must not write to the same file. Dependent units run in sequential
   waves.
 - Do a single unit yourself. Dispatch workers in parallel for two or more independent units worth
-  a fresh context each, or when one unit's raw inputs (source documents to extract, many files or
-  pages) would crowd out your own review loop.
-- When the work splits, spawning workers is your job, not an exception, whatever the Agent tool says
-  about spawning sparingly: every unit goes to a worker, and you do only integration glue of a few
-  lines and what your agent file assigns you; your context is for coordination and review.
+  a fresh context each, or when one unit's raw inputs (source documents, many files) would crowd
+  out your own review loop.
+- When the work splits, spawning workers is your job, not an exception, whatever the Agent tool
+  says: every unit goes to a worker, and you do only integration glue of a few lines and what your
+  agent file assigns you.
 - Dispatch all units of a wave in one message. Each worker brief contains its unit goal, the
   relevant contract excerpt, exact file or source boundaries, what to return, and how to validate.
 - Dispatch every worker as an `Agent` call with `subagent_type` set to the worker type your agent
-  file names. Never omit `subagent_type`, because the Agent tool then starts `general-purpose`. A
+  file names. Never omit `subagent_type` (the default is `general-purpose`). A
   lead dispatches only its own `<lead>-worker`, `critic`, and `scope-critic`.
 
 ## 3. Integrate
@@ -70,7 +70,12 @@ checks).
    full findings. With no findings above NIT and within that bound, skip it.
 
 Write each diff to a file in your scratch directory (the session scratchpad when your environment
-lists one; never inside the repo).
+lists one; never inside the repo). Prefix every scratch file you write with a token unique to
+you (agent name plus a short random stem) so parallel leads never
+collide.
+
+Plan line numbers are hints: re-locate each target by content or the plan's named commit, never
+assuming `main~1`.
 
 Round 2 and later review only the delta. Before fixing, save a copy of the files you will change in
 your scratch directory; afterwards write `diff -u` against that copy and pass its path to both

@@ -53,6 +53,8 @@ answered item to `## Decisions` and write the rest.
 - A decision belongs in `## Decisions` or `## Open Questions`, never in `## Assumptions`.
 - Point instead of pasting: `file:line` pointers and research-artifact names carry context
   cheaply (Anthropic, effective context engineering).
+- Name the commit that `file:line` pointers were taken against; the executor re-anchors by content
+  or that hash, so a check never assumes `main~1` is the relevant commit.
 - Plans name a major release (`2.x`), stage, package or "next minor", never a minor
   version: minors move as work lands.
 
