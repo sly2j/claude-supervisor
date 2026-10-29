@@ -76,7 +76,7 @@ PROVIDERS: Dict[str, dict] = {
                       "(see https://docs.alcf.anl.gov/services/inference-endpoints/)"},
     # helper is a template: --username fills {username}; models are tier defaults, also at an argo-proxy --base-url
     "argo": {"base_url": "https://apps.inside.anl.gov/argoapi", "auth": "helper", "helper": "echo {username}",
-             "models_url": None, "env": {"CLAUDE_CODE_AUTO_MODE_SERVER": "0"},
+             "models_url": None, "env": {"CLAUDE_CODE_AUTO_MODE_SERVER": "0"},  # Argo does not support the auto mode server
              "models": {"fable": "claude-opus-5-5", "opus": "claude-opus-5-5",
                         "sonnet": "claude-sonnet-5-5", "haiku": "claude-haiku-5-5"},
              "login": "Argo is reachable only inside ANL or over VPN"},
@@ -2279,8 +2279,10 @@ def memory_externalize_cmd(args: argparse.Namespace) -> int:
                               % (proj, os.readlink(str(proj)), ext))
         elif state == "real":
             if present:
-                raise DeployError("both exist: %s and %s; move or remove one of them, then re-run"
-                                  % (proj, ext))
+                raise DeployError("both exist: %s and %s; if %s is this project's own memory, move or remove one "
+                                  "of them, then re-run; if it belongs to another project with the same "
+                                  "name, keep both and re-run with --name set to a different project name"
+                                  % (proj, ext, ext))
             action = "move"
         elif present:
             raise DeployError("%s exists in %s but not in the project; run `claude-supervisor memory link` "
@@ -2466,7 +2468,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     sp.set_defaults(func=uninstall_cmd)
 
     sp = add_parser("update", help="update registered installs from the git remote",
-                        description="Shallow-clone the branch recorded at install time (main if none) from the "
+                        description="Clone the branch recorded at install time (main if none) from the "
                                     "recorded remote and re-run install from that clone with each install's "
                                     "recorded options. Exits 3 when that branch is gone from the remote.")
     common(sp, source=False)
