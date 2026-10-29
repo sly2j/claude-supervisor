@@ -126,17 +126,6 @@ the code fails loudly or falls back to typed model ids.
 Source: `.supervisor/archive/working/plans/api-access-install.md`.
 Priority: normal — needs live ALCF access. Effort: S.
 
-### 11. Verify the Argo preset on first live use
-
-Inside ANL, run `claude-argo-supervisor -p 'say hi'` at both URLs (the preset URL, and
-`--base-url http://localhost:44497` after `argo-proxy serve`). Check that the three tier ids
-(`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) work at both, and whether
-`CLAUDE_CODE_SKIP_ANTHROPIC_AUTH` is needed (argo-proxy's docs call it required, 2.1.312 ignores
-it). If it is needed, add it as one more `env` key in `deploy`'s Argo preset; if an id fails, fix
-the preset's tiers. Until then the unverified values are documented as such in `docs/deploy.md`.
-Source: `.supervisor/archive/working/plans/plan-argo-preset.md`.
-Priority: normal — needs live ANL access. Effort: S.
-
 ### 12. `--global` installs and the deploy tool (open decision)
 
 A `--global` install has no launcher, so `memory` and `doctor` run only as `./deploy …` from a
