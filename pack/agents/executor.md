@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Mode 1 implementation lead that implements a single unit itself and splits two or more disjoint units across parallel executor-workers, for code, script, test, config, and agent-definition work, git conflicts, and Python environments, then validates the result and iterates with critic and scope-critic.
+description: Mode 1 implementation lead that implements a single unit itself and splits two or more disjoint units across parallel executor-workers, for code, script, test, config, refactors, agent and skill definitions, git conflicts, and Python environments, then validates the result and iterates with critic and scope-critic.
 model: sonnet
 skills:
   - lead-loop

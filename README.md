@@ -70,6 +70,8 @@ To choose yourself, say "quick" or "just do it" for a quick specialist, or "full
 Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
+- `/close-out [retry]`: tear down residue, record and archive what the work taught, and print the `Session state:` line
+- `/pick-up [<plan path>]`: resume a plan after `/clear` or in a new session
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
 - `/supervisor-config critic codex|claude|status`: switch the critic between Codex and Claude from inside a session (see [Optional: Codex As Critic](#optional-codex-as-critic))
 
@@ -152,6 +154,10 @@ flowchart LR
 
 The mechanics (package fields, `Amend parent:`, the log, the archive move) are in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop).
 
+## Workflow Lifecycle
+
+Every piece of work ends the same way: temporary artifacts are torn down, what the project learned is recorded, and the supervisor closes with a `Session state:` line that says whether `/clear` is safe and how to resume. Steps only you can run are collected in one `Run yourself:` block. [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md) walks small, medium and large work through open, approval, close-out, clearing and resuming, with the prompts to type and the answers to expect.
+
 ## Persistence And Memory
 
 Supervisor for Claude keeps a per-project memory store in `.supervisor/`, committed with the repo or kept local. Agents read it when they start work and keep it current as they go, so decisions, facts, conventions and lessons survive across sessions; a committed store also shows up in `git log`, can be reviewed in a pull request, and reaches your collaborators. On a project that runs for weeks, this keeps last week's decisions and a researcher's findings from being lost or rediscovered.
@@ -212,6 +218,7 @@ When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout
 
 - [docs/deploy.md](docs/deploy.md): Detailed installation instructions. In most cases the "Quick Start" instructions should be sufficient.
 - [docs/architecture.md](docs/architecture.md): Overview of the workflow architecture and every agent and skill.
+- [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md): The life of a workflow per task size, from the first prompt to `/clear`, and how to resume.
 - [docs/context-engineering.md](docs/context-engineering.md): Context engineering considerations to allow for long-horizon tasks.
 - [docs/local-memory.md](docs/local-memory.md): Keeping a project's memory outside the repo, shared across worktrees and machines.
 
@@ -276,7 +283,7 @@ pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
 deploy              installer: install | update | status | list | uninstall | doctor | migrate | critic
 tests/              deploy tests, pack lint, VERSION check
-docs/               architecture.md, context-engineering.md, deploy.md (deploy runbook), local-memory.md
+docs/               workflow-lifecycle.md, architecture.md, context-engineering.md, deploy.md (deploy runbook), local-memory.md
 CLAUDE.md           instructions for Claude working in this repo
 REVIEW.md           review rules for this repo
 .supervisor/        project memory; roadmap.md holds open work items

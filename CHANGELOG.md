@@ -2,6 +2,7 @@
 
 Major versions only; minor versions are in `git log`.
 
+- **v9** (2026-10-29): workflow lifecycle: a `Session state:` line after every close-out and booked wave that says whether `/clear` is safe and how to resume, a fixed `Run yourself:` block for steps only you can run, `/close-out` and `/pick-up` commands, routing on agent descriptions with a static scope test and an optional live routing check. See [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md).
 - **v8** (2026-10-27): installs can target an API provider: presets (OpenRouter, NRP, ALCF) and a generic `--base-url`, per-tier model picks with `--model-<tier>` flags, and a managed `apiKeyHelper` for expiring tokens. See [API Providers](docs/deploy.md#api-providers).
 - **v7** (2026-10-24): optional Codex CLI backend for the critic, with the Claude critic as automatic fallback; switch with `deploy critic` or `/supervisor-config critic`. See [Codex As Critic](docs/deploy.md#codex-as-critic).
 - **v6** (2026-10-24): major architectural change to improve token efficiency, by letting leads work directly on smaller tasks and by optimizing the review cycle.

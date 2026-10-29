@@ -52,8 +52,8 @@ For each eligible entry:
    --error-unmatch`), and a `remove` whose target is `/`, `~`, `$HOME` or the project root, or that
    uses `sudo`: failed, reason `refused`.
 2. Run `remove` verbatim, then `check`.
-3. If `check` exits 0, delete the entry, and the file once it is empty. Otherwise append
+3. If `check` exits 0, delete the entry, and the file when empty. Otherwise append
    `  failed: <date> <reason>` to the entry and keep it.
 
 Run nothing outside an entry. Report `residue: removed N, failed M` and one line per failure
-(host, resource, reason), or `residue: none`.
+(host, resource, reason, `remove` command), or `residue: none`.

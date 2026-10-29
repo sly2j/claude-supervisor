@@ -20,9 +20,9 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 | Agent | Role | Model / effort | Tools |
 |---|---|---|---|
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
-| `researcher` | Lead: research artifacts in `.supervisor/working/research/` | opus / default | all |
+| `researcher` | Lead: research artifacts in `.supervisor/working/research/`; code tracing, literature/web research | opus / default | all |
 | `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | fable / default | all |
-| `executor` | Lead: code, tests, config, agent definitions, conflicts, Python environments; implements a single unit itself and fans out two or more disjoint units; lands its change sets through a worktree and a local squash merge | sonnet / default (opus for difficult work) | all |
+| `executor` | Lead: code, tests, config, agent and skill definitions, conflicts, Python environments; implements a single unit itself and fans out two or more disjoint units; lands its change sets through a worktree and a local squash merge | sonnet / default (opus for difficult work) | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs; drafts and revises itself, extracts sources through workers | fable / default (opus for short, low-stakes prose) | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
 | `planner-worker` | Worker: one bounded repo question for a plan | sonnet / default | all except Agent, Write, Edit, NotebookEdit |
@@ -63,7 +63,7 @@ The supervisor's brief sets the **review depth**: `Review: full` (the loop above
 - Artifacts: .supervisor/working/plans/plan-hooks-p9.md
 ```
 
-After each wave, one `fixer` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest, and tears down the recorded test residue of packages now `done`. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
+After each wave, one `fixer` updates the plan file: it advances each package's `Status`, appends each lead's log line to `## Log`, applies any `Amend parent:`, by which a package's planner splits it into new packages of the parent plan, so plans never nest, and tears down the recorded test residue of packages now `done`. The log records each lead run and what it deferred, so a new session can tell what is open. One `git-ops` then commits the wave's store changes. A close-out or a fully booked wave ends with a `Session state:` line that says whether `/clear` is safe and how to resume ([workflow-lifecycle.md](workflow-lifecycle.md)). A lead's question blocks its package until the user answers; the answer re-runs that stage, in this or a later session, because the plan file holds the state.
 
 When a plan or plan-less run ends, a `fixer` teardown removes the test residue recorded in `.supervisor/working/residue/` (`pack/skills/residue/SKILL.md`), locally and over ssh, and the supervisor relays any failures once. When every package is `done` (or a flat plan's `## Todo` is complete), `curator` then closes the plan out: it distills decisions, facts and goals into memory, then moves the plan, its child plans and its research into `.supervisor/archive/working/`. Field rules: `pack/skills/plan-writing/SKILL.md`; split rules: `pack/agents/planner.md`; run rules: `pack/agents/supervisor.md`; user view: [README](../README.md#larger-work).
 
@@ -115,6 +115,7 @@ Before creating a store inside a git repo, the supervisor asks the user once whe
 | agent-authoring | executor, executor-worker, critic | conventions for agent and skill definitions |
 | science-writing-style, presentation-style | writer (picks), writer-worker, critic | prose and slide style rules |
 | document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, writer (names in briefs), user | structured extraction from documents, threads and transcripts |
+| close-out, pick-up | user (`/close-out [retry]`, `/pick-up [<plan path>]`; model invocation disabled) | teardown, memory close-out and the `Session state:` line; resume a plan from its file |
 | project-backup | user | timestamped, verified zip backup |
 | supervisor-config | user (`/supervisor-config critic codex [model]\|claude\|status`; model invocation disabled) | switches the lead's critic step to the Codex CLI through the bundled `scripts/codex-critic`; the Claude `critic` is the fallback |
 

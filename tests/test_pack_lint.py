@@ -163,6 +163,33 @@ def test_leads_dispatch_only_own_workers(lead):
     assert not extra, "%s must not dispatch %s" % (lead, sorted(extra))
 
 
+ROUTING_SCOPE = {  # agent -> phrases its description must keep, so routing lives on the descriptions
+    "researcher": ["investigat", "code tracing", "literature/web research", "research artifact"],
+    "planner": ["decision-and-outline plan", "plan annotation cycles", "checklist sync"],
+    "executor": ["code", "script", "test", "config", "refactors", "agent and skill definitions",
+                 "git conflicts", "Python environments"],
+    "writer": ["scientific documents", "proposals", "reports", "presentation content", "emails",
+               "project docs"],
+    "fixer": ["small, fully specified edits", "running a given command or script",
+              "reporting its output"],
+    "git-ops": ["status", "diff", "log", "commit", "branch", "push", "pull", "stash", "tag"],
+    "scout": ["read-only", "quick lookups"],
+}
+
+
+@pytest.mark.parametrize("agent", sorted(ROUTING_SCOPE))
+def test_routing_scope_in_description(agent):
+    desc = str(frontmatter(PACK / "agents" / (agent + ".md")).get("description") or "").lower()
+    missing = [p for p in ROUTING_SCOPE[agent] if p.lower() not in desc]
+    assert not missing, "%s description lacks %s" % (agent, missing)
+
+
+def test_supervisor_names_routed_agents():
+    text = (PACK / "agents" / "supervisor.md").read_text(encoding="utf-8")
+    missing = [a for a in ROUTING_SCOPE if "`%s`" % a not in text]
+    assert not missing, "supervisor.md does not name %s" % missing
+
+
 @pytest.mark.parametrize("path", AGENTS, ids=lambda p: p.stem)
 def test_agent_skill_refs_exist(path):
     fm = frontmatter(path)

@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Mode 1 research lead that investigates a single bounded question itself and splits larger investigations across parallel researcher-workers, writes a verified research artifact, and iterates with critic and scope-critic until it meets the contract.
+description: Mode 1 research lead for investigation, code tracing, and literature/web research that investigates a single bounded question itself and splits larger investigations across parallel researcher-workers, writes a verified research artifact, and iterates with critic and scope-critic until it meets the contract.
 model: opus
 skills:
   - lead-loop

@@ -260,6 +260,18 @@ Run these inside a git project; the launcher fixes the install, so the pack's st
 
 Both writing verbs check everything before they write, are safe to repeat, and never overwrite or delete your files. Windows is not supported. Setup, git history for the memory, fresh machines, worktrees and moving back are in [local-memory.md](local-memory.md).
 
+## Routing Check
+
+The supervisor decides where each request goes from the agent descriptions it sees, so a reworded description can silently change routing. `tests/test_live_routing.py` guards against that: it asks the deployed supervisor to route 14 canonical requests (a typo fix, a commit, a lookup, a plain question, research, planning, implementation, writing, an escalation, and so on) without dispatching anything, and compares its mode and agent with the expected ones.
+
+```bash
+SUPERVISOR_LIVE_ROUTING=1 python3 -m pytest -q tests/test_live_routing.py -s
+```
+
+- It calls the model about 14 times through `claude-supervisor`, against the deployed default profile. Run `./deploy install` first so it tests the pack you mean to test.
+- It costs money. The run prints the case count, the total cost and the model at the end.
+- It is opt-in: a plain `python3 -m pytest -q` skips it, and it is run when the owner asks for it, for example after changing an agent description or the supervisor's routing rules.
+
 ## Doctor Checks
 
 | Check | Level | Meaning and remedy |
