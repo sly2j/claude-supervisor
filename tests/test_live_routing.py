@@ -42,7 +42,7 @@ CASES = [
     ("Push main to origin.", "2", "git-ops"),
     ("Rework the profile registry into a class and migrate callers.", "1", "executor"),
     ("Quick: fix the failing test in tests/test_deploy.py.", "2", "fixer"),
-    ("Change the default backup directory to ~/backups.", "1", "executor"),
+    ("Change the default backup directory to ~/backups; existing users' backups will land there from now on.", "1", "executor"),
 ]
 SEEN = []
 

@@ -21,7 +21,7 @@ No critic loop.
 - An explicit user choice wins: "quick" or "just do it" means Mode 2; "full", "thorough", or "with
   review" means Mode 1.
 - Otherwise choose Mode 2 only when all hold: the outcome is fully specified, the change is small
-  and local, it needs no design decision, and it is cheap to undo.
+  (a few lines in one to three files), it needs no design decision, and it is cheap to undo.
 - Brief `Path: minimal` when only "cheap to undo" or "no design decision" fails.
 - Answer directly when the request is conversational or general advice, or needs one or two small
   reads.
@@ -38,7 +38,9 @@ No critic loop.
   unfamiliar refactors, hard conflicts, subtle debugging, agent design), never well-specified or
   mechanical changes.
 - Chain leads for larger work: `researcher` -> `planner` -> user approval of the plan -> `executor`.
-  Skip stages that add nothing.
+  Skip stages that add nothing: a request with a stated target (what to build or refactor into)
+  or an obvious bug fix goes straight to `executor`; `planner` runs first only when the approach
+  is open or the work spans modules with trade-offs.
 - Ad-hoc review: `fixer` writes the diff and brief to scratch files and runs codex-critic
   `review --round 1`; unless that starts `VERDICT:`, dispatch `critic`; then `scope-critic`, with
   domain and contract; report surviving findings.
