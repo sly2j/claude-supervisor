@@ -369,27 +369,29 @@ discoverability now goes through the curator hint (D18) instead of a `supervisor
 - 2026-10-29 decision: curator `(local)` report ends with a one-line hint naming `claude-supervisor memory externalize`, relayed verbatim by supervisor; no `supervisor.md` edit; source: user
 - 2026-10-29 decision: `--global` installs keep the checkout-only limitation; roadmap item "deprecate `--global` installs, or ship the deploy tool with them" added as an open decision, owner leans to deprecation; source: user
 - 2026-10-29 decision: this change set lands first on `main` as the next minor; the workflow-lifecycle major rebases on top; `supervisor.md` only at lines 95-96, no `CHANGELOG.md` edit; source: user
+- 2026-10-29 executor: done, landed 05985ef on main as v8.2 (all 17 Todo items); review: codex round 1 eight findings fixed, round 2 PASS, scope-critic five cuts applied; deferred: none
+- 2026-10-29 decision: curator's D18 hint goes just before the mandatory `recorded N` last line, since curator.md is unchanged; `status` takes no --root/--name and reads the .supervisor symlink; `link` requires the installed template
 
 ## Todo
 
-- [ ] S1 `deploy`: `LAUNCHER_COMMANDS`, launcher `case` and help, `memory` parser with verbs,
+- [x] S1 `deploy`: `LAUNCHER_COMMANDS`, launcher `case` and help, `memory` parser with verbs,
       root/name/project resolution, `externalize`, `status`, `memory_attach` tail
-- [ ] S1 tests: the 18 externalize/status/launcher cases
-- [ ] S1 `docs/deploy.md`: launcher list and `## Memory` section
-- [ ] S2 `deploy`: `link` (default, explicit dir, worktree)
-- [ ] S2 tests: the 7 link cases
-- [ ] S2 `docs/deploy.md`: link lines
-- [ ] S3 `project-memory/SKILL.md`: D7, D8, D10, D11 report rule, D14 wording within 22 words
+- [x] S1 tests: the 18 externalize/status/launcher cases
+- [x] S1 `docs/deploy.md`: launcher list and `## Memory` section
+- [x] S2 `deploy`: `link` (default, explicit dir, worktree)
+- [x] S2 tests: the 7 link cases
+- [x] S2 `docs/deploy.md`: link lines
+- [x] S3 `project-memory/SKILL.md`: D7, D8, D10, D11 report rule, D14 wording within 22 words
       net
-- [ ] S3 `curator-procedures.md`: preamble README refresh, `external store:` line (rule in
+- [x] S3 `curator-procedures.md`: preamble README refresh, `external store:` line (rule in
       SKILL.md); `(local)` rewording and one-line externalize hint (D18); slash-less exclude line
-- [ ] S3 `store-readme.md`: one sentence naming the tool
-- [ ] S3 `residue/SKILL.md`: symlink precheck, word-neutral
-- [ ] S3 `repo-workflow/references/external-store.md` new; SKILL.md pointers word-neutral
-- [ ] S3 `git-ops.md` one line; `supervisor.md:95-96` and `fixer.md:35` word-neutral
-- [ ] S3 `docs/architecture.md:102` sentence; lint green
-- [ ] S4 `docs/local-memory.md` (setup opens with the D18 hint)
-- [ ] S4 `.supervisor/roadmap.md`: `--global` open-decision item (D19)
-- [ ] S4 `README.md:171`, docs list, layout line
-- [ ] S4 `VERSION` next minor; `python3 -m pytest -q`; `/usr/bin/python3 -m py_compile deploy`;
+- [x] S3 `store-readme.md`: one sentence naming the tool
+- [x] S3 `residue/SKILL.md`: symlink precheck, word-neutral
+- [x] S3 `repo-workflow/references/external-store.md` new; SKILL.md pointers word-neutral
+- [x] S3 `git-ops.md` one line; `supervisor.md:95-96` and `fixer.md:35` word-neutral
+- [x] S3 `docs/architecture.md:102` sentence; lint green
+- [x] S4 `docs/local-memory.md` (setup opens with the D18 hint)
+- [x] S4 `.supervisor/roadmap.md`: `--global` open-decision item (D19)
+- [x] S4 `README.md:171`, docs list, layout line
+- [x] S4 `VERSION` next minor; `python3 -m pytest -q`; `/usr/bin/python3 -m py_compile deploy`;
       scratch smoke run and residue teardown

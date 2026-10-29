@@ -155,5 +155,14 @@ A `--global` install has no launcher, so `memory` and `doctor` run only as `./de
 source checkout (`docs/deploy.md`). Open decision: deprecate `--global` installs, or ship the
 deploy tool with them so `memory`/`doctor` work without a checkout. The owner leans toward
 deprecation (2026-10-29). Decide before starting.
-Source: `.supervisor/working/plans/externalize-memory.md` (D15, D19).
+Source: `.supervisor/archive/working/plans/externalize-memory.md` (D15, D19).
+Priority: normal. Effort: S.
+
+### 13. Run the live routing check (owner-run)
+
+After `./deploy install`, run `SUPERVISOR_LIVE_ROUTING=1 python3 -m pytest -q
+tests/test_live_routing.py -s` (14 cases, costs money, bounded by `--max-budget-usd`) to confirm
+the deployed supervisor routes canonical requests as the agent descriptions say. Fix a misrouted
+description, not the test. Also confirm `/close-out` and `/pick-up` work on first use.
+Source: `.supervisor/archive/working/plans/workflow-lifecycle.md`.
 Priority: normal. Effort: S.

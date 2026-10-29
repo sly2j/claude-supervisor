@@ -2,7 +2,7 @@
 domain: process
 summary: The supervisor preloads no skill, so supervisor.md is the only copy of its routing and bookkeeping rules; a skill restating one does not make it redundant there
 affects: [pack/agents/supervisor.md]
-verified: 2026-10-27
+verified: 2026-10-29
 source: .supervisor/archive/working/research/research-supervisor-word-budget.md
 supersedes:
 ---

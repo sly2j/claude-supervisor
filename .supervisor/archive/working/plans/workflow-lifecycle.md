@@ -429,24 +429,27 @@ T1-T8 (D9). The owner's 2026-10-29 amendments (v9.0, routing tests) are D12-D14.
 - 2026-10-28 decision: no supervisor word-cap raise; trims T1-T8 (D9) adopted instead (source: user)
 - 2026-10-29 decision: this change set is v9.0 on a feature branch that never touches `VERSION`; the squash-merge commit sets `VERSION` to `9.0` and adds the `- **v9** (YYYY-MM-DD): ...` line to `CHANGELOG.md` in the same commit; it rebases on the externalize-memory 8.2 change set and T1-T8 never touch `supervisor.md:95-96`; source: user
 - 2026-10-29 decision: routing scope moving from the supervisor's Owns tables into agent descriptions is guarded by a static, always-on scope test in `tests/test_pack_lint.py` and an env-gated live routing test in `tests/test_live_routing.py`; source: user
+- 2026-10-29 executor: S1-S4 implemented on feat/workflow-lifecycle, critic PASS round 2 (one BLOCKING cost/model print fixed, three doc SHOULDs fixed), no rejected findings
+- 2026-10-29 executor: landed as v9.0 (f485095) on main after rebase on 8.2 (05985ef); README layout and deploy.md conflicts kept both sides; pytest on main 578 passed/19 skipped; supervisor.md 944 words, D11 hunk untouched; deferred: live routing check (owner-run)
+- 2026-10-29 decision: parse() takes the result string; skill descriptions reworded to avoid unquoted ": " in YAML frontmatter; doc is 110 lines, no padding
 
 ## Todo
 
-- [ ] S1 `supervisor.md`: `:79-80` flat-plan state; Final Output `Session state:` bullet;
+- [x] S1 `supervisor.md`: `:79-80` flat-plan state; Final Output `Session state:` bullet;
       trims T1-T8; body 921, literals intact, externalize-memory hunk untouched
-- [ ] S1 `researcher.md:3` and `executor.md:3` descriptions per D13
-- [ ] S1 `pack/skills/pick-up/SKILL.md` per D6; lint green
-- [ ] S2 `tests/test_pack_lint.py`: `ROUTING_SCOPE`, `test_routing_scope_in_description`,
+- [x] S1 `researcher.md:3` and `executor.md:3` descriptions per D13
+- [x] S1 `pack/skills/pick-up/SKILL.md` per D6; lint green
+- [x] S2 `tests/test_pack_lint.py`: `ROUTING_SCOPE`, `test_routing_scope_in_description`,
       `test_supervisor_names_routed_agents`
-- [ ] S2 `tests/test_live_routing.py` per D14; skips by default (`-rs` shows 14 skips)
-- [ ] S2 `docs/deploy.md` `## Routing Check`; `CLAUDE.md:8` sentence
-- [ ] S3 `supervisor.md` Final Output `Run yourself:` bullet; body 943
-- [ ] S3 `residue/SKILL.md:54, 57-58` per D8; residue cap test green
-- [ ] S3 `pack/skills/close-out/SKILL.md` per D5
-- [ ] S3 `docs/architecture.md` `:23`, `:25` rows, `:68` sentence, Skills row;
+- [x] S2 `tests/test_live_routing.py` per D14; skips by default (`-rs` shows 14 skips)
+- [x] S2 `docs/deploy.md` `## Routing Check`; `CLAUDE.md:8` sentence
+- [x] S3 `supervisor.md` Final Output `Run yourself:` bullet; body 943
+- [x] S3 `residue/SKILL.md:54, 57-58` per D8; residue cap test green
+- [x] S3 `pack/skills/close-out/SKILL.md` per D5
+- [x] S3 `docs/architecture.md` `:23`, `:25` rows, `:68` sentence, Skills row;
       `README.md:70-74` two bullets; dry-run install lists both skills
-- [ ] S4 `docs/workflow-lifecycle.md` sections 1-7
-- [ ] S4 `README.md` `## Workflow Lifecycle`, docs list, layout line
-- [ ] S4 `docs/context-engineering.md:18` sentence; link check; `python3 -m pytest -q` on the
+- [x] S4 `docs/workflow-lifecycle.md` sections 1-7
+- [x] S4 `README.md` `## Workflow Lifecycle`, docs list, layout line
+- [x] S4 `docs/context-engineering.md:18` sentence; link check; `python3 -m pytest -q` on the
       rebased branch
-- [ ] Landing: squash on `main`, `VERSION` 9.0, `CHANGELOG.md` v9 line, full suite, commit
+- [x] Landing: squash on `main`, `VERSION` 9.0, `CHANGELOG.md` v9 line, full suite, commit
