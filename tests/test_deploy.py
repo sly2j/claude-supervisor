@@ -3020,6 +3020,7 @@ Usage: claude-TAG COMMAND [OPTIONS] | [CLAUDE ARGS...]
   status                               show this install's version and file states
   list                                 list every registered install
   critic enable|disable|status         switch the lead's critic to Codex (codex-critic)
+  memory externalize|link|status       keep .supervisor and CLAUDE.local.md outside the checkout
   -v, --version                        show the installed pack version and the claude version
   --fable-is-opus                      run Fable-tier agents on Opus this session
   -h, --help, help                     show this help
@@ -3035,7 +3036,7 @@ EOF
   if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi
   exit 0;;
 critic) shift; exec '/TARGET/skills/supervisor-config/scripts/codex-critic' "$@";;
-update|uninstall|list|status)
+update|uninstall|list|status|memory)
   d='/PREFIX/state/claude-supervisor/deploy'
   [ -x "$d" ] || { echo "claude-TAG: $d missing; run ./deploy install from your checkout" >&2; exit 1; }
   exec "$d" --launcher '/PREFIX' 'TAG' '/TARGET' "$@";;

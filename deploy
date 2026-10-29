@@ -58,7 +58,7 @@ MANIFEST_RECOVERY = ("restore it from a backup, or delete it and re-run ./deploy
 REGISTRY_RECOVERY = "delete or fix that file, then re-run ./deploy install"
 # Fable agents run on this Opus model when the launcher gets --fable-is-opus; change it with each Opus release.
 OPUS_MODEL = "claude-opus-5-5"
-LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status", "critic")
+LAUNCHER_COMMANDS = ("update", "uninstall", "list", "status", "critic", "memory")
 # Pack tiers a provider profile maps to the provider's models, in picker order.
 TIERS = ("fable", "opus", "sonnet", "haiku")
 # --provider presets; models_url None means <base_url>/v1/models.
@@ -89,6 +89,7 @@ Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
   status                               show this install's version and file states
   list                                 list every registered install
   critic enable|disable|status         switch the lead's critic to Codex (codex-critic)
+  memory externalize|link|status       keep .supervisor and CLAUDE.local.md outside the checkout
   -v, --version                        show the installed pack version and the claude version
   --fable-is-opus                      run Fable-tier agents on Opus this session
   -h, --help, help                     show this help
@@ -129,7 +130,7 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
              '  if command -v claude >/dev/null 2>&1; then echo "claude: $(claude --version)"; else echo "claude: not found"; fi',
              "  exit 0;;",
              "critic) shift; exec '%s/skills/supervisor-config/scripts/codex-critic' \"$@\";;" % target,
-             "update|uninstall|list|status)",
+             "update|uninstall|list|status|memory)",
              "  d='%s'" % d,
              '  [ -x "$d" ] || { echo "claude-%s: $d missing; run ./deploy install from your checkout" >&2; exit 1; }' % tag,
              "  exec \"$d\" --launcher '%s' '%s' '%s' \"$@\";;" % (prefix, tag, target),
@@ -2059,6 +2060,289 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
+# --------------------------------------------------------------------------- memory
+
+MEMORY_ITEMS = ((".supervisor", True), ("CLAUDE.local.md", False))  # (name, is_dir)
+MEMORY_EXCLUDES = tuple("/" + name for name, _ in MEMORY_ITEMS)
+RESIDUE_IGNORE = ".supervisor/working/residue/"
+MEMORY_MARKER = "<!-- claude-supervisor memory: rewritten on every run -->"
+MEMORY_TEMPLATE = ("skills", "project-memory", "templates", "store-readme.md")
+
+
+def memory_root(args: argparse.Namespace) -> Path:
+    """The directory holding one subdirectory per project: --root, else the environment, else the XDG data dir."""
+    root = getattr(args, "root", None) or os.environ.get("CLAUDE_SUPERVISOR_MEMORY_ROOT")
+    if not root:
+        data = os.environ.get("XDG_DATA_HOME") or "~/.local/share"
+        root = os.path.join(data, "claude-supervisor", "memory")
+    return Path(root).expanduser().resolve()
+
+
+def memory_git(cwd: Path, *argv: str) -> Optional[str]:
+    """Stdout of `git -C cwd <argv>` (not stripped), or None when it fails or git is missing."""
+    try:
+        out = subprocess.run(["git", "-C", str(cwd)] + list(argv), capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def memory_project(cwd: Path) -> Tuple[Path, Optional[Path]]:
+    """(main toplevel, this worktree's toplevel when cwd is in a linked worktree, else None)."""
+    out = memory_git(cwd, "rev-parse", "--show-toplevel", "--git-dir", "--git-common-dir")
+    lines = out.splitlines() if out else []
+    if len(lines) != 3:
+        raise DeployError("not a git repository: %s; run this inside a project checkout" % cwd)
+    top, gdir, common = [(cwd / ln).resolve() for ln in lines]
+    if gdir == common:
+        return top, None
+    if common.name != ".git":
+        raise DeployError("cannot find the main checkout of this worktree (git dir %s)" % common)
+    return common.parent, top
+
+
+def memory_name(toplevel: Path, override: Optional[str]) -> str:
+    """The per-project directory name: --name, else the origin URL's basename, else the toplevel's basename."""
+    if override is None:
+        url = git_remote(toplevel)
+        base = re.split(r"[/:]", url.rstrip("/"))[-1] if url else ""
+        if base.endswith(".git"):
+            base = base[:-4]
+        name = base or toplevel.name
+    else:
+        name = override
+    if not name or "/" in name or name in (".", ".."):
+        raise DeployError("invalid project name %r; pass --name with a plain directory name" % name)
+    return name
+
+
+def memory_link_state(path: Path, expected: Path) -> str:
+    """absent, real, expected (a link to `expected`) or other (any other link, dangling included)."""
+    if path.is_symlink():
+        target = Path(os.readlink(str(path)))
+        if not target.is_absolute():
+            target = path.parent / target
+        return "expected" if os.path.realpath(str(target)) == os.path.realpath(str(expected)) else "other"
+    return "real" if path.exists() else "absent"
+
+
+def memory_excludes(main: Path) -> Path:
+    out = memory_git(main, "rev-parse", "--git-path", "info/exclude")
+    if not out or not out.strip():
+        raise DeployError("cannot find info/exclude of %s" % main)
+    return (main / out.strip()).resolve()
+
+
+def memory_exclude_lines(path: Path) -> List[str]:
+    try:
+        return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
+    except OSError:
+        return []
+
+
+def memory_append_lines(path: Path, lines: List[str]) -> None:
+    """Append `lines` to the text file `path`, creating it (and its directory) when absent."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text + "".join(ln + "\n" for ln in lines), encoding="utf-8")
+
+
+def memory_readme(toplevel: Path, external: Path) -> str:
+    origin = git_remote(toplevel) or "none"
+    restore = "\n".join("    mv %s %s" % (sh_quote(str(external / n)), sh_quote(str(toplevel / n)))
+                        for n, _ in MEMORY_ITEMS)
+    return ("%s\n\n# Project memory\n\n"
+            "This directory holds the `.supervisor/` store and `CLAUDE.local.md` of one project. The project "
+            "checkout links to them and excludes the links through `.git/info/exclude`. Manage them with "
+            "`claude-supervisor memory`.\n\n"
+            "project: %s\norigin: %s\n\n"
+            "To move the memory back into the project, remove the two links there, then run:\n\n%s\n"
+            % (MEMORY_MARKER, toplevel, origin, restore))
+
+
+def memory_attach(toplevel: Path, external: Path, template: Path) -> None:
+    """Shared tail of externalize and link: excludes, external README, .gitignore, store README."""
+    exclude = memory_excludes(toplevel)
+    have = memory_exclude_lines(exclude)
+    missing = [ln for ln in MEMORY_EXCLUDES if ln not in have]
+    if missing:
+        memory_append_lines(exclude, missing)
+        for ln in missing:
+            print("excluded: %s in %s" % (ln, exclude))
+    readme = external / "README.md"
+    want = memory_readme(toplevel, external)
+    old = readme.read_text(encoding="utf-8") if readme.exists() else None
+    if old != want:
+        readme.write_text(want, encoding="utf-8")
+        print("%s README.md: %s" % ("created" if old is None else "refreshed", readme))
+    ignore = external / ".gitignore"
+    if RESIDUE_IGNORE not in memory_exclude_lines(ignore):
+        memory_append_lines(ignore, [RESIDUE_IGNORE])
+        print("ignored: %s in %s" % (RESIDUE_IGNORE, ignore))
+    store_readme = external / ".supervisor" / "README.md"
+    text = template.read_text(encoding="utf-8")
+    if not store_readme.exists() or store_readme.read_text(encoding="utf-8") != text:
+        store_readme.write_text(text, encoding="utf-8")
+        print("refreshed README: %s" % store_readme)
+
+
+def memory_prepare(args: argparse.Namespace, verb: str) -> Tuple[Path, Path, Path, Path]:
+    """Checks shared by both writing verbs; returns (main toplevel, project toplevel, external dir, template)."""
+    if os.name != "posix":
+        raise DeployError("memory needs a POSIX system (symlinks); this platform is not supported")
+    template = resolve_target(args).joinpath(*MEMORY_TEMPLATE)
+    main, wt = memory_project(Path.cwd())
+    top = wt or main
+    if verb == "externalize" and wt:
+        raise DeployError("externalize runs in the main checkout (%s); run `claude-supervisor memory link` "
+                          "in this worktree" % main)
+    if not template.is_file():
+        raise DeployError("%s is missing; install the pack first (./deploy install)" % template)
+    if getattr(args, "dir", None):
+        external = Path(args.dir).expanduser().resolve()
+    else:
+        external = (memory_root(args) / memory_name(main, args.name)).resolve()
+    for name, _ in MEMORY_ITEMS:
+        if memory_git(top, "ls-files", "--error-unmatch", "--", name) is not None:
+            raise DeployError("%s is tracked by git; untrack it first: git rm -r --cached %s "
+                              "(then commit)" % (name, name))
+    checkouts = [main, top]
+    listing = memory_git(main, "worktree", "list", "--porcelain") or ""
+    checkouts += [Path(ln[len("worktree "):]).resolve() for ln in listing.splitlines() if ln.startswith("worktree ")]
+    for co in checkouts:
+        if external == co or co in external.parents:
+            raise DeployError("%s lies inside the checkout %s; use a directory outside every checkout of "
+                              "this repo (--root or --name)" % (external, co))
+    return main, top, external, template
+
+
+def memory_foreign_readme(external: Path) -> None:
+    readme = external / "README.md"
+    if readme.exists():
+        with open(str(readme), encoding="utf-8", errors="replace") as f:
+            first = f.readline().rstrip("\n")
+        if first != MEMORY_MARKER:
+            raise DeployError("%s exists and is not written by claude-supervisor (its first line is not "
+                              "the marker); move it away or pick another --root or --name" % readme)
+
+
+def memory_externalize_cmd(args: argparse.Namespace) -> int:
+    """Move (or create) the project's .supervisor and CLAUDE.local.md in an external directory and link them."""
+    main, top, external, template = memory_prepare(args, "externalize")
+    plan = []  # (name, is_dir, action)
+    for name, is_dir in MEMORY_ITEMS:
+        proj, ext = top / name, external / name
+        state = memory_link_state(proj, ext)
+        present = ext.exists() or ext.is_symlink()
+        if state == "expected":
+            action = "keep"
+        elif state == "other":
+            raise DeployError("%s is a link to %s, not to %s; remove the link or pick another --root or --name"
+                              % (proj, os.readlink(str(proj)), ext))
+        elif state == "real":
+            if present:
+                raise DeployError("both exist: %s and %s; move or remove one of them, then re-run"
+                                  % (proj, ext))
+            action = "move"
+        elif present:
+            raise DeployError("%s exists in %s but not in the project; run `claude-supervisor memory link` "
+                              "to attach it (or pick another --name if it belongs to another project)"
+                              % (name, external))
+        else:
+            action = "create"
+        plan.append((name, is_dir, action))
+    memory_foreign_readme(external)
+    external.mkdir(parents=True, exist_ok=True)
+    for name, is_dir, action in plan:
+        proj, ext = top / name, external / name
+        if action == "move":
+            shutil.move(str(proj), str(ext))
+            print("moved: %s -> %s" % (proj, ext))
+        elif action == "create":
+            if is_dir:
+                ext.mkdir()
+            else:
+                ext.touch()
+            print("created: %s" % ext)
+        if action != "keep":
+            os.symlink(str(ext), str(proj))
+            print("linked: %s -> %s" % (proj, ext))
+    memory_attach(main, external, template)
+    print("externalized: %s" % external)
+    return 0
+
+
+def memory_link_cmd(args: argparse.Namespace) -> int:
+    """Link the project's .supervisor and CLAUDE.local.md to an existing external directory."""
+    main, top, external, template = memory_prepare(args, "link")
+    if not (external / ".supervisor").is_dir():
+        raise DeployError("no external store at %s (no .supervisor there); run `claude-supervisor memory "
+                          "externalize` in the main checkout first, or pass the directory" % external)
+    plan = []
+    for name, is_dir in MEMORY_ITEMS:
+        proj, ext = top / name, external / name
+        state = memory_link_state(proj, ext)
+        present = ext.exists() or ext.is_symlink()
+        if state == "real":
+            raise DeployError("%s is a real file in the project; run `claude-supervisor memory externalize` "
+                              "to move it, or remove it first" % proj)
+        if state == "other":
+            raise DeployError("%s is a link to %s (%s), not to %s; remove the link, then re-run"
+                              % (proj, os.readlink(str(proj)), "exists" if proj.exists() else "dangling", ext))
+        plan.append((name, state == "absent", present))
+    memory_foreign_readme(external)
+    for name, absent, present in plan:
+        if not absent:
+            continue
+        proj, ext = top / name, external / name
+        if not present:
+            ext.touch()
+            print("created: %s" % ext)
+        os.symlink(str(ext), str(proj))
+        print("linked: %s -> %s" % (proj, ext))
+    memory_attach(main, external, template)
+    print("linked: %s" % external)
+    return 0
+
+
+def memory_status_cmd(args: argparse.Namespace) -> int:
+    """Check the two links and the exclude lines; exit 1 with a repair hint when anything is off."""
+    if os.name != "posix":
+        raise DeployError("memory needs a POSIX system (symlinks); this platform is not supported")
+    main, wt = memory_project(Path.cwd())
+    top = wt or main
+    problems = []
+    sup = top / ".supervisor"
+    external = None  # the directory the project's .supervisor link names
+    if sup.is_symlink():
+        external = Path(os.path.normpath(str(top / os.readlink(str(sup))))).parent
+    for name, _ in MEMORY_ITEMS:
+        path = top / name
+        if path.is_symlink():
+            if not path.exists():
+                problems.append("%s: dangling link to %s; restore the external directory or remove the link and "
+                                "run `claude-supervisor memory link`" % (name, os.readlink(str(path))))
+            elif external is not None and memory_link_state(path, external / name) != "expected":
+                problems.append("%s: links to %s, not %s; remove it and run `claude-supervisor memory link`"
+                                % (name, os.readlink(str(path)), external / name))
+        elif path.exists():
+            problems.append("%s: a real file, not externalized; run `claude-supervisor memory externalize`" % name)
+        else:
+            problems.append("%s: missing; run `claude-supervisor memory link` (or `externalize`)" % name)
+    have = memory_exclude_lines(memory_excludes(main))
+    for line in MEMORY_EXCLUDES:
+        if line not in have:
+            problems.append("missing %s in info/exclude; run `claude-supervisor memory link` to add it" % line)
+    for p in problems:
+        print(p)
+    if problems:
+        return 1
+    print("ok: %s -> %s" % (top, external))
+    return 0
+
+
 def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     """The deploy CLI; with launcher_tag, the subset a claude-TAG launcher runs, fixed to that install."""
     if launcher_tag:
@@ -2169,6 +2453,27 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
                         description="Print PASS/WARN/FAIL checks. Exits 1 if any check FAILs.")
     common(sp, source=False)
     sp.set_defaults(func=doctor_cmd)
+
+    sp = add_parser("memory", help="keep a project's memory store outside its checkout",
+                        description="Move .supervisor and CLAUDE.local.md to an external directory and link them "
+                                    "back (externalize), attach a linked worktree or fresh machine to an existing "
+                                    "external directory (link), or check the links (status).")
+    common(sp, source=False)
+    vsub = sp.add_subparsers(dest="verb", metavar="VERB", required=True)
+    for verb, vhelp, func in (("externalize", "move or create the store in an external directory and link it",
+                               memory_externalize_cmd),
+                              ("link", "link the project to an existing external store", memory_link_cmd),
+                              ("status", "check the links and exclude lines (exit 1 when broken)",
+                               memory_status_cmd)):
+        vp = vsub.add_parser(verb, help=vhelp, description=vhelp[0].upper() + vhelp[1:] + ".")
+        if verb != "status":
+            vp.add_argument("--root", metavar="DIR",
+                            help="memory root (default: $CLAUDE_SUPERVISOR_MEMORY_ROOT, else "
+                                 "${XDG_DATA_HOME:-~/.local/share}/claude-supervisor/memory)")
+            vp.add_argument("--name", metavar="NAME", help="project directory under the root (default: origin basename)")
+        if verb == "link":
+            vp.add_argument("dir", nargs="?", help="external directory to link (ignores --root and --name)")
+        vp.set_defaults(func=func)
 
     sp = add_parser("critic", help="switch the lead's critic to Codex",
                         description="Run the installed codex-critic script: enable [MODEL] [--yes], disable [--yes], status. "

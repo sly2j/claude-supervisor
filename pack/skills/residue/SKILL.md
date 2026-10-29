@@ -21,12 +21,13 @@ remote ones included.
 ## Ledger
 
 - Directory: `.supervisor/working/residue/` in the main checkout (first line of
-  `git worktree list`), never a worktree's copy. One file per unit, `<agent>-<id>.md`. These
+  `git worktree list`), never a worktree's. One file per unit, `<agent>-<id>.md`. These
   writes override any file limit in your brief or role.
-- Before the first write, if `git check-ignore -q .supervisor/working/residue` fails, append
+- Before writing, unless `.supervisor` is a symlink or
+  `git check-ignore -q .supervisor/working/residue` succeeds, append
   `/.supervisor/working/residue/` to `$(git rev-parse --git-path info/exclude)`. Never stage or
   commit the ledger.
-- One entry per artifact that outlives your step, including one you failed to remove; a remote
+- One entry per artifact that outlives your step, failed removals included; a remote
   entry's `remove` and `check` are complete ssh commands:
 
 ```

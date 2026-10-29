@@ -148,3 +148,12 @@ Add `--provider argo` beside `openrouter`, `nrp` and `alcf`, with a section in `
   argo-proxy `--base-url`, and the suite passes.
 
 Priority: normal. Effort: S–M.
+
+### 12. `--global` installs and the deploy tool (open decision)
+
+A `--global` install has no launcher, so `memory` and `doctor` run only as `./deploy …` from a
+source checkout (`docs/deploy.md`). Open decision: deprecate `--global` installs, or ship the
+deploy tool with them so `memory`/`doctor` work without a checkout. The owner leans toward
+deprecation (2026-10-29). Decide before starting.
+Source: `.supervisor/working/plans/externalize-memory.md` (D15, D19).
+Priority: normal. Effort: S.

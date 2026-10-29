@@ -2,7 +2,8 @@
 
 Project memory kept by the Supervisor for Claude pack. A tracked store is committed with the
 project, so collaborators share it; a local store is listed in the git exclude file and never
-committed. `git check-ignore -q .supervisor` succeeds only for a local store.
+committed. `git check-ignore -q .supervisor` succeeds only for a local store. To keep a local
+store outside the repo, run `claude-supervisor memory externalize`.
 
 - `memory/<kind>/`: entries in force, written by `curator`, one folder per kind
   (decisions, facts, lessons, goals, conventions).

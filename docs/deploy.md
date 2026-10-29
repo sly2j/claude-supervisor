@@ -75,11 +75,12 @@ claude-supervisor update --all        # every install in this launcher's prefix
 claude-supervisor uninstall           # delete this profile
 claude-supervisor status              # this profile's version and file states
 claude-supervisor list                # every install in this launcher's prefix
+claude-supervisor memory externalize|link|status  # keep this project's memory outside the repo (see Memory)
 claude-supervisor --version           # pack and claude versions (or -v)
 claude-supervisor -h                  # the launcher's own help (or --help, help)
 ```
 
-For commands, the launcher checks only its first argument, after removing `--fable-is-opus` (see Fable Or Opus for where the flag may stand). `update`, `uninstall`, `status` and `list` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
+For commands, the launcher checks only its first argument, after removing `--fable-is-opus` (see Fable Or Opus for where the flag may stand). `update`, `uninstall`, `status`, `list` and `memory` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
 
 - `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
 - `uninstall` deletes this profile (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
@@ -90,7 +91,7 @@ For commands, the launcher checks only its first argument, after removing `--fab
 - `-v` / `--version` prints `claude-supervisor <installed pack version> (claude-<tag>, <config dir>)` and a `claude: <version>` line (`claude: not found` if it is missing).
 - `--fable-is-opus` runs that session with Fable mapped to Opus; see Fable Or Opus.
 - If `claude` is not on `PATH`, a session start prints `claude-<tag>: claude not found on PATH; install Claude Code, then retry` and exits 127.
-- `--global` installs have no launcher; use the deploy tool.
+- `--global` installs have no launcher; use the deploy tool (`./deploy memory --global <verb>` from a checkout).
 
 ## Update
 
@@ -246,6 +247,18 @@ When Codex is off for a domain, missing, times out, exits non-zero, writes nothi
 - Codex runs tests only through an interpreter its read-only sandbox may execute. On macOS the sandbox can refuse a conda `python3`, and a Homebrew one may lack pytest, so a Codex review may report that tests were not independently run.
 - Codex's severities tend to run hot; `scope-critic`'s ruling is the calibrating layer.
 - Reviews take from tens of seconds to several minutes. The script stops Codex after 540 s (`review --timeout SECS`) and falls back.
+
+## Memory
+
+```bash
+claude-supervisor memory externalize [--root DIR] [--name N]
+claude-supervisor memory link [DIR] [--root DIR] [--name N]
+claude-supervisor memory status
+```
+
+Run these inside a git project; the launcher fixes the install, so the pack's store README template is read from it. `externalize` moves the project's `.supervisor/` and `CLAUDE.local.md` (or creates them) to `<root>/<name>/`, replaces them with absolute symlinks, and lists both in `.git/info/exclude`. `link` attaches a checkout, a linked worktree or a fresh machine to an existing external directory, and `status` reads without writing and exits 1 with a repair hint. The root is `$CLAUDE_SUPERVISOR_MEMORY_ROOT`, else `${XDG_DATA_HOME:-~/.local/share}/claude-supervisor/memory`.
+
+Both writing verbs check everything before they write, are safe to repeat, and never overwrite or delete your files. Windows is not supported. Setup, git history for the memory, fresh machines, worktrees and moving back are in [local-memory.md](local-memory.md).
 
 ## Doctor Checks
 

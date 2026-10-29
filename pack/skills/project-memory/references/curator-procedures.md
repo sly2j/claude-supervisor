@@ -11,8 +11,10 @@ in, for, is) is dropped. A run that moves a file repoints, in the same run, ever
 When the cap would cut entries, leave the roadmap item in place, skip step 7, and report what
 remains as `follow-up: curator close-out <plan path>`. Without git, or when the store is
 git-excluded (`git check-ignore -q <project root>/.supervisor` succeeds), nothing is staged: every
-archive move here and in SKILL.md uses plain `mv` and skips `git add`, and the report says
-`not staged: store untracked`.
+archive move here and in SKILL.md uses plain `mv` and skips `git add`, and the report includes
+the line SKILL.md gives for a git-excluded store (`not staged` or `external store:`).
+On every run, replace `.supervisor/README.md` with the template when they differ (staged for a
+tracked store only).
 
 ## Close-out (`close-out <plan path>`)
 
@@ -114,11 +116,13 @@ move it to `archive/memory/<kind>/`. Never delete a file.
 An existing store is reported (`store exists`), never recreated, restaged or re-decided. Inside a
 git work tree, a brief with neither mode creates nothing and reports
 `ask: tracked or local store?`. Otherwise create `.supervisor/` with its README per SKILL.md (in
-the current directory when no project root exists) and write no entries. For `(local)`, append the
-line `/.supervisor/` to `$(git rev-parse --git-path info/exclude)` unless
-`git check-ignore -q .supervisor` already succeeds; never edit `.gitignore`. Then `git add
-.supervisor` and do not commit (`git-ops` does); leave `VERSION` alone. Skip the staging and report
-why for an untracked store (preamble) or while a merge, rebase or cherry-pick is in progress.
+the current directory when no project root exists) and write no entries; leave `VERSION` alone.
+- `(tracked)`: `git add .supervisor` and do not commit (`git-ops` does). Skip the staging while a
+  merge, rebase or cherry-pick is in progress, and report why.
+- `(local)`: append the line `/.supervisor` to `$(git rev-parse --git-path info/exclude)` unless
+  `git check-ignore -q .supervisor` already succeeds; never edit `.gitignore`. Stage nothing. Add
+  this one line before `recorded N`, for supervisor to relay verbatim:
+  `hint: share this store across worktrees and machines: claude-supervisor memory externalize`
 
 ## Migrate (`migrate <path>`)
 

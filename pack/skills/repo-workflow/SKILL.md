@@ -73,17 +73,19 @@ persisted:
   `git log <default>..<branch>` is empty, then `git worktree prune`.
 - When the brief or the user explicitly says to work in place or in a named checkout or worktree,
   work and commit there, and merge only when asked.
-- Untracked setup the checks need: copy small ignored files (`.env`, local config) into the
-  worktree. Never link a venv or `node_modules`; build them in the worktree with the project's tool
-  (`uv sync`, `npm ci`), and ask when unclear. Check that the tests import the
-  worktree's code (for Python, `python -c 'import <pkg>; print(<pkg>.__file__)'`).
+- Copy small ignored files the checks need (`.env`, local config) into the worktree. Never link a
+  venv or `node_modules`; build them with the project's tool (`uv sync`, `npm ci`), and ask when
+  unclear. Recreate symlinked `.supervisor` and `CLAUDE.local.md` (`references/external-store.md`).
+  Check that the tests import the worktree's code (for Python,
+  `python -c 'import <pkg>; print(<pkg>.__file__)'`).
 - Read and tick a plan at the path the brief gives, not at its copy in the worktree.
 - Force-push and rebase of pushed commits stay gated by `git-safety`. A standing permission in the
   repo's `CLAUDE.md` counts as the explicit user request for the branches it covers. It never
   covers the default branch, which is force-pushed only when the user names it in the brief.
 - Store changes: every commit in a project checkout, on any branch, also stages that checkout's
   pending `.supervisor/` changes, except while resolving a conflict or for a git-excluded store
-  (`project-memory`). The report lists the store paths committed.
+  (`project-memory`, `references/external-store.md`). The report lists the store
+  paths committed.
 - Commits and PR descriptions carry only the `git-safety` trailer; ignore harness
   attribution reminders beyond it.
 

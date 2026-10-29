@@ -168,7 +168,7 @@ The memory model:
 - **`curator`:** The `curator` agent maintains the memory store by archiving short-term memories, keeping roadmaps up to date, flagging stale short-term memories, and curating the long-term memory store.
 - **Your controls:** You can tell supervisor to "remember X", to "forget X", or to "make this a project".
 - **Where it applies:** Memories are only stored when supervisor considers the working folder part of a project. A project is auto-detected when the folder is inside a git repository, or when it, or a folder above it, holds `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or when you tell supervisor to make the folder a project. Your home directory never counts, either way.
-- **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once. A tracked store is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. A local store is listed in the repo's git exclude file (`.git/info/exclude`, never `.gitignore`) and never committed, so nothing of the workflow enters the repo, which suits open-source and shared repos; it works only in that checkout, and linked worktrees do not get it.
+- **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once. A tracked store is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. A local store is listed in the repo's git exclude file (`.git/info/exclude`, never `.gitignore`) and never committed, so nothing of the workflow enters the repo, which suits open-source and shared repos; it works only in that checkout, and linked worktrees do not get it. `claude-supervisor memory externalize` moves a local store to a directory outside the repo that linked worktrees share and that you can keep in your own git repo; see [docs/local-memory.md](docs/local-memory.md).
 
 ## Branches, Worktrees And Versions
 
@@ -213,6 +213,7 @@ When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout
 - [docs/deploy.md](docs/deploy.md): Detailed installation instructions. In most cases the "Quick Start" instructions should be sufficient.
 - [docs/architecture.md](docs/architecture.md): Overview of the workflow architecture and every agent and skill.
 - [docs/context-engineering.md](docs/context-engineering.md): Context engineering considerations to allow for long-horizon tasks.
+- [docs/local-memory.md](docs/local-memory.md): Keeping a project's memory outside the repo, shared across worktrees and machines.
 
 ## Maintaining An Install
 
@@ -275,7 +276,7 @@ pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
 deploy              installer: install | update | status | list | uninstall | doctor | migrate | critic
 tests/              deploy tests, pack lint, VERSION check
-docs/               architecture.md, context-engineering.md, deploy.md (deploy runbook)
+docs/               architecture.md, context-engineering.md, deploy.md (deploy runbook), local-memory.md
 CLAUDE.md           instructions for Claude working in this repo
 REVIEW.md           review rules for this repo
 .supervisor/        project memory; roadmap.md holds open work items

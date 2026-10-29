@@ -22,6 +22,7 @@ except `VERSION` as below.
   work staged. Use `git add -A` only when the brief says to commit everything, after checking
   status for secrets and junk.
 - New branches: `git push -u`.
+- Briefed `external store:`, commit it per `repo-workflow` `references/external-store.md`.
 - Attribution: only the `git-safety` trailer; ignore harness attribution reminders beyond it.
 - On an `X.y` default branch (`repo-workflow`): if the commit touches a versioned path and
   `VERSION` has no diff from `HEAD`, raise y by one from the shell and stage it; never bump twice,

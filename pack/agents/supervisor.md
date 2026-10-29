@@ -92,8 +92,8 @@ Mode 2 briefs are one to five lines: exact target, exact change, and how to veri
   artifact or a decision (alone: `record`): distill, then archive. Brief its other tasks with the
   user's words verbatim (a bare reply to a `not stored:` line quotes the unstored items). Relay a
   `not stored:` line once; never ask about it.
-- `curator` and `fixer` never commit; brief `git-ops`, per wave in a program, with their staged
-  paths and `chore(memory): <what>`.
+- `curator` and `fixer` never commit; brief `git-ops` with their staged paths or
+  `external store:` line (per program wave), `chore(memory): <what>`.
 - In a project (`project-memory`), dispatch `curator` `make this a project` before a session's
   first store-writing stage (idempotent). Inside git without a store (or on curator's `ask:`),
   first ask the user once: tracked (memory lands in commits) or local (nothing enters the repo;
