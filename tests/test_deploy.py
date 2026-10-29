@@ -2763,6 +2763,16 @@ def test_update_declined_downgrade_leaves_install_unchanged(remote, ahead_dev, t
     assert snapshot(ahead_dev) == before
 
 
+@pytest.mark.parametrize("yes", [False, True])
+def test_replay_install_forwards_yes(monkeypatch, tmp_path, yes):
+    d = load_deploy()
+    seen = []
+    monkeypatch.setattr(d, "install_cmd", lambda args: seen.append(args) or 0)
+    entry = {"tag": "t", "target": str(tmp_path / "t")}
+    assert d.replay_install(str(tmp_path / "t"), entry, {}, tmp_path, False, yes) == 0
+    assert seen[0].yes is yes
+
+
 def test_update_downgrade_dry_run_only_warns(remote, ahead_dev):
     before = snapshot(ahead_dev)
     r = update(remote, "--tag", "dev", "--dry-run")

@@ -1628,7 +1628,7 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
 
 # --------------------------------------------------------------------------- update
 
-def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run: bool) -> int:
+def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run: bool, assume_yes: bool = False) -> int:
     """Re-run install from `source` for the registry entry, with the manifest's options (never --overwrite-local)."""
     argv = ["install", "--source", str(source / "pack")]
     argv += entry_selection(key, entry)
@@ -1637,6 +1637,8 @@ def replay_install(key: str, entry: dict, manifest: dict, source: Path, dry_run:
         argv.append("--no-default-agent")
     if dry_run:
         argv.append("--dry-run")
+    if assume_yes:
+        argv.append("--yes")
     print("== update %s ==" % key)
     try:
         return install_cmd(build_parser().parse_args(argv))
@@ -1700,7 +1702,7 @@ def update_cmd(args: argparse.Namespace) -> int:
             print("SKIP %s: no manifest" % key)
         elif source is not None:
             if downgrade_ok(key, manifest, derive_version(source / "pack"), args.yes, args.dry_run):
-                failed += replay_install(key, entry, manifest, source, args.dry_run) != 0
+                failed += replay_install(key, entry, manifest, source, args.dry_run, args.yes) != 0
             else:
                 print("%s left unchanged" % key)
                 failed += 1
