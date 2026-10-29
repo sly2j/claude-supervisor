@@ -250,7 +250,7 @@ A launcher acts on its own profile unless you say `--all`. The `./deploy` script
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
 
-A profile can run on an API provider instead of your subscription: `./deploy install --tag <t> --provider openrouter|nrp|alcf` (or `--base-url <url>` for any endpoint that serves the Anthropic API) with a token or a token helper for expiring tokens. Install maps the four model tiers to the provider's models, picked from its list on a terminal or given as `--model-<tier>` flags; see [API Providers](docs/deploy.md#api-providers).
+A profile can run on an API provider instead of your subscription: `./deploy install --tag <t> --provider openrouter|nrp|alcf|argo` (or `--base-url <url>` for any endpoint that serves the Anthropic API) with a token or a token helper for expiring tokens. Install maps the four model tiers to the provider's models, picked from its list on a terminal or given as `--model-<tier>` flags; see [API Providers](docs/deploy.md#api-providers).
 
 ## Migrating From Older Versions
 

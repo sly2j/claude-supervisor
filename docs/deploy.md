@@ -65,7 +65,7 @@ If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$
 "$REPO/deploy" install --tag work --base-url https://llm.example.com --token-file ~/work.token
 ```
 
-Routes the profile through a proxy or gateway that serves the Anthropic API; omit it to use a normal login. Presets for OpenRouter, NRP and ALCF, expiring tokens, mapping the model tiers to the provider's models, and changing or removing a provider are in [API Providers](#api-providers).
+Routes the profile through a proxy or gateway that serves the Anthropic API; omit it to use a normal login. Presets for OpenRouter, NRP, ALCF and Argo, expiring tokens, mapping the model tiers to the provider's models, and changing or removing a provider are in [API Providers](#api-providers).
 
 ## The Launcher
 
@@ -163,13 +163,15 @@ A profile can run on an API provider instead of your Claude subscription: any en
 "$REPO/deploy" install --tag or --provider openrouter --token-file ~/openrouter.key
 "$REPO/deploy" install --tag nrp --provider nrp --token-file ~/nrp.token
 "$REPO/deploy" install --tag alcf --provider alcf
+"$REPO/deploy" install --tag argo --provider argo --username NAME
 ```
 
-A preset fills in the base URL, how the token is supplied and where the model list comes from. Install then asks for a model per tier on a terminal (see Model Tiers); without one it needs the four `--model-<tier>` flags.
+A preset fills in the base URL, how the token is supplied and where the model list comes from. Install then asks for a model per tier on a terminal (see Model Tiers); without one it needs the four `--model-<tier>` flags. Argo is the exception: it ships default tiers.
 
 - **OpenRouter**, `https://openrouter.ai/api`: a static key, created at https://openrouter.ai/keys. The list offers OpenRouter's models that support tool calling.
 - **NRP**, `https://ellm.nrp-nautilus.io/anthropic`: a static token from https://nrp.ai/llmtoken.
 - **ALCF**, `https://inference-api.alcf.anl.gov/resource_server/minerva/api` (the Minerva cluster): access tokens expire after 48 hours, so the preset uses the token helper `alcf-tokens get-token inference` instead of a static token. Install `alcf-tokens` and run `alcf-tokens login inference` once. `install`, `update` and `doctor` run the helper once each and fail with that login command when it prints no token. For Tara, add `--base-url https://inference-api.alcf.anl.gov/resource_server/tara/api`. ALCF's Claude Code recipe names only Minerva and Tara; Sophia and Metis would need a bridge outside this tool. The helper command and the model list at `<base URL>/v1/models` follow ALCF's documentation and are not yet confirmed against the live service; when the list cannot be fetched, the picker takes typed model ids.
+- **Argo** (Argonne), `https://apps.inside.anl.gov/argoapi`, reachable only inside ANL or over the VPN. Pass `--username NAME`, your ANL domain username: it becomes the token helper `echo NAME` (a plain username is not a secret, so it appears in the manifest, `settings.json`, install output and `status`). `--username` cannot be combined with `--token`, `--token-file` or `--token-helper`, and only the Argo preset accepts it. Without `--username`, install asks `ANL username [$USER]:` on a terminal; with `--yes` or without a terminal it fails and names the flag, so `update --yes` never prompts. The tiers default to `claude-opus-5-5` (Fable and Opus, since Argo has no Fable), `claude-sonnet-5-5` and `claude-haiku-5-5`, so no picker runs; `--model-<tier>` flags replace single tiers. The launcher also exports `CLAUDE_CODE_AUTO_MODE_SERVER=0`; a `settings.json` `env` entry of that name would override it, so a provider profile's seeding drops it and `doctor` warns about it. For argo-proxy, add `--base-url http://localhost:44497` (the proxy root, without `/v1`; run `argo-proxy serve` first, with the same username as `user:` in its `config.yaml`): the username helper, the tier defaults and the export stay. The URL, the ids and the exported variable come from a manual Argo setup and argo-proxy's documentation and are not checked against the live service from this repo.
 
 A static token (`--token-file PATH`, or `--token VALUE`, which leaves the value in your shell history) is copied to `<dir>/token` (mode 0600), and the launcher exports it as `ANTHROPIC_AUTH_TOKEN` with `ANTHROPIC_API_KEY` set empty, so a real Anthropic key in your environment never reaches the provider. A token helper (`--token-helper CMD` for any provider; the ALCF preset's default) goes into the profile's `settings.json` as `apiKeyHelper`, with the command's program as an absolute path, and the launcher unsets `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY`, so Claude Code calls the helper and refreshes the token when it expires. The helper must exit 0 and print just the token on one line. Install sets `apiKeyHelper` when the key is absent or install set it before; a value you set yourself is kept, with a warning. Neither the token nor the helper's output ever appears in the manifest, `settings.json`, install output or `status`.
 
@@ -197,11 +199,11 @@ A preset, or any `--model-<tier>` flag, needs all four tiers. A re-install keeps
 
 With `--base-url` and no preset, install asks `Map the model tiers to this provider's models? [y/N]` on a terminal. Declined, or without a terminal, the tiers stay unset, which suits a gateway that serves Claude model ids; once mapped, the all-or-nothing rule above applies.
 
-On a provider profile, `--fable-is-opus` maps Fable to the Opus-tier model. An `ANTHROPIC_*` value in the profile's `settings.json` `env` overrides the launcher: a provider profile's first install leaves such keys (and `apiKeyHelper`) out when it copies `~/.claude/settings.json`, and `doctor` warns about any added later.
+On a provider profile, `--fable-is-opus` maps Fable to the Opus-tier model. An `ANTHROPIC_*` value (or a variable the preset exports, such as Argo's `CLAUDE_CODE_AUTO_MODE_SERVER`) in the profile's `settings.json` `env` overrides the launcher: a provider profile's first install leaves such keys (and `apiKeyHelper`) out when it copies `~/.claude/settings.json`, and `doctor` warns about any added later.
 
 ### Changing Or Removing A Provider
 
-A plain `install`, and `update`, keep the recorded provider, token or helper, and models. `status` prints `Provider:`, `Base URL:`, `Auth:` and one `Model <tier>:` line each; `doctor` checks the token file, the helper and the `env` block (see Doctor Checks). Re-run `install` with new flags to change part of it: a `--model-<tier>` flag replaces that tier, `--token-file` replaces the token or turns a helper profile into a static-token one (`--token-helper` does the reverse), and a different `--base-url` drops the recorded models, so the tiers are picked, or passed, again. `--provider ''` or `--base-url ''` removes the whole provider config: the launcher goes back to the subscription form, `<dir>/token` is deleted and a managed `apiKeyHelper` is removed (one you set yourself is kept, with a warning); the profile then uses a normal login. `uninstall` deletes the token with the profile.
+A plain `install`, and `update`, keep the recorded provider, token or helper, and models. `status` prints `Provider:`, `Base URL:`, `Auth:` and one `Model <tier>:` line each; `doctor` checks the token file, the helper and the `env` block (see Doctor Checks). Re-run `install` with new flags to change part of it: a `--model-<tier>` flag replaces that tier, `--token-file` replaces the token or turns a helper profile into a static-token one (`--token-helper` does the reverse), and a different `--base-url` drops the recorded models, so the tiers are picked, or passed, again (the Argo preset's defaults apply instead). `--provider ''` or `--base-url ''` removes the whole provider config: the launcher goes back to the subscription form, `<dir>/token` is deleted and a managed `apiKeyHelper` is removed (one you set yourself is kept, with a warning); the profile then uses a normal login. `uninstall` deletes the token with the profile.
 
 ## Codex As Critic
 
@@ -294,7 +296,7 @@ SUPERVISOR_LIVE_ROUTING=1 python3 -m pytest -q tests/test_live_routing.py -s
 | Codex critic (only when `critic.backend` is `codex`) | FAIL | `codex` missing from `PATH` or not logged in; install it, run `codex login`, or run `critic disable` |
 | Provider profile: `<dir>/token` missing or not mode 600 | FAIL | Re-run `./deploy install --tag <tag> --token-file PATH`, or `chmod 600` the file |
 | Provider profile: token helper prints no token | FAIL | Log in again (ALCF: `alcf-tokens login inference`), or re-run `install` with a working `--token-helper` |
-| `ANTHROPIC_*` in `settings.json` `env` (provider profile) | WARN | It overrides the launcher's export; remove it |
+| `ANTHROPIC_*` or a preset-exported variable in `settings.json` `env` (provider profile) | WARN | It overrides the launcher's export; remove it |
 
 The three environment variables are checked both in the shell environment and in the `env` block of the target's `settings.json`. Doctor exits 1 if any row is FAIL; WARN rows do not change the exit code.
 

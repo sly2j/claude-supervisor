@@ -14,6 +14,7 @@ import argparse
 import contextlib
 import datetime as _dt
 import fcntl
+import getpass
 import hashlib
 import json
 import os
@@ -73,6 +74,12 @@ PROVIDERS: Dict[str, dict] = {
              "helper": "alcf-tokens get-token inference", "models_url": None,
              "login": "run `alcf-tokens login inference` first "
                       "(see https://docs.alcf.anl.gov/services/inference-endpoints/)"},
+    # helper is a template: --username fills {username}; models are tier defaults, also at an argo-proxy --base-url
+    "argo": {"base_url": "https://apps.inside.anl.gov/argoapi", "auth": "helper", "helper": "echo {username}",
+             "models_url": None, "env": {"CLAUDE_CODE_AUTO_MODE_SERVER": "0"},
+             "models": {"fable": "claude-opus-5-5", "opus": "claude-opus-5-5",
+                        "sonnet": "claude-sonnet-5-5", "haiku": "claude-haiku-5-5"},
+             "login": "Argo is reachable only inside ANL or over VPN"},
 }
 MODELS_TIMEOUT = 20  # seconds for the model-list request
 HELPER_TIMEOUT = 30  # seconds a token helper gets to print its token
@@ -107,7 +114,7 @@ def sh_quote(value: str) -> str:
 
 def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str], has_token: bool,
                   models: Optional[Dict[str, str]] = None, helper: bool = False,
-                  provider: Optional[str] = None) -> str:
+                  provider: Optional[str] = None, env: Optional[Dict[str, str]] = None) -> str:
     """The claude-TAG script; with no base_url, models or helper it is the subscription launcher, unchanged."""
     d = state_dir(prefix) / "deploy"
     help_text = LAUNCHER_HELP % {"tag": tag, "target": target}
@@ -138,6 +145,8 @@ def launcher_text(tag: str, target: Path, prefix: Path, base_url: Optional[str],
              "CLAUDE_CONFIG_DIR='%s'; export CLAUDE_CONFIG_DIR" % target]
     if base_url:
         lines.append("ANTHROPIC_BASE_URL=%s; export ANTHROPIC_BASE_URL" % sh_quote(base_url))
+        for name in sorted(env or {}):
+            lines.append("%s=%s; export %s" % (name, sh_quote(env[name]), name))
     if helper:
         # settings.json apiKeyHelper supplies the token; either variable would outrank it and never refresh
         lines.append("unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY")
@@ -249,7 +258,7 @@ def confirm_typed(prompt: str, expected: str, assume_yes: bool) -> bool:
 def target_tag(args: argparse.Namespace) -> Optional[str]:
     """Profile tag, or None for --global."""
     if args.use_global:
-        for name in ("tag", "target", "base_url", "token", "token_file", "provider", "token_helper") \
+        for name in ("tag", "target", "base_url", "token", "token_file", "provider", "token_helper", "username") \
                 + tuple("model_" + t for t in TIERS):
             if getattr(args, name, None) is not None:
                 raise DeployError("--global cannot be combined with --%s" % name.replace("_", "-"))
@@ -807,10 +816,11 @@ def prune_empty_dirs(target: Path, rel_files: List[str], dry_run: bool) -> None:
             d = d.parent
 
 
-def seed_profile(target: Path, dry_run: bool, provider: bool = False) -> None:
+def seed_profile(target: Path, dry_run: bool, provider: bool = False, env_keys: Tuple[str, ...] = ()) -> None:
     """Copy the user's own ~/.claude items into a new profile; pack files come from install.
 
-    A provider profile leaves out settings env ANTHROPIC_* keys and apiKeyHelper, which would outrank the launcher.
+    A provider profile leaves out settings env ANTHROPIC_* keys (and the preset's env keys) and apiKeyHelper,
+    which would outrank the launcher.
     """
     home = Path("~/.claude").expanduser()
     names = [n for n in SEED if (home / n).exists() and not (target / n).exists()]
@@ -835,7 +845,7 @@ def seed_profile(target: Path, dry_run: bool, provider: bool = False) -> None:
                 if provider:
                     data.pop("apiKeyHelper", None)
                     if isinstance(data.get("env"), dict):
-                        data["env"] = {k: v for k, v in data["env"].items() if not k.startswith("ANTHROPIC_")}
+                        data["env"] = {k: v for k, v in data["env"].items() if not (k.startswith("ANTHROPIC_") or k in env_keys)}
                 write_json_atomic(target / n, data)
             elif (home / n).is_dir():
                 shutil.copytree(home / n, target / n, ignore=ignore, dirs_exist_ok=True, symlinks=True)
@@ -998,6 +1008,14 @@ def choose_models(cfg: dict, flags: Dict[str, str], bearer: Optional[str], inter
     return {t: models[t] for t in TIERS}
 
 
+def ask_username(args: argparse.Namespace, hint: str) -> str:
+    """The ANL username for a preset helper: asked on a terminal (default $USER), else an error naming --username."""
+    if args.yes or not sys.stdin.isatty():
+        raise DeployError("--provider argo needs your ANL username: pass --username NAME; %s" % hint)
+    default = getpass.getuser()
+    return input("ANL username [%s]: " % default).strip() or default
+
+
 def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, token: Optional[bytes]) -> dict:
     """The provider config this install writes: flags over the manifest (base URL set = provider profile).
 
@@ -1010,6 +1028,7 @@ def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, tok
             raise DeployError("invalid --model-%s %r; pass a model id" % (tier, value))
     name = getattr(args, "provider", None)
     helper_flag = getattr(args, "token_helper", None)
+    username = getattr(args, "username", None)
     if name and name not in PROVIDERS:
         raise DeployError("unknown --provider %r; use %s, or --base-url URL" % (name, ", ".join(sorted(PROVIDERS))))
     if args.base_url == "" and name:
@@ -1032,11 +1051,16 @@ def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, tok
     none = {"provider": None, "base_url": None, "auth": None, "token_helper": None, "models_url": None,
             "models": None}
     if not base_url:
-        if flags or helper_flag:
-            raise DeployError("--model-* and --token-helper need --provider or --base-url")
+        if flags or helper_flag or username is not None:
+            raise DeployError("--model-*, --token-helper and --username need --provider or --base-url")
         return none
     same = prev if base_url == prev.get("base_url") else {}
     hint = preset["login"] if preset else "check the provider's login instructions"
+    template = (preset or {}).get("helper") or ""
+    if username is not None:
+        if "{username}" not in template:
+            raise DeployError("--username applies only to a preset whose token helper takes a username (--provider argo)")
+        helper_flag = template.format(username=username)
     token_file = target / "token"
     if helper_flag:
         auth, helper = "helper", helper_flag
@@ -1047,7 +1071,9 @@ def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, tok
     elif same.get("auth") == "token" and token_file.exists():
         auth, helper = "token", None  # a recorded static token beats the preset's helper default
     elif preset and preset["auth"] == "helper":
-        auth, helper = "helper", preset["helper"]
+        auth, helper = "helper", template
+        if "{username}" in template:
+            helper = template.format(username=ask_username(args, hint))
     else:
         auth, helper = ("token" if token_file.exists() else None), None
     if preset and preset["auth"] == "token" and auth is None:
@@ -1062,7 +1088,8 @@ def resolve_provider(args: argparse.Namespace, target: Path, manifest: dict, tok
             bearer = token_file.read_text(encoding="utf-8", errors="replace").strip()
     cfg = dict(none, provider=name, base_url=base_url, auth=auth, token_helper=helper,
                models_url=(preset or {}).get("models_url") or base_url.rstrip("/") + "/v1/models",
-               models=same.get("models") if isinstance(same.get("models"), dict) else None)
+               models=same.get("models") if isinstance(same.get("models"), dict)
+               else (preset or {}).get("models"))
     interactive = sys.stdin.isatty() and not args.yes
     need = bool(preset or flags or cfg["models"])
     if not need and args.base_url and interactive:
@@ -1131,7 +1158,8 @@ def install_cmd(args: argparse.Namespace) -> int:
         migrate_legacy(target, args.dry_run)
         manifest = load_manifest(target) or {}
         if tag and not manifest:
-            seed_profile(target, args.dry_run, bool(provider and provider["base_url"]))
+            seed_profile(target, args.dry_run, bool(provider and provider["base_url"]),
+                         tuple(PROVIDERS.get(provider["provider"] or "", {}).get("env", {})))
         if provider is None:
             base_url = manifest.get("base_url") if args.base_url is None else args.base_url
         else:
@@ -1292,7 +1320,8 @@ def install_cmd(args: argparse.Namespace) -> int:
                 elif token is not None:
                     atomic_write_bytes(target / "token", token, mode=0o600)
                 text = launcher_text(tag, target, prefix, base_url, (target / "token").exists(),
-                                     provider["models"], helper, provider["provider"])
+                                     provider["models"], helper, provider["provider"],
+                                     PROVIDERS.get(provider["provider"] or "", {}).get("env"))
                 atomic_write_bytes(launcher, text.encode(), mode=0o755)
             remote, old = git_remote(source), load_registry(prefix).get(str(target))
             if old is not None and (old.get("remote") != remote or entry_branch(old) != (branch or "main")):
@@ -2022,7 +2051,8 @@ def doctor_cmd(args: argparse.Namespace) -> int:
                 add("PASS", "token helper prints a token")
             except DeployError as exc:
                 add("FAIL", str(exc))
-        for key in sorted(k for k in env_block if k.startswith("ANTHROPIC_")):
+        preset_env = PROVIDERS.get(name or "", {}).get("env", {})
+        for key in sorted(k for k in env_block if k.startswith("ANTHROPIC_") or k in preset_env):
             add("WARN", "%s in settings.json env overrides the launcher; remove it" % key)
 
     if shutil.which("git"):
@@ -2397,7 +2427,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     g.add_argument("--force-default-agent", action="store_true",
                    help="replace an existing different settings.json agent value")
     sp.add_argument("--provider", metavar="NAME",
-                    help="profile: API provider preset openrouter, nrp or alcf (base URL, auth, model list; '' clears)")
+                    help="profile: API provider preset openrouter, nrp, alcf or argo (base URL, auth, model list; '' clears)")
     sp.add_argument("--base-url", metavar="URL",
                     help="profile: export ANTHROPIC_BASE_URL; with --provider, replaces its URL ('' clears the provider)")
     tok = sp.add_mutually_exclusive_group()
@@ -2405,6 +2435,8 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     tok.add_argument("--token", metavar="VALUE", help="like --token-file, from a value (stays in shell history)")
     tok.add_argument("--token-helper", metavar="CMD",
                      help="profile: settings.json apiKeyHelper command that prints an expiring token")
+    tok.add_argument("--username", metavar="NAME",
+                     help="profile: ANL username for the argo preset (its token helper is `echo NAME`)")
     for tier in TIERS:
         sp.add_argument("--model-" + tier, metavar="ID",
                         help="profile: provider model for the %s tier (default: pick from a list)" % tier.capitalize())

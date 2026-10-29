@@ -425,7 +425,7 @@ def test_status_reports_states(pack, target):
 def test_help():
     r = subprocess.run([sys.executable, str(SCRIPT), "install", "--help"], capture_output=True, text=True)
     assert r.returncode == 0 and "--overwrite-local" in r.stdout and "--fable" not in r.stdout
-    for flag in ("--tag", "--global", "--prefix", "--base-url", "--token", "--token-file"):
+    for flag in ("--tag", "--global", "--prefix", "--base-url", "--token", "--token-file", "--username"):
         assert flag in r.stdout, flag
     assert "--bin-dir" not in r.stdout
 
@@ -3097,7 +3097,7 @@ PROVIDER_FIELDS = ("provider", "auth", "token_helper", "models")
 MODEL_FLAGS = ["--model-fable", "A", "--model-opus", "B", "--model-sonnet", "C", "--model-haiku", "D"]
 PROVIDER_VARS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_DEFAULT_FABLE_MODEL",
                  "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-                 "ANTHROPIC_MODEL")
+                 "ANTHROPIC_MODEL", "CLAUDE_CODE_AUTO_MODE_SERVER")
 
 
 def provider_stub(tmp_path: Path) -> dict:
@@ -3119,7 +3119,7 @@ def provider_vars(launcher: Path, env: dict, *args: str) -> dict:
     for line in r.stdout.splitlines():
         if line.endswith(" unset"):
             out[line[:-6]] = None
-        elif line.startswith("ANTHROPIC_") and "=" in line:
+        elif line.split("=", 1)[0] in PROVIDER_VARS and "=" in line:
             k, v = line.split("=", 1)
             out[k] = v
     return out
@@ -3169,7 +3169,8 @@ def test_openrouter_preset_static_token(pack, target, tmp_path):
     assert provider_vars(launcher, env, "-p", "x") == {
         "ANTHROPIC_BASE_URL": "https://openrouter.ai/api", "ANTHROPIC_AUTH_TOKEN": "s3cret",
         "ANTHROPIC_API_KEY": "", "ANTHROPIC_DEFAULT_FABLE_MODEL": "A", "ANTHROPIC_DEFAULT_OPUS_MODEL": "B",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "C", "ANTHROPIC_DEFAULT_HAIKU_MODEL": "D", "ANTHROPIC_MODEL": "B"}
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "C", "ANTHROPIC_DEFAULT_HAIKU_MODEL": "D", "ANTHROPIC_MODEL": "B",
+        "CLAUDE_CODE_AUTO_MODE_SERVER": None}
     assert provider_vars(launcher, env, "--fable-is-opus")["ANTHROPIC_DEFAULT_FABLE_MODEL"] == "B"
     assert "claude-opus-5-5" not in launcher.read_text()
     assert "Provider: openrouter   Base URL: https://openrouter.ai/api" in run_launcher(launcher, env, "--help").stdout
@@ -3299,7 +3300,7 @@ def test_update_replays_provider(remote, tmp_path):
     assert fields["models"]["haiku"] == "D" and fields["auth"] == "token" and fields["provider"] == "nrp"
 
 
-@pytest.mark.parametrize("flag, value", [("--provider", "nrp"), ("--token-helper", "h"),
+@pytest.mark.parametrize("flag, value", [("--provider", "nrp"), ("--token-helper", "h"), ("--username", "u"),
                                          ("--model-fable", "a"), ("--model-opus", "a"),
                                          ("--model-sonnet", "a"), ("--model-haiku", "a")])
 def test_global_rejects_provider_flags(pack, global_target, flag, value):
@@ -3419,7 +3420,134 @@ def test_fetch_models_failure_warns_and_continues(monkeypatch, capsys, error, fr
 def test_openrouter_list_url_filters_tools():
     deploy = load_deploy()
     assert "supported_parameters=tools" in deploy.PROVIDERS["openrouter"]["models_url"]
-    assert set(deploy.PROVIDERS) == {"openrouter", "nrp", "alcf"}
+    assert set(deploy.PROVIDERS) == {"openrouter", "nrp", "alcf", "argo"}
+
+
+# --------------------------------------------------------------------------- Argo preset
+
+ARGO_URL = "https://apps.inside.anl.gov/argoapi"
+ARGO_MODELS = {"fable": "claude-opus-5-5", "opus": "claude-opus-5-5",
+               "sonnet": "claude-sonnet-5-5", "haiku": "claude-haiku-5-5"}
+
+
+def echo_bin() -> str:
+    return shutil.which("echo")
+
+
+def argo_path(tmp_path: Path) -> str:
+    return "%s:/usr/bin:/bin" % (tmp_path / "bin")
+
+
+def test_argo_preset_username(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "argo")
+    r = run(pack, target, "install", "--provider", "argo", "--username", "sj", target_args=["--tag", "argo"],
+            path=argo_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    helper = "%s sj" % echo_bin()
+    assert settings(sbx)["apiKeyHelper"] == helper
+    m = manifest(sbx)
+    assert (m["provider"], m["auth"], m["token_helper"], m["base_url"]) == ("argo", "helper", helper, ARGO_URL)
+    assert m["models"] == ARGO_MODELS and not (sbx / "token").exists()
+    text = launcher.read_text()
+    order = [text.index(x) for x in ("ANTHROPIC_BASE_URL='" + ARGO_URL + "'", "CLAUDE_CODE_AUTO_MODE_SERVER='0'",
+                                     "unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY", "ANTHROPIC_DEFAULT_FABLE_MODEL=")]
+    assert order == sorted(order)
+    env = dict(provider_stub(tmp_path), ANTHROPIC_AUTH_TOKEN="stale", ANTHROPIC_API_KEY="key")
+    got = provider_vars(launcher, env)
+    assert got["CLAUDE_CODE_AUTO_MODE_SERVER"] == "0" and got["ANTHROPIC_BASE_URL"] == ARGO_URL
+    assert got["ANTHROPIC_AUTH_TOKEN"] is None and got["ANTHROPIC_API_KEY"] is None
+    assert got["ANTHROPIC_MODEL"] == "claude-opus-5-5" and got["ANTHROPIC_DEFAULT_HAIKU_MODEL"] == "claude-haiku-5-5"
+    status = run(pack, target, "status", target_args=["--tag", "argo"])
+    assert "token helper %s" % helper in status.stdout and status.stdout.count("Model ") == 4
+
+
+def test_argo_model_flag_overrides_default(pack, target, tmp_path):
+    sbx, _ = profile_paths(tmp_path, "argo")
+    r = run(pack, target, "install", "--provider", "argo", "--username", "sj", "--model-haiku", "X",
+            target_args=["--tag", "argo"], path=argo_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert manifest(sbx)["models"] == dict(ARGO_MODELS, haiku="X")
+    r = run(pack, target, "install", "--provider", "argo", target_args=["--tag", "argo"], path=argo_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert manifest(sbx)["models"]["haiku"] == "X" and manifest(sbx)["token_helper"] == "%s sj" % echo_bin()
+
+
+def test_argo_proxy_via_base_url_keeps_tier_defaults(pack, target, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "argo")
+    proxy = "http://localhost:44497"
+    r = run(pack, target, "install", "--provider", "argo", "--username", "sj", "--base-url", proxy,
+            target_args=["--tag", "argo"], path=argo_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    m = manifest(sbx)
+    assert (m["base_url"], m["models"], m["token_helper"]) == (proxy, ARGO_MODELS, "%s sj" % echo_bin())
+    got = provider_vars(launcher, provider_stub(tmp_path))
+    assert got["ANTHROPIC_BASE_URL"] == proxy and got["CLAUDE_CODE_AUTO_MODE_SERVER"] == "0"
+    r = run(pack, target, "install", "--provider", "argo", target_args=["--tag", "argo"], path=argo_path(tmp_path))
+    assert r.returncode == 0 and manifest(sbx)["base_url"] == proxy
+
+
+@pytest.mark.parametrize("extra", [[], ["--yes"], ["--dry-run"]])
+def test_argo_username_required_without_tty(pack, target, tmp_path, extra):
+    r = run(pack, target, "install", "--provider", "argo", *extra, target_args=["--tag", "argo"],
+            path=argo_path(tmp_path))
+    assert r.returncode == 2 and "--username" in r.stderr and "Traceback" not in r.stderr
+    assert not (tmp_path / ".config").exists() and not (tmp_path / ".local").exists()
+
+
+@pytest.mark.parametrize("args", [["--provider", "alcf", "--username", "x"], ["--base-url", "http://u", "--username", "x"],
+                                  ["--username", "x"]])
+def test_username_needs_argo(pack, target, tmp_path, args):
+    r = run(pack, target, "install", *args, *MODEL_FLAGS, target_args=["--tag", "x"], path=argo_path(tmp_path))
+    assert r.returncode == 2 and "--username" in r.stderr and "Traceback" not in r.stderr
+
+
+def test_username_excludes_tokens(pack, target):
+    r = run(pack, target, "install", "--provider", "argo", "--username", "x", "--token", "y",
+            target_args=["--tag", "x"])
+    assert r.returncode == 2 and "not allowed with" in r.stderr
+
+
+@pytest.mark.parametrize("typed, expected", [("", "me"), ("other", "other")])
+def test_argo_username_prompt_default(monkeypatch, tmp_path, typed, expected):
+    deploy, asked = tty_deploy(monkeypatch, [typed])
+    monkeypatch.setattr(deploy.getpass, "getuser", lambda: "me")
+    args = deploy.build_parser().parse_args(["install", "--provider", "argo"])
+    assert deploy.ask_username(args, "hint") == expected
+    assert asked == ["ANL username [me]: "]
+
+
+def test_argo_update_replays(remote, tmp_path):
+    sbx, launcher = profile_paths(tmp_path, "argo")
+    install_from_clone(remote, "--tag", "argo", "--provider", "argo", "--username", "sj")
+    before = launcher.read_text()
+    fields = {k: manifest(sbx)[k] for k in PROVIDER_FIELDS + ("base_url",)}
+    push_change(remote, "v2 argo")
+    r = update(remote, "--tag", "argo", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert launcher.read_text() == before
+    assert {k: manifest(sbx)[k] for k in PROVIDER_FIELDS + ("base_url",)} == fields
+
+
+def test_seed_drops_preset_env_key(pack, target, tmp_path):
+    home = tmp_path / ".claude"
+    home.mkdir(exist_ok=True)
+    (home / "settings.json").write_text(json.dumps({"env": {"CLAUDE_CODE_AUTO_MODE_SERVER": "1", "OTHER": "x"}}))
+    sbx, _ = profile_paths(tmp_path, "argo")
+    r = run(pack, target, "install", "--provider", "argo", "--username", "sj", target_args=["--tag", "argo"],
+            path=argo_path(tmp_path))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert settings(sbx)["env"] == {"OTHER": "x"}
+
+
+def test_doctor_warns_preset_env_key(pack, target, tmp_path):
+    sbx, _ = profile_paths(tmp_path, "argo")
+    assert run(pack, target, "install", "--provider", "argo", "--username", "sj", target_args=["--tag", "argo"],
+               path=argo_path(tmp_path)).returncode == 0
+    data = settings(sbx)
+    data["env"] = {"CLAUDE_CODE_AUTO_MODE_SERVER": "1"}
+    (sbx / "settings.json").write_text(json.dumps(data))
+    r = run(pack, target, "doctor", target_args=["--tag", "argo"], path=argo_path(tmp_path))
+    assert "CLAUDE_CODE_AUTO_MODE_SERVER in settings.json env overrides the launcher" in r.stdout
 
 
 def picker_cfg() -> dict:
@@ -3582,7 +3710,7 @@ def test_generic_token_helper(pack, target, tmp_path):
 
 
 @pytest.mark.parametrize("flags, fragment", [
-    (["--model-opus", "X"], "--model-* and --token-helper need --provider or --base-url"),
+    (["--model-opus", "X"], "--model-*, --token-helper and --username need --provider or --base-url"),
     (["--base-url", "https://u", "--token", "x", "--model-opus", "a b"], "invalid --model-opus"),
 ])
 def test_provider_flag_errors(pack, target, tmp_path, flags, fragment):
