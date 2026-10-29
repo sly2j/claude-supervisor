@@ -1391,12 +1391,11 @@ def test_uninstall_all(remote, three, tmp_path):
     assert registry(tmp_path) == {}
 
 
-@pytest.mark.parametrize("cmd", ["update", "uninstall"])
-def test_all_without_yes_and_no_tty_refuses(remote, three, tmp_path, cmd):
+def test_all_uninstall_without_yes_and_no_tty_refuses(remote, three, tmp_path):
     push_change(remote, "v4 unseen")
     roots = [tmp_path / ".config", tmp_path / ".claude", tmp_path / ".local"]
     before = [snapshot(p) for p in roots]
-    r = deploy_run(remote, remote.state / "deploy", cmd, "--all")
+    r = deploy_run(remote, remote.state / "deploy", "uninstall", "--all")
     assert r.returncode == 2, r.stdout + r.stderr
     assert "--yes" in r.stderr
     assert [snapshot(p) for p in roots] == before
@@ -1444,7 +1443,9 @@ def test_launcher_update_yes(remote, tmp_path):
     push_change(remote, "v6 launcher")
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "== claude update ==" in r.stdout and "\n\n\nupdate\n" in r.stdout
+    assert "Run claude update?" not in r.stdout and "== claude update ==" in r.stdout
+    assert r.stdout.index("== update ") < r.stdout.index("== claude update ==")  # pack first, claude last
+    assert "\n\n\nupdate\n" in r.stdout
     assert "v6 launcher" in helper_text(sbx)
     assert list(remote.tmpdir.iterdir()) == []
 
@@ -1456,8 +1457,40 @@ def test_launcher_update_survives_claude_update_failure(remote, tmp_path):
     r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path, stub_exit=3),
                      "update", "--yes")
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "ERROR claude update failed (exit 3); updating the pack anyway" in r.stdout + r.stderr
+    assert "ERROR claude update failed (exit 3)" in r.stdout + r.stderr
     assert "v7 despite" in helper_text(sbx)
+
+
+def test_launcher_update_without_tty_skips_claude_update(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = profile_paths(tmp_path, "t")
+    push_change(remote, "v6b notty")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update")
+    assert r.returncode == 0, r.stdout + r.stderr  # no combined prompt, no error without --yes
+    assert "v6b notty" in helper_text(sbx)
+    assert "Skipping claude update: no terminal to ask; pass --yes to run it" in r.stdout
+    assert "== claude update ==" not in r.stdout and "\n\n\nupdate\n" not in r.stdout
+
+
+def test_launcher_update_dry_run_never_runs_claude_update(remote, tmp_path):
+    install_from_clone(remote, "--tag", "t")
+    sbx, _ = profile_paths(tmp_path, "t")
+    push_change(remote, "v6c dry")
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "update", "--dry-run", "--yes")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "[dry-run] would ask whether to run claude update" in r.stdout
+    assert "== claude update ==" not in r.stdout and "v6c dry" not in helper_text(sbx)
+
+
+def test_claude_update_prompt_defaults_no(monkeypatch, capsys):
+    ran = []
+    for answer, runs in (("", 0), ("n", 0), ("y", 1)):
+        deploy, asked = tty_deploy(monkeypatch, [answer])
+        monkeypatch.setattr(deploy.subprocess, "run", lambda cmd, **kw: ran.append(cmd) or SimpleNamespace(returncode=0))
+        args = deploy.build_parser().parse_args(["update", "--global"])
+        assert deploy.run_claude_update(args) == 0
+        assert asked == ["Run claude update? [y/N] "] and len(ran) == runs
+    assert ran == [["claude", "update"]]
 
 
 def test_launcher_uninstall_yes(remote, tmp_path):
@@ -1480,6 +1513,11 @@ def test_launcher_update_all_yes(remote, three, tmp_path):
     for t in three:
         assert "v8 all" in helper_text(t), t
     assert list(remote.tmpdir.iterdir()) == []
+    # one install per line under a short header, no combined prompt
+    assert "Updating 3 registered installs:\n" in r.stdout and "Update every" not in r.stdout
+    for t in three:
+        assert "\n  %s\n    %s, branch main\n" % (t, remote.url) in r.stdout
+    assert all(len(l) <= 80 for l in r.stdout.splitlines() if l.startswith(("  ", "Updating")) and str(tmp_path) not in l)
 
 
 def test_launcher_uninstall_all_refused(remote, three, tmp_path):
@@ -1494,14 +1532,13 @@ def test_launcher_uninstall_all_refused(remote, three, tmp_path):
         assert len(registry(tmp_path)) == 3
 
 
-@pytest.mark.parametrize("cmd", ["update", "uninstall"])
-def test_launcher_without_yes_and_no_tty_refuses(remote, three, tmp_path, cmd):
+def test_launcher_uninstall_without_yes_and_no_tty_refuses(remote, three, tmp_path):
     push_change(remote, "v9 unseen")
     roots = [tmp_path / ".config", tmp_path / ".claude", tmp_path / ".local"]
     before = [snapshot(p) for p in roots]
-    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), cmd)
+    r = run_launcher(claude_launcher(tmp_path, "t"), launcher_env(remote, tmp_path), "uninstall")
     assert r.returncode == 2, r.stdout + r.stderr
-    assert "--yes" in r.stderr and "update" not in r.stdout.splitlines()
+    assert "--yes" in r.stderr
     assert [snapshot(p) for p in roots] == before
     assert len(registry(tmp_path)) == 3
 
@@ -3015,7 +3052,7 @@ claude-TAG: Claude Code with the Supervisor for Claude pack
 Tag: TAG   Config dir: /TARGET
 
 Usage: claude-TAG COMMAND [OPTIONS] | [CLAUDE ARGS...]
-  update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
+  update [--all] [--yes] [--dry-run]   update the pack, then offer claude update
   uninstall [--yes] [--dry-run]        delete this profile, its launcher and its login
   status                               show this install's version and file states
   list                                 list every registered install

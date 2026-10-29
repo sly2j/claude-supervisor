@@ -84,7 +84,7 @@ claude-%(tag)s: Claude Code with the Supervisor for Claude pack
 Tag: %(tag)s   Config dir: %(target)s
 
 Usage: claude-%(tag)s COMMAND [OPTIONS] | [CLAUDE ARGS...]
-  update [--all] [--yes] [--dry-run]   run claude update, then update this install's pack
+  update [--all] [--yes] [--dry-run]   update the pack, then offer claude update
   uninstall [--yes] [--dry-run]        delete this profile, its launcher and its login
   status                               show this install's version and file states
   list                                 list every registered install
@@ -1679,35 +1679,14 @@ def update_cmd(args: argparse.Namespace) -> int:
         if not selected:
             print("no registered install follows branch %s of %s; nothing updated" % (branch, remote or "no remote"))
             return 0
-    if selected and not args.dry_run and (args.all or args.launcher):
-        listing = ", ".join("%s (%s, branch %s)" % (k, v.get("remote") or "no remote", entry_branch(v))
-                            for k, v in selected.items())
-        if args.all:
-            question = "Update every registered install: %s%s?" % (listing, " and run claude update" if args.launcher else "")
-        else:
-            entry = selected[str(target)]
-            question = "Update %s from %s (branch %s) and run claude update?" \
-                % (target, entry.get("remote") or "no remote", entry_branch(entry))
-        if not confirm(question, args.yes):
-            eprint("aborted")
-            return 1
+    if args.all and selected:
+        print("Updating %d registered install%s:" % (len(selected), "" if len(selected) == 1 else "s"))
+        for key, entry in selected.items():
+            print("  %s" % key)
+            print("    %s, branch %s" % (entry.get("remote") or "no remote", entry_branch(entry)))
+        print()
 
     failed = stale = 0
-    if args.launcher and selected:
-        if args.dry_run:
-            print("[dry-run] would run claude update")
-        else:
-            print("== claude update ==")
-            sys.stdout.flush()
-            try:
-                rc = subprocess.run(["claude", "update"]).returncode
-                if rc != 0:
-                    print("ERROR claude update failed (exit %d); updating the pack anyway" % rc)
-                    failed += 1
-            except OSError as exc:
-                print("ERROR claude update: %s; updating the pack anyway" % exc)
-                failed += 1
-        sys.stdout.flush()
     groups: Dict[Tuple[str, str], List[str]] = {}
     manifests: Dict[str, dict] = {}
     for key, entry in selected.items():
@@ -1784,7 +1763,32 @@ def update_cmd(args: argparse.Namespace) -> int:
                     entry_selection(key, selected[key]) + ["--yes"] + (["--dry-run"] if args.dry_run else [])
                 sys.stdout.flush()
                 failed += subprocess.run(argv).returncode != 0
+    if args.launcher and selected:
+        failed += run_claude_update(args)
     return 1 if failed else (EXIT_STALE if stale else 0)
+
+
+def run_claude_update(args: argparse.Namespace) -> int:
+    """Offer `claude update` after the pack update (default No); returns the number of failures."""
+    if args.dry_run:
+        print("\n[dry-run] would ask whether to run claude update")
+        return 0
+    if not args.yes and not sys.stdin.isatty():
+        print("\nSkipping claude update: no terminal to ask; pass --yes to run it")
+        return 0
+    print()
+    if not confirm("Run claude update?", args.yes):
+        return 0
+    print("== claude update ==")
+    sys.stdout.flush()
+    try:
+        rc = subprocess.run(["claude", "update"]).returncode
+    except OSError as exc:
+        print("ERROR claude update: %s" % exc)
+        return 1
+    if rc != 0:
+        print("ERROR claude update failed (exit %d)" % rc)
+    return rc != 0
 
 
 # --------------------------------------------------------------------------- migrate
@@ -2435,7 +2439,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     sp.add_argument("--all", action="store_true", help="update every registered install")
     sp.add_argument("--from", dest="from_dir", metavar="DIR",
                     help="repo checkout to install from instead of cloning the recorded remote")
-    sp.add_argument("--yes", "-y", action="store_true", help="do not prompt (--all asks once)")
+    sp.add_argument("--yes", "-y", action="store_true", help="answer yes to the downgrade and claude update prompts")
     sp.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
     sp.add_argument("--launcher", action="store_true", help=argparse.SUPPRESS)
     sp.set_defaults(func=update_cmd)

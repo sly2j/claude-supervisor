@@ -227,7 +227,7 @@ When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout
 Day to day, the launcher is all you need:
 
 ```bash
-claude-supervisor update          # claude update, then this profile's pack; --all updates every install
+claude-supervisor update          # this profile's pack, then offers claude update; --all updates every install
 claude-supervisor status          # installed version and per-file state
 claude-supervisor list            # every registered install: version, branch, commit, launcher
 claude-supervisor --version       # pack and claude versions; -h lists the launcher's commands

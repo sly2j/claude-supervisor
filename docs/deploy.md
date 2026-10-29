@@ -70,7 +70,7 @@ Routes the profile through a proxy or gateway that serves the Anthropic API; omi
 ## The Launcher
 
 ```bash
-claude-supervisor update              # claude update, then this profile's pack
+claude-supervisor update              # this profile's pack, then offers claude update
 claude-supervisor update --all        # every install in this launcher's prefix
 claude-supervisor uninstall           # delete this profile
 claude-supervisor status              # this profile's version and file states
@@ -82,7 +82,7 @@ claude-supervisor -h                  # the launcher's own help (or --help, help
 
 For commands, the launcher checks only its first argument, after removing `--fable-is-opus` (see Fable Or Opus for where the flag may stand). `update`, `uninstall`, `status`, `list` and `memory` run the deploy tool copy under the launcher's own prefix (`<prefix>/state/claude-supervisor/deploy`), always for this launcher's install: `--tag`, `--target`, `--prefix` and `--global` are refused with exit code 2 (use the deploy tool for other installs), and their help and usage errors name `claude-<tag>`. `-v`/`--version` and `-h`/`--help`/`help` are answered by the launcher itself. Everything else, including unknown flags, goes to `claude` unchanged, so `claude-supervisor -p update`, `claude-supervisor --resume` and `claude-supervisor doctor` (Claude Code's own) still reach `claude`. Replace `supervisor` with your `--tag`.
 
-- `update` asks y/N, then runs `claude update` first, because a new pack can need a newer Claude Code, and then updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`. If `claude update` fails, it says so and still updates the pack; the exit code is 1 if either step failed. `--yes` skips the question, and `--dry-run` shows what would change, including "would run claude update".
+- `update` updates the pack from the remote and branch recorded at install, like `deploy update --tag <tag>`, with no question (only the downgrade question below can stop it). With `--all` it first lists the registered installs, one per line. Last it asks `Run claude update? [y/N]` (default No), because a new pack can need a newer Claude Code. `--yes` answers yes; without a terminal and without `--yes` it prints a one-line note and skips it, since the pack update already succeeded. If `claude update` fails, it says so and the exit code is 1. `--dry-run` shows what would change and says it would ask about `claude update`.
 - `uninstall` deletes this profile (its dir with sessions, history, login and token, its launcher, and its registry entry). It asks you to type the tag to confirm; `--yes` skips that. `uninstall --all` is refused from a launcher; use the deploy tool's `uninstall --all`.
 - Without a terminal, both need `--yes` (exit code 2 otherwise).
 - If the tool copy is missing, the launcher prints `claude-<tag>: <path> missing; run ./deploy install from your checkout` and exits 1.
@@ -111,7 +111,7 @@ Every install records itself in a registry and writes a copy of the deploy tool 
 
 `list [--prefix DIR]` shows each install in that prefix's registry: tag, target, installed version, branch, commit (short, with `-dirty` if the source was dirty), and whether the launcher exists (`yes`, `missing`, or `-` for `--global` or when there is no readable manifest). `./deploy --version` prints the checkout's derived pack version and the `claude:` line; the tool copy's `--version` (`~/.local/state/claude-supervisor/deploy --version`) prints the version recorded by the install that last wrote the tool copy, without the checkout.
 
-`update` clones the branch recorded at install from the git remote recorded at install into a temp dir (shallow for `main`; full history for other branches, so the merge-base with `main` is available for the version) and reinstalls with each install's recorded options (prefix, `--no-default-agent`, and a provider profile's base URL, token or token helper, and tier models; see [API Providers](#api-providers)). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` groups installs by remote and branch and asks once before changing anything. `--yes` skips that question and `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
+`update` clones the branch recorded at install from the git remote recorded at install into a temp dir (shallow for `main`; full history for other branches, so the merge-base with `main` is available for the version) and reinstalls with each install's recorded options (prefix, `--no-default-agent`, and a provider profile's base URL, token or token helper, and tier models; see [API Providers](#api-providers)). It works without the checkout, but it needs git and network or ssh access, and it only sees what is pushed to that branch. `--all` lists the installs, one per line, groups them by remote and branch and updates them without asking. `--dry-run` shows the changes. `update --from DIR --all` updates only the installs whose remote and branch match DIR's checkout.
 
 If an install is newer than what `update` would install (main version first, then commits ahead), `update` prints a WARNING naming both versions and asks `Continue with the update? [y/N]`. The default is No: the install is left unchanged and the exit code is 1. Without a terminal it fails (exit code 2) unless `--yes` is passed, and `--dry-run` only warns.
 
@@ -341,7 +341,7 @@ What changes with the version an install was made with; `status` prints the inst
 
 ## Notes For Claude Running This
 
-- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `update --all`, `uninstall --all`, `migrate`, `claude-<tag> update` and `claude-<tag> uninstall` need `--yes`.
+- Run the commands through Bash exactly as shown. Without a terminal, `uninstall`, `install --overwrite-local`, `uninstall --all`, `migrate` and `claude-<tag> uninstall` need `--yes`; `claude-<tag> update` needs it only to run `claude update`.
 - If install reports kept local modifications or unmanaged collisions, show the user the list and ask before re-running with `--overwrite-local`.
 - If doctor reports a FAIL, report it and its fix. Do not edit the user's shell profile (including the PATH line `install` prints) or environment variables without asking.
 - Exit codes: 0 means success, 1 means a file or settings step failed (see the output), a `doctor` row was FAIL, or a prompt was aborted (declined or Ctrl-D), 2 means a usage error, a failed source validation, a held lock, or an OS error such as an unreadable path, and 3 means `update` found an install whose recorded branch is gone from its remote.
