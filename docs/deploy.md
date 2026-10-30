@@ -336,12 +336,12 @@ What changes with the version an install was made with; `status` prints the inst
 
 ## Routing Check
 
-For contributors: if you edit agent descriptions in your checkout, run the live routing check. The supervisor decides where each request goes from the agent descriptions it sees, so a reworded description can silently change routing. `tests/test_live_routing.py` guards against that: it asks the deployed supervisor to route 14 canonical requests (a typo fix, a commit, a lookup, a plain question, research, planning, implementation, writing, an escalation, and so on) without dispatching anything, and compares its mode and agent with the expected ones.
+For contributors: if you edit agent descriptions in your checkout, run the live routing check. The supervisor decides where each request goes from the agent descriptions it sees, so a reworded description can silently change routing. `tests/test_live_routing.py` guards against that: it asks the deployed supervisor to route 28 canonical requests without dispatching anything. The supervisor answers each with its mode, the agent, and the `model:` alias it would pass (`default` when none), and the test compares all three with the expected ones. The cases cover the quick specialists, a plain question, research, planning, implementation, writing and an escalation, plus the model tiers: the planner on its default and on Fable (a program, an open cross-module design, an unfamiliar domain, a request for thoroughness; never for plan annotation or checklist sync), the writer and the executor on Opus only for the work the routing rules name, and a stated target or an obvious bug fix going straight to the executor.
 
 ```bash
 SUPERVISOR_LIVE_ROUTING=1 python3 -m pytest -q tests/test_live_routing.py -s
 ```
 
-- It calls the model about 14 times through `claude-supervisor`, against the deployed default profile. Run `./deploy install` first so it tests the pack you mean to test.
-- It costs money. The run prints the case count, the total cost and the model at the end.
+- It calls the model 28 times through `claude-supervisor`, against the deployed default profile. Run `./deploy install` first so it tests the pack you mean to test.
+- It costs money. Each case is capped at $0.50 (hard maximum $14 for the run) and typically costs a few cents to tens of cents (expected about $4 to $8). The run prints the case count, the total cost and the model at the end. A case also fails if the supervisor needs more than two turns to answer.
 - It is opt-in: a plain `python3 -m pytest -q` skips it. Run it after changing an agent description or the supervisor's routing rules.
