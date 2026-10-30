@@ -9,3 +9,4 @@ supersedes:
 Treat docs/ and README prose as documents for human readers. Cover a point fully enough that it is clear and correct; do not chase complete coverage of every case or mode.
 Why: agent prompts need exhaustive, unambiguous rules; a user document loses its point when every exception is spelled out.
 Rejected: prompt-style completeness in user docs.
+superseded by: .supervisor/memory/conventions/2026-10-30-user-docs-state-what-users-need.md
