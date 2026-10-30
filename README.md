@@ -47,7 +47,7 @@ The pack is one supervisor, four leads for larger work, their workers, two revie
 - `writer`: scientific and technical prose, slide content, project docs
 - `researcher-worker`, `planner-worker`, `executor-worker`, `writer-worker`: the parallel workers a lead dispatches; you never call them yourself
 - `critic`, `scope-critic`: review a lead's result, for quality and, when needed, for scope creep
-- `fixer`: small, exact edits; runs a given command; tears down recorded test residue
+- `fixer`: small, exact edits; runs a given command; removes recorded test residue
 - `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups
@@ -77,9 +77,18 @@ Skills you run yourself:
 
 The full inventory, with models, effort, workers, reviewers, and internal skills, is in [docs/architecture.md](docs/architecture.md#agents).
 
+Terms you will meet in answers before any doc defines them:
+- **Work package, wave, program:** a plan splits a large job into packages; the packages whose inputs are ready run together as a wave; a plan with packages is a program.
+- **Residue:** what tests and smoke runs leave behind; recorded as it is made and removed at the end, so you see only what could not be removed.
+- **`Session state:`** the last line after a close-out or a finished wave: whether `/clear` is safe and how to resume ([key](docs/workflow-lifecycle.md#prompts-and-answers)).
+- **`Run yourself:`** the one block at the end of an answer with the steps only you can run.
+- **`not stored:`** the note you get outside a project when something would have been remembered ([details](docs/workflow-lifecycle.md#without-a-memory-store)).
+- **Profile, tag, launcher:** an install lives in its own Claude Code config dir (`~/.config/claude-<tag>`) and is started with `claude-<tag>`; the default tag is `supervisor`.
+- **Tracked, local, external store:** where a project's memory lives; see [Persistence And Memory](#persistence-and-memory).
+
 ## How It Works
 
-**The full loop** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop)). The supervisor hands the task to a lead. The lead states the goal and acceptance criteria, splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when critic finds more than nits or the result is large, `scope-critic` checks the result and the review for bloat and scope creep. The lead fixes what matters and the loop runs up to three times (once for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
+**The full loop** (Mode 1 in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop)). The supervisor hands the task to a lead. The lead splits the work across parallel agents when it has several independent parts, otherwise does it itself, and has the result reviewed: `critic` checks quality, and when the findings or the result are large, `scope-critic` checks both for bloat and scope creep. The lead fixes what matters, up to three rounds (one for plans, since you review the plan next). A `REVIEW.md` at your repo root adds your own review rules.
 
 **The quick tier** (Mode 2). Small edits, routine git, and read-only lookups go to a fast, cheap specialist with no review. If the task turns out bigger than it looked, the specialist hands it back and the supervisor re-routes it to a lead.
 
@@ -91,7 +100,7 @@ flowchart LR
   S -->|one area of work| L["One lead: workers if the work splits, critic, scope-critic if needed"]
   S -->|investigate, design, build| C1[researcher] --> C2[planner] --> C3[your approval] --> C4[executor]
   S -->|independent streams| W[Work packages in waves]
-  Q -->|ESCALATE| L
+  Q -->|hands it back| L
 ```
 
 **Why this design.** Long contexts fail in known ways: a bad fact gets repeated, the model leans on its history over its training, extra tools and stale facts crowd out the task. These failures get worse as context accumulates over a long task or a long project history. Supervisor for Claude is built to counter these failures. Context quarantine and offloading are central to the design: the supervisor reads almost nothing, every lead and worker gets a fresh window and returns a capped report, and plans and research live in files. See [docs/context-engineering.md](docs/context-engineering.md) for the design rationale.
@@ -142,8 +151,7 @@ flowchart LR
   end
   P1r & P2r --> P3p --> P3e
   P1r --> P4p
-  P4p -.->|Amend parent| P7p
-  P4p -.-> P6p & P8p
+  P4p -.-> P6p & P7p & P8p
   P6p --> P6e
   P7p --> P7e
   P8p --> P8e
@@ -152,7 +160,7 @@ flowchart LR
   P3e ~~~ P6e
 ```
 
-The mechanics (package fields, `Amend parent:`, the log, the archive move) are in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop).
+How the plan file records its packages and its log, and what happens at close-out, is in [docs/architecture.md](docs/architecture.md#mode-1-the-full-loop).
 
 ## Workflow Lifecycle
 
@@ -166,19 +174,18 @@ This is separate from Claude Code's own memory. Your user `CLAUDE.md` and auto m
 
 The memory model:
 
-- **Layout:** long-term memory is `memory/<kind>/`, one file per entry, with `history.md` listing what landed; short-term memory is `working/`, which holds research, plans and per-document writer state; `archive/` mirrors both; `.supervisor/README.md` explains the layout.
-- **Entry kinds:** decisions, facts, goals, conventions, and lessons. A lesson is recorded only after you approve it.
-- **Goal horizons:** long-term goals in `memory/goals/`, a mid-term `roadmap.md`, and short-term plans and research in `working/`.
-- **Superseding:** a changed decision gets a new entry and the old one moves to `archive/`.
-- **How agents use it:** A lead agent retrieves relevant memories when it starts. The `fixer` agent logs user-provided information into the short-term memory (a plan's `## Log`). The `curator` agent turns short-term memory into long-term memory entries.
-- **`curator`:** The `curator` agent maintains the memory store by archiving short-term memories, keeping roadmaps up to date, flagging stale short-term memories, and curating the long-term memory store.
-- **Your controls:** You can tell supervisor to "remember X", to "forget X", or to "make this a project".
-- **Where it applies:** Memories are only stored when supervisor considers the working folder part of a project. A project is auto-detected when the folder is inside a git repository, or when it, or a folder above it, holds `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or when you tell supervisor to make the folder a project. Your home directory never counts, either way.
-- **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once. A tracked store is committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it. A local store is listed in the repo's git exclude file (`.git/info/exclude`, never `.gitignore`) and never committed, so nothing of the workflow enters the repo, which suits open-source and shared repos; it works only in that checkout, and linked worktrees do not get it. `claude-supervisor memory externalize` moves a local store to a directory outside the repo that linked worktrees share and that you can keep in your own git repo; see [docs/local-memory.md](docs/local-memory.md).
+- **What is in it:** long-term entries in `memory/<kind>/` (decisions, facts, goals, conventions, and lessons; a lesson is recorded only after you approve it), a mid-term `roadmap.md`, and short-term plans and research in `working/`. Finished and superseded items move to `archive/`. `.supervisor/README.md` explains the layout.
+- **How agents use it:** a lead reads the relevant entries when it starts. What you decide while a plan runs is written into the plan's log, so it survives `/clear`. At close-out, `curator` turns what the work taught into long-term entries, archives the finished plans and research, and keeps the roadmap current.
+- **Your controls:** tell supervisor to "remember X", to "forget X", or to "make this a project".
+- **Where it applies:** only in a project: a folder inside a git repository, or one that holds (or sits under one that holds) `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or one you told supervisor to make a project. Your home directory never counts.
+- **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once.
+  - **Tracked:** committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it.
+  - **Local:** listed in the repo's git exclude file (`.git/info/exclude`, never `.gitignore`) and never committed, so nothing of the workflow enters the repo, which suits open-source and shared repos; it works only in that checkout.
+  - **External:** `claude-supervisor memory externalize` moves a local store to a directory outside the repo that your linked worktrees share and that you can keep in your own git repo; see [docs/local-memory.md](docs/local-memory.md).
 
 ## Branches, Worktrees And Versions
 
-In a git repo, `executor` works on its own branch in a worktree under `<repo>/.claude/worktrees/` and, when the checks pass, lands it locally as one squash commit. Nothing is pushed, except when a session is confined to its worktree, and then only after it asks you. Quick edits, conflict resolution, environment repair, and repos with submodules work in the current checkout, as does anything you ask to run "in place". No version is created or bumped unless your repo opts in; a repo with no versioning is asked once, and the answer is recorded in `CLAUDE.md`. A sentence in your repo's `CLAUDE.md` overrides any of these; there is no config file. Branch naming, the ignore rule for the worktree path, environment files, leftover worktrees, and force-push grants are in [docs/architecture.md](docs/architecture.md#git-work).
+In a git repo, `executor` works on its own branch in a worktree under `<repo>/.claude/worktrees/` and, when the checks pass, lands it locally as one squash commit. Nothing is pushed without your go-ahead. Quick edits, conflict resolution, environment repair, and repos with submodules work in the current checkout, as does anything you ask to run "in place". No version is created or bumped unless your repo opts in; a repo with no versioning is asked once, and the answer is recorded in `CLAUDE.md`. A sentence in your repo's `CLAUDE.md` overrides any of these; there is no config file. The details are in [docs/architecture.md](docs/architecture.md#git-work).
 
 Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothing is persisted: no worktree, no version, no question.
 
@@ -190,18 +197,20 @@ Outside a project (see [Persistence And Memory](#persistence-and-memory)) nothin
 | `./deploy install --tag <t>` | Another profile, `~/.config/claude-<t>` | `claude-<t>` |
 | `./deploy install --global` | `~/.claude`, no launcher (not recommended) | plain `claude` |
 
-- Supervisor for Claude installs by default into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, login, settings, and history, separate from your default `claude` environment. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code, so switching is a matter of which command you start.
-- A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins, MCP servers, and `~/.claude.json` state stay behind.
+- Supervisor for Claude installs by default into a profile: a private Claude Code config dir (`~/.config/claude-<tag>`) with its own launcher, login, settings, and history. `claude-supervisor` starts Supervisor for Claude and plain `claude` stays plain Claude Code.
+- A profile's first install copies your settings, `CLAUDE.md`, commands, and your own agents and skills from `~/.claude`; logins, history, plugins and MCP servers stay behind.
 - With `--global` (not recommended), plain `claude` becomes the supervisor.
 - `--prefix <dir>` (default `~/.local`) puts the launcher in `<dir>/bin` and the update registry under `<dir>/state`.
 
-Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus). On an API-provider profile all four tiers map to the provider's models instead.
+Four agents (`supervisor`, `planner`, `writer`, `scope-critic`) are written for a top-tier frontier model (e.g. Fable; see [Models And Cost](docs/architecture.md#models-and-cost)). By default they run on Fable if you have access. To use Opus instead, add `--fable-is-opus` to the `claude-supervisor` call (not for global installs, which have no launcher). To use another model, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your environment before starting the supervisor. See [docs/deploy.md](docs/deploy.md#fable-or-opus).
+
+A profile can run on an API provider instead of your subscription: `./deploy install --tag <t> --provider openrouter|nrp|alcf|argo`, or `--base-url <url>` for any endpoint that serves the Anthropic API, with the credential the provider needs (a token, a token helper for expiring tokens, or your username for Argo). The four model tiers (Fable, Opus, Sonnet, Haiku) then map to the provider's models, usually picked from its list at install or given as `--model-<tier>` flags; see [API Providers](docs/deploy.md#api-providers).
 
 ## Optional: Codex As Critic
 
 Every agent in the pack runs on Claude, including the `critic` that reviews a lead's result. You can run that one agent on OpenAI's Codex CLI instead, so the work and its review come from different model families with different blind spots. Only the critic changes: `scope-critic`, the leads and the workers stay on Claude.
 
-It is off by default, and turning it on has a cost: Codex reviews spend your OpenAI/ChatGPT quota, and each review sends the repository content under the current directory, the review brief and the diff to OpenAI. You need the `codex` CLI on `PATH`, logged in (`codex login`). `enable` checks both, prints that consent text and asks for a yes; if `codex` is already on your `PATH`, `install` ends with a one-line hint naming the enable command.
+It is off by default. Turning it on spends your OpenAI/ChatGPT quota and sends repository content to OpenAI; `enable` states exactly what and asks for a yes ([consent, cost and data flow](docs/deploy.md#consent-cost-and-data-flow)). You need the `codex` CLI on `PATH`, logged in (`codex login`).
 
 ```bash
 claude-supervisor critic enable            # asks once; `enable gpt-6-astra` picks another model
@@ -210,17 +219,19 @@ claude-supervisor critic disable
 ./deploy critic enable --global            # a --global install has no launcher; --tag <t> for another profile
 ```
 
-From inside a session, `/supervisor-config critic codex [model]` enables, `/supervisor-config critic claude` disables and `/supervisor-config critic status` reports. It asks the same consent question, and each of these costs one permission prompt by design, so no agent can turn Codex on unasked. A switch takes effect from the next task, with no reinstall. The default model is `gpt-6.1-sol` at effort `high`.
+From inside a session, `/supervisor-config critic codex [model]` enables, `/supervisor-config critic claude` disables and `/supervisor-config critic status` reports; each costs one permission prompt, so no agent can turn Codex on unasked. A switch takes effect from the next task, with no reinstall. The default model is `gpt-6.1-sol` at effort `high`.
 
-When Codex is enabled but cannot review (not on `PATH`, not logged in, a timeout after 540 s, an error, or an unusable response), that round falls back to the Claude `critic` automatically, and the lead's report names which engine reviewed each round. `critic status` and `./deploy doctor` show the login state. The permission rule `install` writes, per-domain model overrides and the caveats (network access from the sandbox, model IDs, symlinked install paths, review time) are in [Codex As Critic](docs/deploy.md#codex-as-critic).
+When Codex cannot review (not installed, not logged in, a timeout, an error), that round falls back to the Claude `critic` and the answer says so. Per-domain model overrides and the caveats are in [Codex As Critic](docs/deploy.md#codex-as-critic).
 
 ## Documentation
 
-- [docs/deploy.md](docs/deploy.md): Detailed installation instructions. In most cases the "Quick Start" instructions should be sufficient.
-- [docs/architecture.md](docs/architecture.md): Overview of the workflow architecture and every agent and skill.
-- [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md): The life of a workflow per task size, from the first prompt to `/clear`, and how to resume.
-- [docs/context-engineering.md](docs/context-engineering.md): Context engineering considerations to allow for long-horizon tasks.
-- [docs/local-memory.md](docs/local-memory.md): Keeping a project's memory outside the repo, shared across worktrees and machines.
+In reading order:
+
+- [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md): what you type, what comes back, what is on disk, when `/clear` is safe and how to resume. Read this before your first multi-session task.
+- [docs/architecture.md](docs/architecture.md): every agent and skill, which model and tools each has, what the pack does in git, and the memory layout. Read this when you want to know who did what.
+- [docs/deploy.md](docs/deploy.md): the install runbook: update, switch model or provider, enable Codex, migrate, fix an install. Read this when installing on another machine, switching provider, or when something broke; the Quick Start covers the first install.
+- [docs/local-memory.md](docs/local-memory.md): keeping a project's memory outside the repo, shared across worktrees and machines. Read this when the repo cannot hold the store.
+- [docs/context-engineering.md](docs/context-engineering.md): why it is built as one supervisor plus fresh-window agents and files, and what that asks of you. Read this when you wonder why it works this way.
 
 ## Maintaining An Install
 
@@ -234,9 +245,9 @@ claude-supervisor --version       # pack and claude versions; -h lists the launc
 claude-supervisor uninstall       # delete this profile: its dir with sessions, history, login, and token, plus its launcher
 ```
 
-`update` asks once (`--yes` skips, `--dry-run` shows what would change) and takes only what is pushed to the install's branch (`main` for a normal clone), so local checkout edits are ignored; files you edited in the install dir are kept. `uninstall` asks you to type the tag; run it with `--dry-run` first. Each profile is installed under a tag, and `supervisor` is the default. A profile installed with `--tag foo` has the launcher `claude-foo`, which takes the same commands.
+`update` asks once, whether to run `claude update` (`--yes` skips, `--dry-run` shows what would change). It takes only what is pushed to the install's branch, so local checkout edits are ignored, and it keeps files you edited in the install dir. `uninstall` asks you to type the tag; run it with `--dry-run` first. A profile installed with `--tag foo` has the launcher `claude-foo`, which takes the same commands.
 
-A launcher acts on its own profile unless you say `--all`. The `./deploy` script is the tool that created the launchers, and it can act on any install. Use it for the first install, for `doctor` (`claude-supervisor doctor` is Claude Code's own doctor, not this one), for a `--global` install, which has no launcher, for removing every install at once, and for `migrate`. Run it from your checkout:
+The `./deploy` script in your checkout can act on any install. Use it for the first install, for `doctor` (`claude-supervisor doctor` is Claude Code's own doctor, not this one), for a `--global` install, which has no launcher, and for `migrate`:
 
 ```bash
 ./deploy install                  # deploy the checkout as it is, local edits included
@@ -246,11 +257,9 @@ A launcher acts on its own profile unless you say `--all`. The `./deploy` script
 ./deploy migrate                  # move a pack installed in ~/.claude to the default profile
 ```
 
-`install`, `doctor`, `status`, `update`, and `uninstall` take `--tag <t>`, `--target <dir>`, or `--global` to pick the install (the default profile when none is given). The full reference (`--from`, `--force`, `--source`, the registry and tool copy each install keeps) is in [docs/deploy.md](docs/deploy.md).
+`install`, `doctor`, `status`, `update`, and `uninstall` take `--tag <t>`, `--target <dir>`, or `--global` to pick the install (the default profile when none is given). The full reference (`--from`, `--force`, `--source`, the registry and the copy of `deploy` each install keeps) is in [docs/deploy.md](docs/deploy.md).
 
 Major changes per version are in [CHANGELOG.md](CHANGELOG.md).
-
-A profile can run on an API provider instead of your subscription: `./deploy install --tag <t> --provider openrouter|nrp|alcf|argo` (or `--base-url <url>` for any endpoint that serves the Anthropic API) with a token or a token helper for expiring tokens. Install maps the four model tiers to the provider's models, picked from its list on a terminal or given as `--model-<tier>` flags; see [API Providers](docs/deploy.md#api-providers).
 
 ## Migrating From Older Versions
 
@@ -281,7 +290,7 @@ Run `./deploy migrate` from the checkout and confirm once. It removes the old pa
 ```
 pack/agents/        agent definitions (deployed to <install dir>/agents)
 pack/skills/        skills (deployed to <install dir>/skills)
-deploy              installer: install | update | status | list | uninstall | doctor | migrate | critic
+deploy              installer: install | update | status | list | uninstall | doctor | migrate | memory | critic
 tests/              deploy tests, pack lint, VERSION check
 docs/               workflow-lifecycle.md, architecture.md, context-engineering.md, deploy.md (deploy runbook), local-memory.md
 CLAUDE.md           instructions for Claude working in this repo
