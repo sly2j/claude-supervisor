@@ -2396,7 +2396,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True
 
-    PREFIX_HELP = ("launchers in DIR/bin, registry and tool copy in DIR/state/claude-supervisor "
+    PREFIX_HELP = ("launchers in DIR/bin, install registry and a copy of deploy in DIR/state/claude-supervisor "
                    "(default: ~/.local)")
 
     def common(sp: argparse.ArgumentParser, source: bool = True) -> None:
@@ -2405,7 +2405,7 @@ def build_parser(launcher_tag: Optional[str] = None) -> argparse.ArgumentParser:
         sp.add_argument("--tag", help="profile tag: launcher claude-TAG (default: supervisor)")
         sp.add_argument("--target", metavar="DIR", help="profile dir (default: ~/.config/claude-TAG)")
         sp.add_argument("--global", dest="use_global", action="store_true",
-                        help="use ~/.claude (no seeding, no launcher)")
+                        help="use ~/.claude itself, with no launcher")
         sp.add_argument("--prefix", metavar="DIR", help=PREFIX_HELP)
         if source:
             sp.add_argument("--source", metavar="DIR", help="pack dir (default: <repo>/pack)")
