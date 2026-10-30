@@ -21,14 +21,14 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 |---|---|---|---|
 | `supervisor` | Main thread: routing, briefing, synthesis | fable / default | all except Bash, NotebookEdit |
 | `researcher` | Lead: research artifacts in `.supervisor/working/research/`; code tracing, literature/web research | opus / default | all |
-| `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | opus / default (fable for demanding plans) | all |
+| `planner` | Lead: decision-and-outline plans in `.supervisor/working/plans/`, questions first | opus / default (fable for complex plans) | all |
 | `executor` | Lead: code, tests, config, agent and skill definitions, conflicts, Python environments; implements a single unit itself and fans out two or more disjoint units; lands its change sets through a worktree and a local squash merge | sonnet / default (opus for difficult work) | all |
 | `writer` | Lead: scientific and technical prose, slide content, project docs; drafts and revises itself, extracts sources through workers | fable / default (opus for short, low-stakes prose) | all |
 | `researcher-worker` | Worker: one bounded investigation | sonnet / default | all except Agent, Edit, NotebookEdit |
 | `planner-worker` | Worker: one bounded repo question for a plan | sonnet / default | all except Agent, Write, Edit, NotebookEdit |
 | `executor-worker` | Worker: one unit of change in its assigned files | sonnet / default | all except Agent |
 | `writer-worker` | Worker: extracts one source, or drafts parallel sections or alternative drafts | opus / default | all except Agent |
-| `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when called by a Fable-tier planner) | read-only plus Bash |
+| `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when the planner runs on Fable) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
 | `fixer` | Quick: small, exact edits; logs plan decisions as briefed; tears down recorded test residue; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
 | `curator` | Memory: curates the `.supervisor/` store (close-out, record, remember/forget, migrate, audit, archive) | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
@@ -85,7 +85,7 @@ No version is created or bumped unless the repo opts in. A repo without versioni
 
 ## Models And Cost
 
-The full assignment is in the [Agents](#agents) table. Fable runs where judgment matters most: the supervisor's routing, the writer's prose, and scope-critic's resistance to reasonable-sounding additions. The Haiku quick tier runs at xhigh effort, everything else at default. The supervisor moves `writer` to Opus for short, low-stakes prose and `executor` to Opus for difficult work, and moves `planner` to Fable for demanding plans (programs, open cross-module approaches, large or unfamiliar domains, or on your request), whose reviews then run `critic` on Fable. `executor` runs on Sonnet because in measured sessions it was the largest subagent consumer, about a quarter of subagent usage, while its work consistently passed the first critic round. `writer-worker` runs on Opus because matching your voice needs the stronger model when it drafts. Fable can be remapped to Opus, and an API-provider profile maps the same tiers to the provider's models ([deploy.md](deploy.md)).
+The full assignment is in the [Agents](#agents) table. Fable runs where judgment matters most: the supervisor's routing, the writer's prose, and scope-critic's resistance to reasonable-sounding additions. `planner` runs on Opus and moves to Fable when a plan is complex: a program of several work packages, a design that is still open across modules, a large or unfamiliar domain, or when you ask for thorough planning. The `critic` that reviews such a plan runs on Fable too. The supervisor also moves `writer` to Opus for short, low-stakes prose and `executor` to Opus for difficult work. `executor` runs on Sonnet because in measured sessions it was the largest subagent consumer, about a quarter of subagent usage, while its work consistently passed the first critic round. `writer-worker` runs on Opus because matching your voice needs the stronger model when it drafts. The Haiku quick tier runs at xhigh effort, everything else at default. Fable can be remapped to Opus, and an API-provider profile maps the same tiers to the provider's models ([deploy.md](deploy.md)).
 
 A Mode 1 round costs the lead's own turns plus one call per worker and reviewer; Mode 2 costs one Haiku call. Routing small work to Mode 2 is the main cost control. The opt-in audit tool in `tools/audit/README.md` re-measures these costs from your local transcripts.
 
