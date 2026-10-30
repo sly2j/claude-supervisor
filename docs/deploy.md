@@ -129,7 +129,7 @@ claude-supervisor-dev update     # pulls the pushed my-feature branch
 
 ## Fable Or Opus
 
-Four agents (`supervisor`, `planner`, `writer`, `scope-critic`), and `critic` when it reviews plans, run on Fable. Fable is billed to usage credits on some plans. To run them on Opus for one session, start `claude-<tag> --fable-is-opus`. To do it for every session, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your shell profile (`export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`); the launcher respects it, and the flag overrides it. On a provider profile the flag maps Fable to the model you picked for the Opus tier (see [API Providers](#api-providers)).
+Three agents (`supervisor`, `writer`, `scope-critic`) run on Fable, and `planner` and its `critic` do for demanding plans or when you ask for thorough planning. Fable is billed to usage credits on some plans. To run them on Opus for one session, start `claude-<tag> --fable-is-opus`. To do it for every session, set `ANTHROPIC_DEFAULT_FABLE_MODEL` in your shell profile (`export ANTHROPIC_DEFAULT_FABLE_MODEL=claude-opus-5-5`); the launcher respects it, and the flag overrides it. On a provider profile the flag maps Fable to the model you picked for the Opus tier (see [API Providers](#api-providers)).
 
 
 `--global` installs have no launcher, so `install --global` prints a note and the agents run on Fable until you set the variable yourself, in a shell profile or in `~/.claude/settings.json`:

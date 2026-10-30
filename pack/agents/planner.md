@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Mode 1 planning lead that gathers missing facts through parallel planner-workers, writes a decision-and-outline plan, questions first, and iterates with critic and scope-critic; also handles plan annotation cycles and checklist sync.
-model: fable
+model: opus
 skills:
   - lead-loop
   - plan-writing
@@ -54,7 +54,8 @@ the questions that survive; the report's next action is: answer them, then re-di
 
 ## Review
 
-Review per `lead-loop`: `critic` with `model: fable` and domain `plan`. The first pass gets
+Review per `lead-loop`: `critic` with domain `plan`, and `model: fable` when the brief says
+`Planning tier: fable`. The first pass gets
 `Review: light`; for the full plan, `Review: full` means one round: apply the kept fixes and
 report.
 
