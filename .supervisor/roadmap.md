@@ -55,19 +55,9 @@ Priority: normal — small. Effort: S.
 
 In 2.0 only programs (`## Work Packages`) get `## Log` lines appended by the post-wave fixer;
 flat `## Todo` plans and child plans do not. Owner decision (2026-10-21): flat and child plans get
-the same logging as programs, not deferrals only. `pack/agents/supervisor.md` has 2 words of
-headroom under its Main cap; wording trims need no owner approval, but cutting rules to fit does
+the same logging as programs, not deferrals only. `pack/agents/supervisor.md` body is at exactly its
+Main cap with no headroom; wording trims need no owner approval, but cutting rules to fit does
 (`.supervisor/memory/decisions/2026-10-25-raising-a-pack-word-cap-is-owner-only.md`).
-Priority: normal. Effort: M.
-
-### 5. Dangling memory references after archiving working files
-
-Archiving a working file (plan, research, draft state) leaves citations of its old path in live
-entries and archived plans. The `project-memory` skill and the `curator` archive step in `pack/`
-need a way to keep those references resolving; the fix belongs in the pack, not in this repo's
-memory. Recurring: five files cite `.supervisor/working/research/research-fold-subagents.md`,
-which exists only under `.supervisor/archive/working/research/`. It must be backward compatible:
-stores and entries written before the change keep working unchanged.
 Priority: normal. Effort: M.
 
 ### 6. Science artefacts (future release)
