@@ -12,3 +12,4 @@ Goal: The Codex critic step shows as an agent launch.
 Scope: A thin codex-critic Haiku relay subagent replaces the two-call Bash-description approach.
 Done when: The critic step appears as an agent launch in the transcript.
 Notes: Blocked: only if transcript visibility of the current two-call approach proves insufficient; the smoke test judged it adequate.
+dropped: 2026-11-10
