@@ -1,9 +1,9 @@
 ---
 summary: Let one worktree pick up several task cards, in sequence or in parallel
-status: open
-owner:
-since:
-plan:
+status: active
+owner: feat/pick-up-several-cards-in-one-worktree
+since: 2026-11-10
+plan: .supervisor/working/plans/pick-up-several-cards-in-one-worktree.md
 depends: []
 decisions:
   - .supervisor/memory/decisions/2026-11-10-mid-term-work-is-task-cards-not-a-roadmap.md
