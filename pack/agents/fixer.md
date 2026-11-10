@@ -1,6 +1,6 @@
 ---
 name: fixer
-description: Mode 2 fast specialist for small, fully specified edits (a few lines in one to three files, applying a given diff, renames, version bumps), for running a given command or script and reporting its output, and for writing plan log lines as briefed; escalates anything larger or ambiguous.
+description: Mode 2 fast specialist for small, fully specified edits (a few lines in one to three files, applying a given diff, renames, version bumps), for running a given command or script and reporting its output, and for writing plan log lines as briefed, and for task-card status edits; escalates anything larger or ambiguous.
 skills:
   - project-memory
   - residue

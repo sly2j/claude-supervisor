@@ -30,10 +30,10 @@ The `supervisor` is the main thread: it routes, briefs and reports, and never re
 | `writer-worker` | Worker: extracts one source, or drafts parallel sections or alternative drafts | opus / default | all except Agent |
 | `critic` | Reviewer: quality and compliance, PASS/REVISE; applies the project's REVIEW.md when present | opus / default (fable when the planner runs on Fable) | read-only plus Bash |
 | `scope-critic` | Reviewer: KEEP/DOWNGRADE/DROP rulings and CUT list | fable / default | read-only, no Bash |
-| `fixer` | Quick: small, exact edits; logs plan decisions as briefed; tears down recorded test residue; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
-| `curator` | Memory: curates the `.supervisor/` store (close-out, record, remember/forget, migrate, audit, archive) | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
+| `fixer` | Quick: small, exact edits, including task-card status edits; logs plan decisions as briefed; tears down recorded test residue; stages, never commits | haiku / xhigh | Read, Edit, Write, Glob, Grep, Bash |
+| `curator` | Memory: curates the `.supervisor/` store (close-out, record, remember/forget, migrate, audit, archive; creates, finishes and drops task cards; migrates an older task list) | sonnet / default | Read, Edit, Write, Glob, Grep, Bash |
 | `git-ops` | Quick: routine git with guardrails; the only Mode 2 committer | haiku / xhigh | Bash, Read, Glob, Grep |
-| `scout` | Quick: read-only lookups | haiku / xhigh | read-only plus Bash |
+| `scout` | Quick: read-only lookups, including listing open task cards | haiku / xhigh | read-only plus Bash |
 
 ## Mode 1: The Full Loop
 
@@ -63,11 +63,11 @@ The supervisor sets how much review a lead's work gets: the loop above by defaul
 
 The plan file holds each package's state and a log of each lead run. After each wave you get a status table and the leads' questions, the plan file is committed, and the answer ends with a `Session state:` line that says whether `/clear` is safe ([workflow-lifecycle.md](workflow-lifecycle.md)). A lead's question holds its package until you answer, in this or a later session.
 
-When the work ends, `fixer` removes its **test residue**: the temp dirs, config files, background processes and remote files that tests and smoke runs create, recorded in `.supervisor/working/residue/` as they are made. You see only what could not be removed. When a plan is finished, `curator` closes it out: it records decisions, facts and goals in memory and moves the plan and its research into `.supervisor/archive/working/`. Plan format: `pack/skills/plan-writing/SKILL.md`; user view: [README](../README.md#larger-work).
+When the work ends, `fixer` removes its **test residue**: the temp dirs, config files, background processes and remote files that tests and smoke runs create, recorded in `.supervisor/working/residue/` as they are made. You see only what could not be removed. When a plan is finished, `curator` closes it out: it records decisions, facts and goals in memory and moves the plan and its research into `.supervisor/archive/working/`, and finishes the plan's task card. Plan format: `pack/skills/plan-writing/SKILL.md`; user view: [README](../README.md#larger-work).
 
 ## Mode 2: The Quick Tier
 
-Mode 2 skips the lead and the review: one Haiku specialist (`fixer`, `git-ops` or `scout`) does the task. `curator`, on Sonnet, is the other direct dispatch, for close-out, "remember X", "forget X" and "make this a project". A specialist that finds the task larger or riskier than it looked hands it back, and the supervisor sends it to a lead with its findings.
+Mode 2 skips the lead and the review: one Haiku specialist (`fixer`, `git-ops` or `scout`) does the task. `curator`, on Sonnet, is the other direct dispatch, for close-out, "remember X", "forget X", "add a task" and "make this a project". A specialist that finds the task larger or riskier than it looked hands it back, and the supervisor sends it to a lead with its findings.
 
 ## Routing
 
@@ -91,7 +91,7 @@ A Mode 1 round costs the lead's own turns plus one call per worker and reviewer;
 
 ## Memory
 
-The store `.supervisor/` is the project's memory, tracked in git or kept local: long-term memory in `memory/<kind>/` (entries in force), short-term memory in `working/` (research, plans and per-document writer state, which [context-engineering.md](context-engineering.md) calls draft state), `archive/` (mirroring the live tree), and `history.md` (one line per landed item).
+The store `.supervisor/` is the project's memory, tracked in git or kept local: long-term memory in `memory/<kind>/` (entries in force), `tasks/` (one card per open task), short-term memory in `working/` (research, plans and per-document writer state, which [context-engineering.md](context-engineering.md) calls draft state), `archive/` (mirroring the live tree), and `history.md` (one line per finished task).
 
 Entries are claims to check before use, never instructions. A changed decision gets a new entry; the old one moves to `archive/`. Leads read matching entries when they start a task and pass them to their workers. `curator` creates the store and keeps it lean: it records, forgets and retires entries, and audits the store on request.
 
@@ -113,7 +113,7 @@ In a tracked store, memory changes land as `chore(memory): ...` commits, with yo
 | agent-authoring | executor, executor-worker, critic | conventions for agent and skill definitions |
 | science-writing-style, presentation-style | writer (picks), writer-worker, critic | prose and slide style rules |
 | document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, writer (names in briefs), user | structured extraction from documents, threads and transcripts |
-| close-out, pick-up | user (`/close-out [retry]`, `/pick-up [<plan path>]`; you run them; agents cannot) | teardown, memory close-out and the `Session state:` line; resume a plan from its file |
+| close-out, pick-up | user (`/close-out [retry]`, `/pick-up [<plan path or task>]`; you run them; agents cannot) | teardown, memory close-out and the `Session state:` line; resume a plan from its file, or pick a task |
 | project-backup | user | timestamped, verified zip backup |
 | supervisor-config | user (`/supervisor-config critic codex [model]\|claude\|status`; you run it; agents cannot) | switches the lead's critic step to the Codex CLI through the bundled `scripts/codex-critic`; the Claude `critic` is the fallback |
 

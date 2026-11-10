@@ -3,7 +3,8 @@
 This is the source repo for Supervisor for Claude, a multi-agent orchestration layer for Claude Code. `pack/` is deployed by `deploy` into `~/.config/claude-supervisor` (run with `claude-supervisor`), or into `~/.claude` with `--global`.
 
 - To deploy, update, or uninstall, follow `docs/deploy.md`.
-- To edit agents or skills, follow the `agent-authoring` skill (`pack/skills/agent-authoring/SKILL.md`). Keep the inventory in `docs/architecture.md` in sync with any change to an agent's name, scope, model, or tools.
+- To edit agents or skills, follow the `agent-authoring` skill (`pack/skills/agent-authoring/SKILL.md`), and read `docs/architecture.md` before touching the pack. Keep the inventory in `docs/architecture.md` in sync with any change to an agent's name, scope, model, or tools.
+- Owner's style rule is simplicity: add rules to agent files only for observed failures, no anticipated-failure clauses, and keep word counts and line lengths down.
 - Entries in this repo's `.supervisor/` govern work on this repo only. For each decision or rule, decide its reach: repo work (stays in `.supervisor/` or `CLAUDE.md`) or product behaviour (written into `pack/` itself, never left as a pointer to this repo's memory, plans, or docs). Ask the owner when the reach is ambiguous.
 - Before deploying, run `python3 -m pytest -q`. The suite covers the deploy tool and lints the pack. The opt-in live routing check (`docs/deploy.md`, `## Routing Check`) calls the model and costs money, so run it only on the owner's go.
 - `deploy` (at the repo root) must stay standard-library-only and compatible with Python 3.9, which is what macOS ships as `/usr/bin/python3`.

@@ -8,13 +8,15 @@ grep the delivered work for its rule (test b), and rewrite it until it passes. T
 the last word boundary within 40 characters, and a trailing stopword (a, an, the, and, or, of, to,
 in, for, is) is dropped. A run that moves a file repoints, in the same run, every `source:` in
 `memory/` that names it (grep by file name).
-When the cap would cut entries, leave the roadmap item in place, skip step 7, and report what
+When the cap would cut entries, leave the task card in place, skip step 7, and report what
 remains as `follow-up: curator close-out <plan path>`. Without git, or when the store is
 git-excluded (`git check-ignore -q <project root>/.supervisor` succeeds), nothing is staged: every
 archive move here and in SKILL.md uses plain `mv` and skips `git add`, and the report includes
 the line SKILL.md gives for a git-excluded store (`not staged` or `external store:`).
 On every run, replace `.supervisor/README.md` with the template when they differ (staged for a
-tracked store only).
+tracked store only). On every run in the default-branch checkout, when `.supervisor/roadmap.md`
+exists, first run the roadmap migration (Migrate, For a legacy roadmap) and report its cards;
+when a root `ROADMAP.md` exists, add `follow-up: curator migrate ROADMAP.md` to the report.
 
 ## Close-out (`close-out <plan path>`)
 
@@ -34,23 +36,22 @@ tracked store only).
    landed.
 5. Re-verify every entry in `memory/` that fails the staleness check in SKILL.md: confirm it by
    updating `verified:` to today, or supersede it.
-6. Roadmap step, finished plans only. Open `.supervisor/roadmap.md`, else the project root's
-   `ROADMAP.md`.
-   - Remove the items, or the stages of an item, whose scope the plan covered (named in its
-     title, Goal or Scope Notes).
-   - For an item the plan covered only in part, rewrite its Background to state only the
-     remaining gap. In every remaining item, repoint citations of superseded entries to their
+6. Task step, finished plans only (cards: `${CLAUDE_SKILL_DIR}/references/tasks.md`).
+   - Finish each live card in `.supervisor/tasks/` whose `plan:` is this plan, that the brief
+     names (`task <card>`), or that the plan names in its Goal or Scope Notes by card name or
+     `summary:`: add `met: YYYY-MM-DD`, `git add` it, then `git mv` it to `archive/tasks/`.
+   - When the plan's Scope Notes say it covers a card only in part, do not archive it: rewrite
+     its Goal and Scope to the remaining gap, set `status: open`, and empty `owner:`, `since:`
+     and `plan:`.
+   - Open one card (Task section) per `deferred:` item in the plan's Log, unless a live card's
+     `summary:` already covers it, with a Notes line pointing to the plan's archived path.
+   - In every live card, repoint `decisions:` citations of superseded entries to their
      replacements and drop citations of retired entries (their `superseded by:` names a path
      outside `.supervisor/memory/`).
-   - For each removed item, record each legacy "Decisions already made" bullet not yet in memory
-     that passes the recording test (SKILL.md) as one `decision` entry (one entry per bullet,
-     none consolidated) with `source: <roadmap path> item <n>, <date>`.
-   - Append one line to `.supervisor/history.md` per removed item or stage group, never
-     rewriting earlier lines, as `- YYYY-MM-DD <version or commit> <item title>; goals: <paths or
-     none>; plan: <archived plan path>; decisions: <paths>`, high-level only, with the removed
-     item's or stage's `Decisions:` paths (and the paths of any entries just recorded) in its
-     `decisions:` field. Create the file with the
-     heading `# History` on first use.
+   - Append one line to `.supervisor/history.md` per finished card, never rewriting earlier
+     lines, as `- YYYY-MM-DD <version or commit> <card summary>; goals: <paths or none>; plan:
+     <archived plan path>; decisions: <paths>`, high-level only, with the card's `decisions:`
+     paths in its `decisions:` field. Create the file with the heading `# History` on first use.
 7. Archive step. `git mv` the plan and its child plans to `.supervisor/archive/working/plans/`
    and its research to `.supervisor/archive/working/research/`, keeping each file name. Move the
    draft state of the program's drafts to `.supervisor/archive/working/writing/`.
@@ -60,7 +61,11 @@ goal `met`.
 
 A plan-less run's close-out (`close-out <working artifact path>`) runs steps 1 to 3 and 5, reading
 that artifact in place of the plan, then `git mv`s it to the matching `archive/working/` folder as
-in step 7.
+in step 7. When the brief names a card (`task <card>`), it also runs step 6 for that card, with
+`plan: none` in the history line.
+
+`close-out task <card>` with no path runs step 6 alone for that card: no plan, no `deferred:`
+cards, no other step.
 
 ## Idle-plan sweep
 
@@ -76,7 +81,7 @@ add `follow-up: curator migrate docs/` to the report.
 
 ## Audit (`audit`)
 
-Run on request. For every entry in `memory/` and every entry citation in the roadmap, apply the
+Run on request. For every entry in `memory/` and every entry citation in a live task card, apply the
 recording test, Entry text and the staleness check (SKILL.md), resolve every `source:` and
 `affects:` path (repoint a moved `source:`), then choose one outcome:
 - keep, updating `verified:` when re-checked;
@@ -87,7 +92,9 @@ recording test, Entry text and the staleness check (SKILL.md), resolve every `so
   `git mv` it to `archive/memory/<kind>/` with no replacement (not Forget, which writes a
   retraction).
 
-Fix roadmap citations as in close-out step 6. The audit never merges entries. Propose changes to
+Fix citations in live cards as in close-out step 6. Flag each `active` card with no activity for
+30 days (the plan's last `## Log` line, else the card's `since:`) as `stale claim: <card>
+(<why>)`; never change the card. The audit never merges entries. Propose changes to
 lessons and goals to the user; never retire or drop them, except a lesson whose named fix has
 landed, which is retired. Report counts per outcome and
 one line per kind of cut.
@@ -110,6 +117,20 @@ rule a `convention`, a stated choice a `decision`, anything else a `fact`. Write
 Find the entry by `summary:`. Supersede it with an entry recording the retraction (`source: user
 <date>`); a goal gets `dropped: <date>` instead. Either way add the line to the old file, then
 move it to `archive/memory/<kind>/`. Never delete a file.
+
+## Task (`task <text>`)
+
+Create one card per `${CLAUDE_SKILL_DIR}/references/tasks.md`, named
+`.supervisor/tasks/YYYY-MM-DD-<slug>.md`, from `${CLAUDE_SKILL_DIR}/templates/task.md` and the text.
+Set `status: open`, or `blocked` with the reason in `Notes:` when the text says it waits on a
+decision, a condition, a date or access. `depends:` holds the names of live cards the text says
+it follows; `decisions:` holds only entries that still bind. Stage it for a tracked store.
+Cards do not count toward the five-entry cap. Report the card name.
+
+## Drop task (`drop task <card>`)
+
+Add `dropped: YYYY-MM-DD` to the live card, `git add` it, then `git mv` it to `archive/tasks/`.
+Report each live card whose `depends:` names it as `depends on dropped: <card>`; edit none.
 
 ## Make this a project (`make this a project [(tracked)|(local)]`)
 
@@ -151,6 +172,21 @@ For a legacy writing rules file, skipping Standing Rules and Session Decisions a
   `archive/working/writing/` at once.
 - Return each Pending Verification item as a promote-or-drop proposal.
 - Then `git mv` the file to `.supervisor/archive/working/writing/writing-rules.md`.
+
+For a legacy roadmap (`.supervisor/roadmap.md`, or `ROADMAP.md` when the brief names it), in the
+default-branch checkout, one card per Task section for each item, or for each remaining stage of
+a partly landed item:
+- `blocked`, with the reason in `Notes:`, when it waits on a decision, a condition, a date or
+  access; else `open`.
+- `depends:` holds the card names of the items its "Depends on" line titles.
+- Drop priorities, effort, numbering and ordering notes. Report each other piece of text that is
+  not an item as `not migrated: <first words>`.
+- Each legacy "Decisions already made" bullet not yet in memory that passes the recording test
+  (SKILL.md) becomes one `decision` entry (one per bullet, none consolidated) with `source:
+  <archived roadmap path> item <n>, <date>`; `decisions:` cites it.
+- Exempt from the five-entry cap. Then `git mv` the file to `.supervisor/archive/working/plans/`
+  keeping its name, so the migration runs once.
+- Report the cards and the `not migrated:` lines.
 
 ## Archive (`archive <draft-state path>`)
 

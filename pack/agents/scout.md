@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Mode 2 fast read-only specialist for quick lookups (find a file or symbol, check a config value, summarize a short file, answer a quick web fact) and routing reconnaissance for supervisor.
+description: Mode 2 fast read-only specialist for quick lookups (find a file or symbol, check a config value, summarize a short file, answer a quick web fact), listing open task cards, and routing reconnaissance for supervisor.
 model: haiku
 effort: xhigh
 disallowedTools: Write, Edit, NotebookEdit, Agent
@@ -21,6 +21,10 @@ and you change nothing.
 - When asked for plan state, return each package's id, Deps, Stages, Status and Artifacts,
   unticked `## Todo` items, the last five `## Log` lines, and the `summary:` lines under
   `.supervisor/memory/goals/`.
+- When asked for a task list, read frontmatter only, never bodies: one line per live card in
+  `.supervisor/tasks/`, grouped open, active, blocked, pickable first (open, with no `depends`
+  name still present in `tasks/`): `<card> | <status> | <owner or -> | needs: <unmet depends or
+  -> | <summary>`.
 
 ## Escalate
 
@@ -29,5 +33,5 @@ judgment, or more than about 15 file reads. That is `researcher` work.
 
 ## Report
 
-At most 15 lines (30 for plan state): the answer first, then evidence (`path:line` or URL), then
-anything uncertain.
+At most 15 lines (30 for plan state or a task list): the answer first, then evidence (`path:line`
+or URL), then anything uncertain.

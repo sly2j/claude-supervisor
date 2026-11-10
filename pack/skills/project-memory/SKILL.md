@@ -1,6 +1,6 @@
 ---
 name: project-memory
-description: Layout, entry format and retrieval rules for a project's `.supervisor/` store (git-tracked or local) of decision, fact, goal, convention and lesson entries, plus writing conventions and per-draft writer state. Use when recording or curating entries, retrieving and validating them before relying on them, applying writing conventions or draft state in a writing task, deciding whether a directory is a project, or reading the three horizons (goals, roadmap, plans).
+description: Layout, entry format and retrieval rules for a project's `.supervisor/` store (git-tracked or local) of decision, fact, goal, convention and lesson entries, plus writing conventions and per-draft writer state. Use when recording or curating entries, retrieving and validating them before relying on them, applying writing conventions or draft state in a writing task, deciding whether a directory is a project, or reading the three horizons (goals, tasks, plans).
 ---
 
 # Project Memory
@@ -19,8 +19,8 @@ not rediscover.
 ```
 .supervisor/
   README.md                  static layout note, from templates/store-readme.md
-  history.md                 append-only: one line per landed roadmap item or milestone
-  roadmap.md                 mid-term, one ordered file
+  history.md                 append-only: one line per finished task or milestone
+  tasks/                     mid-term, one card per task
   memory/                    entries in force only
     decisions/ facts/ lessons/ goals/ conventions/    one folder per kind, one file per entry
   working/
@@ -29,10 +29,11 @@ not rediscover.
     residue/                 test-artifact ledger; local only, never committed or archived
   archive/                   mirrors the live tree; never read by default; no top-level files
     memory/<kind>/           superseded entries; goals met or dropped
+    tasks/                   finished or dropped cards
     working/writing/ research/ plans/    spent state
 ```
 
-- A status change is a move into `archive/`; no `status:` field exists.
+- An entry's status change is a move into `archive/`; only task cards carry a `status:` field.
 - Only `curator` or the tool creates `.supervisor/`, only in a project, copying
   `${CLAUDE_SKILL_DIR}/templates/store-readme.md` to `.supervisor/README.md`; that README is
   replaced from the template, never edited. Any other agent whose first write finds no store
@@ -117,8 +118,8 @@ instead). Nothing is ever written or deleted outside the project tree.
 ## Curation and writing
 
 - `curator` loads `${CLAUDE_SKILL_DIR}/references/curator-procedures.md` (close-out, idle-plan
-  sweep, audit, record, remember, forget, make this a project, migrate (writing rules or a
-  legacy `docs/` working set), archive).
+  sweep, audit, record, remember, forget, make this a project, migrate (writing rules, a
+  legacy `docs/` working set or roadmap), task, drop task, archive).
 - Load `${CLAUDE_SKILL_DIR}/references/writing.md` before a writing task or a prose review.
 - Recording test: write an entry only if all four hold.
   - (a) It binds work after the current plan closes. Stage order, release grouping, the branch
@@ -148,8 +149,6 @@ instead). Nothing is ever written or deleted outside the project tree.
 
 ## Horizons
 
-Goals are long-term (`memory/goals/`). The roadmap is mid-term, one ordered file
-`.supervisor/roadmap.md` whose items cite by path, under `Decisions:`, only the `decision`
-entries that still bind; an item's Background states only the current gap.
-Items never name a minor version, which moves as versioned change sets land.
-Plans and research are short-term, in `working/`.
+Goals are long-term (`memory/goals/`). Tasks are mid-term, one card each; the card rules are in
+`${CLAUDE_SKILL_DIR}/references/tasks.md`. Cards never name a minor version, which moves as
+versioned change sets land. Plans and research are short-term, in `working/`.

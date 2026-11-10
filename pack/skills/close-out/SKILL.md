@@ -12,8 +12,10 @@ line as `not safe to /clear` with the reason, and stop. Otherwise run these step
 
 1. Brief `fixer` `teardown`; `teardown retry` when `$ARGUMENTS` contains `retry`.
 2. Brief `curator` `close-out <path>` per finished plan or working artifact, `record` for a bare
-   decision. In a one-off (no store), `curator` first creates the store (`make this a project`);
-   inside git, ask the user once: tracked or local.
+   decision. Add `task <card>` when the finished work has a card with an empty `plan:`
+   (research-only, executor-only or quick-tier work); with no
+   artifact, brief `close-out task <card>`. In a one-off (no store), `curator` first
+   creates the store (`make this a project`); inside git, ask the user once: tracked or local.
 3. Brief `git-ops` `chore(memory): ...` for the staged paths `curator` and `fixer` report.
 4. If anything remains for the user, end with one block headed `Run yourself:`: shell commands
    verbatim in a fenced block (copy a failed teardown entry's `remove` command from `fixer`'s

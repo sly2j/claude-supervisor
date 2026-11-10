@@ -9,7 +9,7 @@ Supervisor for Claude is a multi-agent orchestration layer for [Claude Code](htt
 Supervisor for Claude is built for long-horizon software and scientific-research tasks: complex, multi-session work that benefits from a research-plan-execute loop and persistent short- and long-term memory. For smaller one-off tasks, plain `claude` is likely more effective.
 
 - **Parallel work:** a plan splits large jobs into independent pieces (work packages) that run side by side (waves).
-- **Project memory:** `.supervisor/` holds memory, committed or kept local, designed after project-management practice: long-term goals, a mid-term roadmap, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
+- **Project memory:** `.supervisor/` holds memory, committed or kept local, designed after project-management practice: long-term goals, mid-term task cards, and short-term plans, plus a decision log, facts, conventions, and approved lessons learned. Plan files hold state, so work resumes in a new session. See [Persistence And Memory](#persistence-and-memory).
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ The pack is one supervisor, four leads for larger work, their workers, two revie
 - `researcher-worker`, `planner-worker`, `executor-worker`, `writer-worker`: the parallel workers a lead dispatches; you never call them yourself
 - `critic`, `scope-critic`: review a lead's result, for quality and, when needed, for scope creep
 - `fixer`: small, exact edits; runs a given command; removes recorded test residue
-- `curator`: closes out finished plans into memory and the archive; handles "remember X" / "forget X" / "make this a project"
+- `curator`: closes out finished plans into memory and the archive; adds and archives tasks; handles "remember X" / "forget X" / "make this a project"
 - `git-ops`: routine git with guardrails
 - `scout`: read-only lookups
 
@@ -71,7 +71,7 @@ Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
 - `/close-out [retry]`: tear down residue, record and archive what the work taught, and print the `Session state:` line
-- `/pick-up [<plan path>]`: resume a plan after `/clear` or in a new session
+- `/pick-up [<plan path or task>]`: resume a plan after `/clear` or in a new session, or pick a task when none is live
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
 - `/supervisor-config critic codex|claude|status`: switch the critic between Codex and Claude from inside a session (see [Optional: Codex As Critic](#optional-codex-as-critic))
 
@@ -174,9 +174,10 @@ This is separate from Claude Code's own memory. Your user `CLAUDE.md` and auto m
 
 The memory model:
 
-- **What is in it:** long-term entries in `memory/<kind>/` (decisions, facts, goals, conventions, and lessons; a lesson is recorded only after you approve it), a mid-term `roadmap.md`, and short-term plans and research in `working/`. Finished and superseded items move to `archive/`. `.supervisor/README.md` explains the layout.
-- **How agents use it:** a lead reads the relevant entries when it starts. What you decide while a plan runs is written into the plan's log, so it survives `/clear`. At close-out, `curator` turns what the work taught into long-term entries, archives the finished plans and research, and keeps the roadmap current.
+- **What is in it:** long-term entries in `memory/<kind>/` (decisions, facts, goals, conventions, and lessons; a lesson is recorded only after you approve it), mid-term task cards in `tasks/` (one card per task), and short-term plans and research in `working/`. Finished and superseded items move to `archive/`. `.supervisor/README.md` explains the layout.
+- **How agents use it:** a lead reads the relevant entries when it starts. What you decide while a plan runs is written into the plan's log, so it survives `/clear`. At close-out, `curator` turns what the work taught into long-term entries, archives the finished plans and research, and finishes the task cards.
 - **Your controls:** tell supervisor to "remember X", to "forget X", or to "make this a project".
+- **Tasks:** `/pick-up` lists open tasks, claims the one you pick (quick fixes aside) and routes it as the same request typed in. You can also type "show tasks", "add a task: ...", "block <task>: <reason>", "release <task>" or "drop <task>"; finished tasks are in `.supervisor/history.md`. In a tracked store a claim shows to other clones once pushed, in a local store only to this checkout, and in an externalized store live to every linked checkout. A `.supervisor/roadmap.md` from an earlier version becomes tasks automatically.
 - **Where it applies:** only in a project: a folder inside a git repository, or one that holds (or sits under one that holds) `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or one you told supervisor to make a project. Your home directory never counts.
 - **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once.
   - **Tracked:** committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it.
@@ -295,7 +296,7 @@ tests/              deploy tests, pack lint, VERSION check
 docs/               workflow-lifecycle.md, architecture.md, context-engineering.md, deploy.md (deploy runbook), local-memory.md
 CLAUDE.md           instructions for Claude working in this repo
 REVIEW.md           review rules for this repo
-.supervisor/        project memory; roadmap.md holds open work items
+.supervisor/        project memory; tasks/ holds open work items, one card per task
 VERSION             pack version
 CHANGELOG.md        major changes per version
 LICENSE             Apache License 2.0

@@ -171,9 +171,9 @@ ROUTING_SCOPE = {  # agent -> phrases its description must keep, so routing live
     "writer": ["scientific documents", "proposals", "reports", "presentation content", "emails",
                "project docs"],
     "fixer": ["small, fully specified edits", "running a given command or script",
-              "reporting its output"],
+              "reporting its output", "task-card status"],
     "git-ops": ["status", "diff", "log", "commit", "branch", "push", "pull", "stash", "tag"],
-    "scout": ["read-only", "quick lookups"],
+    "scout": ["read-only", "quick lookups", "task cards"],
 }
 
 
@@ -182,6 +182,11 @@ def test_routing_scope_in_description(agent):
     desc = str(frontmatter(PACK / "agents" / (agent + ".md")).get("description") or "").lower()
     missing = [p for p in ROUTING_SCOPE[agent] if p.lower() not in desc]
     assert not missing, "%s description lacks %s" % (agent, missing)
+
+
+def test_pickup_claims():
+    text = (PACK / "skills" / "pick-up" / "SKILL.md").read_text(encoding="utf-8")
+    assert "chore(memory): claim" in text
 
 
 def test_supervisor_names_routed_agents():
@@ -247,6 +252,17 @@ def test_memory_templates():
     assert set(frontmatter(templates / "draft-state.md")) == {"file"}
     readme = templates / "store-readme.md"
     assert readme.is_file() and not readme.read_text(encoding="utf-8").startswith("---")
+    task = templates / "task.md"
+    card = frontmatter(task)
+    assert set(card) == {"summary", "status", "owner", "since", "plan", "depends", "decisions"}
+    assert card["status"] == "open"
+    assert body_words(task) <= 200
+
+
+def test_curator_task_briefs():
+    text = (PACK / "agents" / "curator.md").read_text(encoding="utf-8")
+    scope = text.split("## Scope", 1)[1].split("\n## ", 1)[0]
+    assert "task <text>" in scope and "drop task" in scope
 
 
 MAX_LINE = 100

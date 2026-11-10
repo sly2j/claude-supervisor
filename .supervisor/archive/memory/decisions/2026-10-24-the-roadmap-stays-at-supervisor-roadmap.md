@@ -9,3 +9,4 @@ supersedes: .supervisor/archive/memory/decisions/2026-10-22-roadmap-stays-at-sup
 One ordered roadmap file under `.supervisor/`.
 Why: a root human-facing page, or a short root roadmap plus an item list, is not useful to external users.
 Rejected: both.
+superseded by: .supervisor/memory/decisions/2026-11-10-mid-term-work-is-task-cards-not-a-roadmap.md

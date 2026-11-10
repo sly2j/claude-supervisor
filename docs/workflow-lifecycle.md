@@ -26,7 +26,7 @@ The rows below generalize what users typed in real sessions. None of the prompts
 
 **Result.** Every answer leads with the outcome. It then names who did what, what was validated, anything worth knowing, and a next step. For a small task that is often the whole exchange.
 
-**Close-out.** Close-out does not start by itself: type `/close-out` when the work is done. If a plan is still open, it says so and stops. Otherwise it removes test leftovers, records what the work taught in the memory store, archives finished plans and research, and commits the memory changes. If a removal was blocked, `/close-out retry` tries again (see [Temporary Artifacts](#temporary-artifacts)).
+**Close-out.** Close-out does not start by itself: type `/close-out` when the work is done. If a plan is still open, it says so and stops. Otherwise it removes test leftovers, records what the work taught in the memory store, archives finished plans and research, finishes the work's task card (archives it), and commits the memory changes. If a removal was blocked, `/close-out retry` tries again (see [Temporary Artifacts](#temporary-artifacts)).
 
 **End.** The answer closes with a state line:
 
@@ -122,7 +122,7 @@ The `Session state:` line is the signal: it says `safe to /clear` or `not safe t
 
 ## Resuming
 
-`/pick-up [<plan path>]` rebuilds your place from the plan file. It reads the plan you name, or finds the live one in `.supervisor/working/plans/`, and reports in at most ten lines: the plan, its packages or open items, the last log lines and any pending questions. It then proposes the next step and waits for your go: the next wave for a program, `executor` on the open parts of a flat plan, or `/close-out` when the work is finished. With no live plan it says so and asks what to pick up.
+`/pick-up [<plan path or task>]` rebuilds your place from the plan file. It reads the plan you name, or finds the live one in `.supervisor/working/plans/`, and reports in at most ten lines: the plan, its packages or open items, the last log lines and any pending questions. It then proposes the next step and waits for your go: the next wave for a program, `executor` on the open parts of a flat plan, or `/close-out` when the work is finished. With no live plan it lists open tasks, claims the one you pick (quick fixes aside) and routes it as the same request typed in.
 
 With no plan file, as in a small task, state the task in a sentence, as the state line's resume prompt does.
 
