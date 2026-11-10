@@ -113,7 +113,7 @@ In a tracked store, memory changes land as `chore(memory): ...` commits, with yo
 | agent-authoring | executor, executor-worker, critic | conventions for agent and skill definitions |
 | science-writing-style, presentation-style | writer (picks), writer-worker, critic | prose and slide style rules |
 | document-extraction, email-extraction, meeting-summary | researcher-worker, writer-worker, writer (names in briefs), user | structured extraction from documents, threads and transcripts |
-| close-out, pick-up | user (`/close-out [retry]`, `/pick-up [<plan path or task>]`; you run them; agents cannot) | teardown, memory close-out and the `Session state:` line; resume a plan from its file, or pick a task |
+| close-out, pick-up | user (`/close-out [retry]`, `/pick-up [<plan path> \| <card>...]`; you run them; agents cannot) | teardown, memory close-out and the `Session state:` line; resume a plan from its file, or pick tasks |
 | project-backup | user | timestamped, verified zip backup |
 | supervisor-config | user (`/supervisor-config critic codex [model]\|claude\|status`; you run it; agents cannot) | switches the lead's critic step to the Codex CLI through the bundled `scripts/codex-critic`; the Claude `critic` is the fallback |
 

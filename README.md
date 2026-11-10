@@ -71,7 +71,7 @@ Skills you run yourself:
 - `/meeting-summary <transcript> [notes]`: minutes from a meeting transcript
 - `/project-backup`: timestamped, verified zip backup with retention
 - `/close-out [retry]`: tear down residue, record and archive what the work taught, and print the `Session state:` line
-- `/pick-up [<plan path or task>]`: resume a plan after `/clear` or in a new session, or pick a task when none is live
+- `/pick-up [<plan path> | <card>...]`: resume a plan after `/clear` or in a new session, or pick one or more tasks when none is live
 - `document-extraction`, `email-extraction`: the substance of a document or email thread, as notes to write from
 - `/supervisor-config critic codex|claude|status`: switch the critic between Codex and Claude from inside a session (see [Optional: Codex As Critic](#optional-codex-as-critic))
 
@@ -177,7 +177,7 @@ The memory model:
 - **What is in it:** long-term entries in `memory/<kind>/` (decisions, facts, goals, conventions, and lessons; a lesson is recorded only after you approve it), mid-term task cards in `tasks/` (one card per task), and short-term plans and research in `working/`. Finished and superseded items move to `archive/`. `.supervisor/README.md` explains the layout.
 - **How agents use it:** a lead reads the relevant entries when it starts. What you decide while a plan runs is written into the plan's log, so it survives `/clear`. At close-out, `curator` turns what the work taught into long-term entries, archives the finished plans and research, and finishes the task cards.
 - **Your controls:** tell supervisor to "remember X", to "forget X", or to "make this a project".
-- **Tasks:** `/pick-up` lists open tasks, claims the one you pick (quick fixes aside) and routes it as the same request typed in. You can also type "show tasks", "add a task: ...", "block <task>: <reason>", "release <task>" or "drop <task>"; finished tasks are in `.supervisor/history.md`. In a tracked store a claim shows to other clones once pushed, in a local store only to this checkout, and in an externalized store live to every linked checkout. A `.supervisor/roadmap.md` from an earlier version becomes tasks automatically.
+- **Tasks:** `/pick-up` lists open tasks, claims the ones you pick (quick fixes aside) and routes them as one request typed in. A session already in a linked worktree lists and claims there. You can also type "show tasks", "add a task: ...", "block <task>: <reason>", "release <task>" or "drop <task>"; finished tasks are in `.supervisor/history.md`. In a tracked store a claim shows to other clones once pushed, in a local store only to this checkout, and in an externalized store live to every linked checkout. A `.supervisor/roadmap.md` from an earlier version becomes tasks automatically.
 - **Where it applies:** only in a project: a folder inside a git repository, or one that holds (or sits under one that holds) `.supervisor/`, `.claude/`, `CLAUDE.md` or `AGENTS.md`, or one you told supervisor to make a project. Your home directory never counts.
 - **Tracked or local, your choice:** before creating the store in a git repo, supervisor asks once.
   - **Tracked:** committed with the rest of your repo, so the memory is part of the repo history, shows up in pull requests, and reaches collaborators and other checkouts; a worktree's store belongs to its branch and lands with it.

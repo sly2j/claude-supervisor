@@ -122,7 +122,7 @@ The `Session state:` line is the signal: it says `safe to /clear` or `not safe t
 
 ## Resuming
 
-`/pick-up [<plan path or task>]` rebuilds your place from the plan file. It reads the plan you name, or finds the live one in `.supervisor/working/plans/`, and reports in at most ten lines: the plan, its packages or open items, the last log lines and any pending questions. It then proposes the next step and waits for your go: the next wave for a program, `executor` on the open parts of a flat plan, or `/close-out` when the work is finished. With no live plan it lists open tasks, claims the one you pick (quick fixes aside) and routes it as the same request typed in.
+`/pick-up [<plan path> | <card>...]` rebuilds your place from the plan file. It reads the plan you name, or finds the live one in `.supervisor/working/plans/`, and reports in at most ten lines: the plan, its packages or open items, the last log lines and any pending questions. It then proposes the next step and waits for your go: the next wave for a program, `executor` on the open parts of a flat plan, or `/close-out` when the work is finished. With no live plan it lists open tasks, claims the cards you pick (quick fixes aside) and routes them as the same request typed in.
 
 With no plan file, as in a small task, state the task in a sentence, as the state line's resume prompt does.
 

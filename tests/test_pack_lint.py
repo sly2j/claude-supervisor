@@ -187,6 +187,12 @@ def test_routing_scope_in_description(agent):
 def test_pickup_claims():
     text = (PACK / "skills" / "pick-up" / "SKILL.md").read_text(encoding="utf-8")
     assert "chore(memory): claim" in text
+    assert "one or more" in text
+    assert "linked worktree" in text
+    tasks = (PACK / "skills" / "project-memory" / "references" / "tasks.md").read_text(
+        encoding="utf-8")
+    assert "claim <card>[, <card>]" in tasks
+    assert "lists and claims there" in tasks
 
 
 def test_supervisor_names_routed_agents():
