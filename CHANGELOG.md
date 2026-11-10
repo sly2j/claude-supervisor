@@ -2,7 +2,7 @@
 
 Major versions only; minor versions are in `git log`.
 
-- **v10** (2026-11-10): task cards replace the roadmap: mid-term work lives as one card per task in `.supervisor/tasks/` with ownership and status, a pushed claim says who is on it, `/pick-up` routes a card as a typed prompt, and the curator creates, finishes and drops cards and migrates an existing roadmap.
+- **v10** (2026-11-10): task cards replace the roadmap: mid-term work lives as one card per task in `.supervisor/tasks/` with ownership and status, a claim says who is on it, `/pick-up` routes a card as a typed prompt, and the curator creates, finishes and drops cards and migrates an existing roadmap.
 - **v9** (2026-10-29): workflow lifecycle: a `Session state:` line after every close-out and booked wave that says whether `/clear` is safe and how to resume, a fixed `Run yourself:` block for steps only you can run, `/close-out` and `/pick-up` commands, and routing on each agent's description. See [docs/workflow-lifecycle.md](docs/workflow-lifecycle.md).
 - **v8** (2026-10-27): installs can target an API provider: presets (OpenRouter, NRP, ALCF) and a generic `--base-url`, per-tier model picks with `--model-<tier>` flags, and a managed `apiKeyHelper` for expiring tokens. See [API Providers](docs/deploy.md#api-providers).
 - **v7** (2026-10-24): optional Codex CLI backend for the critic, with the Claude critic as automatic fallback; switch with `deploy critic` or `/supervisor-config critic`. See [Codex As Critic](docs/deploy.md#codex-as-critic).
