@@ -686,6 +686,32 @@ def plan_critic_rule(settings: dict, target: Path) -> Tuple[Optional[dict], str]
     return dict(settings, permissions=new_perms), "adds one permission rule for its own read-only review script"
 
 
+def memory_grant(root: Path) -> Tuple[str, str]:
+    """(additionalDirectories entry, permissions.allow rule) that let the file tools write under root."""
+    return str(root), "Edit(/%s/**)" % root  # `//` anchors an absolute path in a permission rule
+
+
+def plan_memory_grant(settings: dict, root: Path) -> Tuple[Optional[dict], dict]:
+    """Add memory_grant(root) to settings where missing.
+
+    Returns (new settings or None if both are present, the entries added by key).
+    """
+    directory, rule = memory_grant(root)
+    perms = settings.get("permissions")
+    if perms is not None and not isinstance(perms, dict):
+        raise DeployError("settings permissions is not an object; fix the JSON")
+    new_perms = dict(perms or {})
+    added = {}
+    for key, entry in (("additionalDirectories", directory), ("allow", rule)):
+        current = new_perms.get(key)
+        if current is not None and not isinstance(current, list):
+            raise DeployError("settings permissions.%s is not a list; fix the JSON" % key)
+        if entry not in (current or []):
+            new_perms[key] = list(current or []) + [entry]
+            added[key] = [entry]
+    return (dict(settings, permissions=new_perms) if added else None), added
+
+
 def plan_attribution(settings: dict, prev: dict) -> Tuple[Optional[dict], dict, str]:
     """Decide what to do with settings['attribution'] commit, pr and sessionUrl (profile installs only).
 
@@ -1268,6 +1294,13 @@ def install_cmd(args: argparse.Namespace) -> int:
             rule_settings, rule_msg = plan_critic_rule(new_settings or settings, target)
             settings_msg += "; " + rule_msg
             new_settings = rule_settings or new_settings
+            grant_settings, added = plan_memory_grant(new_settings or settings, memory_root(args))
+            prior = (manifest.get("settings") or {}).get("memory_grant") or {}
+            settings_rec = dict(settings_rec, memory_grant={k: prior.get(k, []) + [e for e in added.get(k, []) if e not in prior.get(k, [])]
+                                                            for k in ("additionalDirectories", "allow")})
+            if grant_settings is not None:
+                settings_msg += "; adds write access to the memory root"
+            new_settings = grant_settings or new_settings
             if new_settings is not None:
                 if args.dry_run:
                     settings_msg = "would " + settings_msg
@@ -1598,20 +1631,27 @@ def uninstall_cmd(args: argparse.Namespace) -> int:
             new = dict(settings)
             changed = False
             actions = []  # what this uninstall changes, reported before any note
-            rule = critic_rule(target)
             perms = settings.get("permissions")
-            allow = perms.get("allow") if isinstance(perms, dict) else None
-            if isinstance(allow, list) and rule in allow:
-                kept_allow = [a for a in allow if a != rule]
-                new_perms = dict(perms, allow=kept_allow)
-                if not kept_allow:
-                    del new_perms["allow"]
-                if new_perms:
-                    new["permissions"] = new_perms
-                else:
-                    del new["permissions"]
-                changed = True
-                actions.append("remove its permission rule")
+            granted = rec.get("memory_grant") or {}  # only what install recorded adding
+            owned = {"allow": [critic_rule(target)] + list(granted.get("allow", [])),
+                     "additionalDirectories": list(granted.get("additionalDirectories", []))}
+            if isinstance(perms, dict):
+                new_perms = dict(perms)
+                for key, entries in owned.items():
+                    current = perms.get(key)
+                    if isinstance(current, list) and any(e in current for e in entries):
+                        left = [a for a in current if a not in entries]
+                        if left:
+                            new_perms[key] = left
+                        else:
+                            del new_perms[key]
+                if new_perms != perms:
+                    if new_perms:
+                        new["permissions"] = new_perms
+                    else:
+                        del new["permissions"]
+                    changed = True
+                    actions.append("remove its permission rule")
             if rec.get("managed_agent_key") and settings.get("agent") == DEFAULT_AGENT:
                 prev = rec.get("previous_agent")
                 if prev is None:
@@ -2264,6 +2304,13 @@ def memory_foreign_readme(external: Path) -> None:
                               "the marker); move it away or pick another --root or --name" % readme)
 
 
+def memory_plan_writes(args: argparse.Namespace, external: Path) -> Tuple[Path, Path, Optional[dict]]:
+    """(target, root, new settings or None): the write grant for the store's root (the store itself with --dir)."""
+    target = resolve_target(args)
+    root = external if getattr(args, "dir", None) else external.parent
+    return target, root, plan_memory_grant(load_settings(target), root)[0]
+
+
 def memory_externalize_cmd(args: argparse.Namespace) -> int:
     """Move (or create) the project's .supervisor and CLAUDE.local.md in an external directory and link them."""
     main, top, external, template = memory_prepare(args, "externalize")
@@ -2292,6 +2339,7 @@ def memory_externalize_cmd(args: argparse.Namespace) -> int:
             action = "create"
         plan.append((name, is_dir, action))
     memory_foreign_readme(external)
+    target, root, grant = memory_plan_writes(args, external)
     external.mkdir(parents=True, exist_ok=True)
     for name, is_dir, action in plan:
         proj, ext = top / name, external / name
@@ -2308,6 +2356,9 @@ def memory_externalize_cmd(args: argparse.Namespace) -> int:
             os.symlink(str(ext), str(proj))
             print("linked: %s -> %s" % (proj, ext))
     memory_attach(main, external, template)
+    if grant is not None:
+        save_settings(target, grant)
+        print("allowed writes to %s in %s" % (root, target / "settings.json"))
     print("externalized: %s" % external)
     return 0
 

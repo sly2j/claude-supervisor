@@ -49,6 +49,7 @@ If `install` prints `WARNING <bin> is not on your PATH; add export PATH="<bin>:$
 
 - Sets `"agent": "supervisor"` in `settings.json` and keeps every other key. A different `agent` you set is left alone unless you pass `--force-default-agent`; `--no-default-agent` skips this step. `claude-supervisor --agent <other>` overrides it for one session.
 - In a profile, also sets the commit attribution in `settings.json`, so commits and PRs made by the agents carry only `Co-Authored-By: Supervisor for Claude`, with no session link and no "Generated with Claude Code" footer. A value you set yourself is left alone, and the install message says so.
+- Adds the memory root (see [Memory](#memory)) to `permissions.additionalDirectories` and an `Edit(//<root>/**)` rule to `permissions.allow`, so a store reached through the `.supervisor` and `CLAUDE.local.md` symlinks does not prompt on every write. Entries already present are left alone; uninstall removes only those install recorded adding.
 - Checks the whole pack before writing anything.
 - Records the checkout's remote and branch; `update` follows them. `status` prints both.
 - Prints `Version: <version>`, with `(was <old>)` on an update (see Versions).
@@ -254,6 +255,8 @@ claude-supervisor memory status
 ```
 
 Use this to keep a local memory store outside the repo, shared by all its worktrees ([local-memory.md](local-memory.md)). Run it inside a git project. `externalize` moves the project's `.supervisor/` and `CLAUDE.local.md` (or creates them) to `<root>/<name>/`, replaces them with absolute symlinks, and lists both in `.git/info/exclude`. `link` attaches a checkout, a linked worktree or a fresh machine to an existing external directory, and `status` reads without writing and exits 1 with a repair hint. The root is `$CLAUDE_SUPERVISOR_MEMORY_ROOT`, else `${XDG_DATA_HOME:-~/.local/share}/claude-supervisor/memory`.
+
+`externalize` also adds the same pair for its root to `settings.json` when missing (the store itself with `--dir`). Uninstall leaves these entries.
 
 `externalize` and `link` check everything before they write, are safe to repeat, and never overwrite or delete your files. Windows is not supported. Setup, git history for the memory, fresh machines, worktrees and moving back are covered there.
 

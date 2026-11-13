@@ -1,5 +1,6 @@
 """Behavior tests for `deploy memory` (externalize, link, status), run as a subprocess against scratch repos."""
 
+import json
 import os
 import subprocess
 import sys
@@ -399,3 +400,14 @@ def test_link_refuses_other_link(tmp_path, tgt, repo, root):
     assert r.returncode == 2
     assert "dangling), not to" in r.stderr and "remove the link, then re-run" in r.stderr
     assert os.readlink(str(repo / ".supervisor")) == str(tmp_path / "nowhere")
+
+
+def test_externalize_allows_custom_root_once(tmp_path, tgt, repo, root):
+    (tgt / "settings.json").write_text('{"model": "x", "permissions": {"allow": ["Bash(ls)"]}}')
+    for _ in range(2):
+        r = memory(tmp_path, tgt, repo, "externalize", "--root", str(root))
+        assert r.returncode == 0, r.stdout + r.stderr
+    s = json.loads((tgt / "settings.json").read_text())
+    assert s["model"] == "x"
+    assert s["permissions"] == {"allow": ["Bash(ls)", "Edit(/%s/**)" % root.resolve()],
+                                "additionalDirectories": [str(root.resolve())]}

@@ -84,6 +84,8 @@ The symlinks are absolute, and Claude Code reads `CLAUDE.local.md` through its l
 
 The external root is `$CLAUDE_SUPERVISOR_MEMORY_ROOT`, else `${XDG_DATA_HOME:-~/.local/share}/claude-supervisor/memory`; `--root` overrides both. It is data, not config, so it survives `claude-supervisor uninstall`.
 
+Claude Code treats the store as outside the project, because the links point out of it. `install` and `externalize` therefore add the root to `permissions.additionalDirectories` and `Edit(//<root>/**)` to `permissions.allow` in the target `settings.json`, skipping what is already there. A store externalized under a custom root before this existed needs `externalize` run again in its project, or the two entries added by hand.
+
 `externalize` and `link` are safe to repeat: a second run only repairs what is missing. When either refuses, its message names the repair.
 
 `--global` installs have no launcher; run `./deploy memory --global <verb>` from a checkout. Windows is not supported.

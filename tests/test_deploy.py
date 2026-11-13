@@ -108,8 +108,24 @@ def rule_for(target: Path) -> str:
     return "Bash(%s review *)" % (target.resolve() / "skills" / "supervisor-config" / "scripts" / "codex-critic")
 
 
+def mem_root_for(target: Path) -> Path:
+    """The default memory root of an install whose HOME is the test's tmp dir (profiles sit in HOME/.config)."""
+    home = target.parent.parent if target.parent.name == ".config" else target.parent
+    return home.resolve() / ".local" / "share" / "claude-supervisor" / "memory"
+
+
+def mem_rule_for(target: Path) -> str:
+    return "Edit(/%s/**)" % mem_root_for(target)
+
+
 def perms_for(target: Path) -> dict:
-    return {"allow": [rule_for(target)]}
+    return {"allow": [rule_for(target), mem_rule_for(target)],
+            "additionalDirectories": [str(mem_root_for(target))]}
+
+
+def grant_rec(target: Path) -> dict:
+    return {"memory_grant": {"additionalDirectories": [str(mem_root_for(target))],
+                             "allow": [mem_rule_for(target)]}}
 
 
 def test_fresh_install(pack, target):
@@ -125,7 +141,7 @@ def test_fresh_install(pack, target):
                                "skills/demo/SKILL.md", "skills/demo/scripts/run.sh"}
     assert m["settings"] == {"managed_agent_key": True, "previous_agent": None,
                              "managed_attribution_commit": True, "managed_attribution_pr": True,
-                             "managed_attribution_session_url": True}
+                             "managed_attribution_session_url": True, **grant_rec(target)}
     assert m["source_commit"] is None and m["source_dirty"] is None  # the temp pack is not in a repo
     assert settings(target) == {"agent": "supervisor", "attribution": ATTR_ALL, "permissions": perms_for(target)}
 
@@ -461,7 +477,8 @@ def test_settings_write_failure_keeps_manifest_consistent(pack, global_target, w
     args = deploy.build_parser().parse_args(["install", "--global", "--source", str(pack)])
     with pytest.raises(RuntimeError):
         deploy.install_cmd(args)
-    assert manifest(global_target)["settings"] == {"managed_agent_key": True, "previous_agent": None}
+    assert manifest(global_target)["settings"] == {"managed_agent_key": True, "previous_agent": None,
+                                                   **grant_rec(global_target)}
     r = run(pack, global_target, "uninstall", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     if (global_target / "settings.json").exists():
@@ -2835,7 +2852,7 @@ def test_install_hint_with_codex(pack, target, tmp_path, extra, hint):
     assert lines == ["Codex as critic is off; enable with `%s`" % hint]
     cfg = profile_paths(tmp_path, extra[1] if extra else "supervisor")[0]
     assert not (cfg / "supervisor-config.json").exists()
-    assert allow_rules(cfg) == [rule_for(cfg)]
+    assert allow_rules(cfg) == [rule_for(cfg), mem_rule_for(cfg)]
     assert r.stdout.count("adds one permission rule for its own read-only review script") == 1
 
 
@@ -2927,7 +2944,8 @@ def test_install_writes_critic_rule(pack, target, global_target, tmp_path, use_g
         r = run(pack, cfg, "install")
         assert r.returncode == 0, r.stdout + r.stderr
     s = settings(cfg)
-    assert s["permissions"] == {"allow": ["Bash(ls)", rule_for(cfg)], "ask": ["Bash(git push *)"]}
+    assert s["permissions"] == {"allow": ["Bash(ls)", rule_for(cfg), mem_rule_for(cfg)], "ask": ["Bash(git push *)"],
+                                "additionalDirectories": [str(mem_root_for(cfg))]}
     assert s["model"] == "opus"
     assert rule_for(cfg).endswith("/skills/supervisor-config/scripts/codex-critic review *)")
 
@@ -2943,14 +2961,14 @@ def test_install_dry_run_reports_critic_rule(pack, target):
 def test_update_readds_missing_critic_rule(remote, tmp_path):
     sbx, _ = profile_paths(tmp_path, "t")
     install_from_clone(remote, "--tag", "t")
-    assert allow_rules(sbx) == [rule_for(sbx)]
+    assert allow_rules(sbx) == [rule_for(sbx), mem_rule_for(sbx)]
     s = json.loads((sbx / "settings.json").read_text())
     s["permissions"]["allow"] = ["Bash(ls)"]
     (sbx / "settings.json").write_text(json.dumps(s))
     assert update(remote, "--tag", "t", "--yes").returncode == 0
-    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx)]
+    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx), mem_rule_for(sbx)]
     assert update(remote, "--tag", "t", "--yes").returncode == 0
-    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx)]
+    assert allow_rules(sbx) == ["Bash(ls)", rule_for(sbx), mem_rule_for(sbx)]
 
 
 def test_global_uninstall_dry_run_keeps_critic_rule(pack, global_target):
@@ -3726,3 +3744,29 @@ def test_preset_flags_not_in_list_warn(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "WARNING: model f for the fable tier is not in https://p/v1/models" in out
     assert "model m for" not in out
+
+
+def test_install_memory_grant_idempotent_and_uninstall_keeps_unrecorded(pack, global_target):
+    global_target.mkdir()
+    root = mem_root_for(global_target)
+    custom = "/data/mem"  # user entries: a hand-added root and rule, plus the default root's directory by hand
+    (global_target / "settings.json").write_text(json.dumps({"permissions": {
+        "additionalDirectories": [custom, str(root)], "allow": ["Edit(//data/mem/**)"]}}))
+    for _ in range(2):
+        assert run(pack, global_target, "install").returncode == 0
+    perms = settings(global_target)["permissions"]
+    assert perms["additionalDirectories"] == [custom, str(root)]  # present entries left as is
+    assert perms["allow"] == ["Edit(//data/mem/**)", rule_for(global_target), mem_rule_for(global_target)]
+    assert manifest(global_target)["settings"]["memory_grant"] == {"additionalDirectories": [],
+                                                                   "allow": [mem_rule_for(global_target)]}
+    assert run(pack, global_target, "uninstall", "--yes").returncode == 0
+    assert settings(global_target)["permissions"] == {"additionalDirectories": [custom, str(root)],
+                                                      "allow": ["Edit(//data/mem/**)"]}
+
+
+def test_install_memory_grant_follows_root_env(pack, target, tmp_path):
+    root = tmp_path / "elsewhere"
+    assert run(pack, target, "install", env={"CLAUDE_SUPERVISOR_MEMORY_ROOT": str(root)}).returncode == 0
+    perms = settings(target)["permissions"]
+    assert perms["additionalDirectories"] == [str(root.resolve())]
+    assert "Edit(/%s/**)" % root.resolve() in perms["allow"]
